@@ -141,6 +141,8 @@ export interface VagaElenco {
 /** Começo da partida. Reenviada a quem entra no meio e sempre que o elenco muda. */
 export interface PartidaMsg {
   t: "partida";
+  /** Número da partida na sala. Reenvio com o mesmo `id` é só mudança de elenco (humano entrou, saiu ou assumiu vaga de bot). */
+  id: number;
   /** A config que vale de verdade (na F2 o modo é sempre "arena"). */
   config: Config;
   campo: CampoMsg;
@@ -172,6 +174,10 @@ export type EventoJogo =
   | { tipo: "saida"; dados: { time: 0 | 1 } }
   | { tipo: "chute"; dados: { slot: number; forca: number } }
   | { tipo: "passe"; dados: { de: number; para?: number; alto: boolean } }
+  | { tipo: "roubo"; dados: { slot: number; de: number; jeito: "bote" | "carrinho" } }
+  | { tipo: "falta"; dados: { de: number; em: number; x: number; z: number } }
+  | { tipo: "lateral" | "escanteio" | "tiroDeMeta"; dados: { time: 0 | 1; x: number; z: number } }
+  | { tipo: "defesa"; dados: { slot: number; encaixou: boolean } }
   | { tipo: "trave"; dados: { x: number; y: number; z: number } }
   | { tipo: "gol"; dados: { time: 0 | 1; slot: number; assistencia?: number; contra: boolean; placar: [number, number] } }
   | { tipo: "fim"; dados: { placar: [number, number] } };

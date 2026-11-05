@@ -9,3 +9,5 @@ export * from "./fisica/jogador";
 export * from "./regras/acoes";
 export * from "./regras/partida";
 export * from "./regras/cores";
+export * from "./regras/elenco";
+export type * from "./regras/tipos-partida";

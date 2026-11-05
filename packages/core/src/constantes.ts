@@ -62,6 +62,10 @@ export const PARTIDA = {
   assistenciaJanelaS: 6,
   /** Vaga guardada de quem caiu da conexão; um bot joga no lugar. (SPEC 4.1) */
   vagaGuardadaS: 30,
+  /** Humano cobra o reinício se estiver a até esta distância da bola; senão cobra o bot mais perto (provisório, F3). */
+  cobradorHumanoMaxM: 12,
+  /** Tempo máximo (s) que o cobrador leva para deslizar até a bola. */
+  cobradorDeslizaS: 1,
   /** Comemoração depois do gol, com o relógio parado (provisório, F2). */
   golComemoracaoS: 3,
   /** Cores fixas dos goleiros (provisório, ver PROGRESSO). (SPEC 9.3) */
@@ -255,6 +259,23 @@ export const GOLEIRO = {
   encaixaAteVelocidade: 18,
   /** Espera com a bola na mão antes de repor. */
   esperaComBolaS: 1.5,
+  /** Provisório (F3): chance de falhar uma defesa que exigia espalmar (bola acima de 18 m/s). */
+  falhaChance: { facil: 0.25, medio: 0.12, dificil: 0.05 } satisfies Record<Dificuldade, number>,
+  /** Provisório (F3): duração e velocidade lateral do mergulho. */
+  mergulhoDuracaoS: 0.45,
+  mergulhoVelocidade: 9,
+  /** Alcance horizontal (m) para encaixar ou espalmar, em pé e mergulhando. */
+  alcanceEmPe: 0.85,
+  alcanceMergulhando: 1.25,
+  /** Altura máxima (m) que o goleiro alcança em pé. */
+  alturaEmPe: 2,
+  /** Depois de espalmar, o goleiro não encaixa a mesma bola por este tempo. */
+  bloqueioAposEspalmarS: 0.35,
+  /** Quanto da velocidade a bola espalmada mantém, e a velocidade lateral dada a ela (m/s). */
+  espalmaFator: 0.35,
+  espalmaLateral: 6,
+  /** Quantos passos à frente (1/60 s) o goleiro simula a bola para prever o chute. */
+  previsaoPassos: 80,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -267,6 +288,16 @@ export const BOT = {
   passaSeAdversarioAMenosDe: 2,
   /** Chuta se estiver a menos disto do gol, com ângulo aberto. */
   chutaSeAMenosDe: 18,
+  /** Provisório (F3): erro angular (graus) do passe e do chute dos bots, por dificuldade. */
+  erroGraus: { facil: 8, medio: 4, dificil: 1.5 } satisfies Record<Dificuldade, number>,
+  /** Provisório (F3): chance de dar o bote em quem está com a bola, a cada decisão com ele perto. */
+  chanceBote: { facil: 0.15, medio: 0.3, dificil: 0.5 } satisfies Record<Dificuldade, number>,
+  /** Abertura (graus) do cone em que o bot procura companheiro para passar. */
+  coneGraus: 140,
+  /** Nota mínima de um companheiro para o bot preferir passar a driblar. */
+  notaMinimaPasse: 0.4,
+  /** Espera do bot antes de cobrar um reinício (s), somada ao tempo de reação. */
+  esperaCobrancaS: 0.8,
 } as const;
 
 // ---------------------------------------------------------------------------

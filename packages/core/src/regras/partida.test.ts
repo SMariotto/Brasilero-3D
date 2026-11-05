@@ -23,6 +23,8 @@ function criar(opcoes: { duracao?: Config["duracao"]; elenco?: VagaPartida[]; se
     config: { ...CONFIG_PADRAO, modo: "arena", duracao: opcoes.duracao ?? 2 },
     elenco: opcoes.elenco ?? [vaga(CASA, 0), vaga(VISITANTE, 1)],
     semente: opcoes.semente ?? 1,
+    semBots: true, // estes testes são do 1 contra 1 puro; bots e goleiros têm testes próprios
+
   });
 }
 
@@ -256,8 +258,9 @@ describe("partida: chute e passe", () => {
   it("ação só vale se a bola já estava com o jogador quando ele apertou", () => {
     const p = criar();
     ateOJogoRolar(p);
-    // Aperta CHUTE sem a bola...
+    // Aperta CHUTE sem a bola (com o carrinho em recarga, para ele não deslizar)...
     p.posicionarParaTeste(CASA, 0, 0, 3, 0);
+    p.jogador(CASA)!.carrinhoProntoEm = 999;
     p.definirComando(CASA, cmd({ seguros: BOTAO.chute }));
     p.passo();
     // ...a bola chega ao pé dele (domina)...
@@ -518,8 +521,8 @@ describe("partida: determinismo e snapshot", () => {
     const p = criar();
     ateOJogoRolar(p);
     comABola(p, CASA, -10, 0);
-    expect(p.estadoDe(CASA)).toEqual({ comBola: true, energia: 100 });
-    expect(p.estadoDe(VISITANTE)).toEqual({ comBola: false, energia: 100 });
+    expect(p.estadoDe(CASA)).toEqual({ comBola: true, energia: 100, situacao: "normal" });
+    expect(p.estadoDe(VISITANTE)).toEqual({ comBola: false, energia: 100, situacao: "normal" });
     expect(p.estadoDe(99)).toBeNull();
   });
 
