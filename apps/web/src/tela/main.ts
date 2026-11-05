@@ -5,9 +5,11 @@ import { esquecerServidor, lembrarServidorDaUrl, servidorLembrado } from "../com
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./tela.css";
+import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
 import { criarLobby } from "./lobby";
 import { enderecoParaCelular } from "./rede";
+import { Som } from "./som";
 
 const inicio = porId("inicio");
 const lobbyEl = porId("lobby");
@@ -19,6 +21,37 @@ const avisoInicio = porId("aviso-inicio");
 const campoCodigo = porId<HTMLInputElement>("codigo");
 
 const lobby = criarLobby(lobbyEl);
+
+// Som (SPEC 8): só o telão principal toca por padrão. O navegador libera o áudio no primeiro clique, toque ou tecla.
+const som = new Som();
+const botaoSom = porId("botao-som");
+let comprimentoDoCampo = 100;
+
+function desenharBotaoSom(): void {
+  if (som.mudo) botaoSom.textContent = "🔇 Som desligado";
+  else if (som.travado) botaoSom.textContent = "🔈 Clique para ativar o som";
+  else botaoSom.textContent = "🔊 Som ligado";
+  botaoSom.classList.toggle("mudo", som.mudo);
+  botaoSom.classList.toggle("travado", som.travado);
+}
+som.aoMudarEstado(desenharBotaoSom);
+desenharBotaoSom();
+// Se o botão diz "Clique para ativar", esse clique só destrava o áudio (que o listener da janela já fez); não pode também mudar o som.
+let travadoNoToque = false;
+botaoSom.addEventListener("pointerdown", () => {
+  travadoNoToque = som.travado;
+});
+botaoSom.addEventListener("click", () => {
+  if (travadoNoToque) {
+    travadoNoToque = false;
+    return;
+  }
+  som.alternarMudo();
+});
+for (const tipo of ["pointerdown", "keydown"] as const) window.addEventListener(tipo, () => som.destravar(), { passive: true });
+window.addEventListener("keydown", (e) => {
+  if ((e.key === "m" || e.key === "M") && !(e.target instanceof HTMLInputElement)) som.alternarMudo();
+});
 
 /** Código da sala em que estamos. Vem da URL (recarregar a página volta para a mesma sala) ou do `bemvindo`. */
 let sala: string | null = normalizarSala(new URLSearchParams(location.search).get("sala") ?? "") || null;
@@ -48,6 +81,8 @@ function mostrar(cena: Cena): void {
   jogoEl.hidden = cena !== "jogo";
   carregando.hidden = cena !== "carregando";
   pingEl.hidden = cena === "inicio";
+  botaoSom.hidden = cena === "inicio" || cena === "carregando";
+  if (cena !== "jogo") som.parar();
 }
 
 function voltarAoInicio(aviso: string): void {
@@ -98,6 +133,7 @@ function aoMensagem(msg: MensagemServidor): void {
       sala = msg.sala;
       lembrarSala(msg.sala);
       lobby.definirPrincipal(msg.principal === true);
+      som.definirPrincipal(msg.principal === true);
       void montarEntrada(msg.sala);
       mostrar(emJogo ? "jogo" : "lobby");
       return;
@@ -111,17 +147,21 @@ function aoMensagem(msg: MensagemServidor): void {
       return;
     case "partida":
       emJogo = true;
+      comprimentoDoCampo = msg.campo.comp;
       mostrar("jogo");
       naCena((c) => c.iniciar(msg));
       return;
     case "evento":
+      som.evento(msg);
       naCena((c) => c.evento(msg));
       return;
     case "fim":
+      som.parar();
       naCena((c) => c.fim(msg));
       return;
     case "principal":
       lobby.definirPrincipal(msg.valor);
+      som.definirPrincipal(msg.valor);
       return;
     case "erro":
       voltarAoInicio(msg.msg);
@@ -154,7 +194,10 @@ function iniciar(): void {
     aoMensagem,
     aoBinario: (dados) => {
       const s = decodificarSnapshot(dados);
-      if (s && emJogo) naCena((c) => c.receberSnapshot(s));
+      if (s && emJogo) {
+        som.ambiente(s.bola.x, comprimentoDoCampo);
+        naCena((c) => c.receberSnapshot(s));
+      }
     },
     aoEstado,
     aoPing,
