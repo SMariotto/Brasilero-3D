@@ -182,6 +182,7 @@ export type EventoJogo =
   | { tipo: "defesa"; dados: { slot: number; encaixou: boolean } }
   | { tipo: "trave"; dados: { x: number; y: number; z: number } }
   | { tipo: "gol"; dados: { time: 0 | 1; slot: number; assistencia?: number; contra: boolean; placar: [number, number] } }
+  | { tipo: "prorrogacao"; dados: { segundos: number } }
   | { tipo: "fim"; dados: { placar: [number, number] } };
 
 export type Evento = { t: "evento"; tick: number } & EventoJogo;
@@ -202,6 +203,8 @@ export interface Fim {
   placar: [number, number];
   gols: GolFeito[];
   destaques: { artilheiro: Destaque | null; assistencias: Destaque | null; desarmes: Destaque | null };
+  /** A partida teve prorrogação de gol de ouro (F8b). */
+  prorrogacao?: boolean;
 }
 
 export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg;

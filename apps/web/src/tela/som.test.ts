@@ -36,6 +36,10 @@ describe("sonsDoEvento", () => {
     expect(nomes({ tipo: "defesa", dados: { slot: 1, encaixou: true } })).not.toContain("uuh");
   });
 
+  it("a prorrogação de gol de ouro tem apito", () => {
+    expect(nomes({ tipo: "prorrogacao", dados: { segundos: 120 } })).toContain("apitoCurto");
+  });
+
   it("eventos sem som não tocam nada", () => {
     expect(nomes({ tipo: "saida", dados: { time: 0 } })).toEqual([]);
     expect(nomes({ tipo: "lateral", dados: { time: 0, x: 0, z: 0 } })).toEqual([]);

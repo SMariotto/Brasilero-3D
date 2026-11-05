@@ -28,6 +28,8 @@ export function sonsDoEvento(e: EventoJogo): PedidoDeSom[] {
       return [{ som: "apitoCurto", volume: 0.7 }];
     case "gol":
       return [{ som: "gol", volume: 1 }];
+    case "prorrogacao":
+      return [{ som: "apitoCurto", volume: 0.8 }, { som: "uuh", volume: 0.5 }];
     case "trave":
       return [{ som: "trave", volume: 0.8 }, { som: "uuh", volume: 0.8 }];
     case "defesa":

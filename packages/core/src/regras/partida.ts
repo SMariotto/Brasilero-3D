@@ -94,6 +94,10 @@ export class Partida {
   private readonly bots: Bots;
   private eventos: EventoDoTick[] = [];
   private faseAte: number;
+  /** Está na prorrogação de gol de ouro (F8b). */
+  emProrrogacao = false;
+  /** O gol que acabou de sair decide a partida (gol de ouro): termina quando a comemoração acabar. */
+  private fimAposGol = false;
   private ultimoToque: Toque | null = null;
   private penultimoToque: Toque | null = null;
 
@@ -810,6 +814,7 @@ export class Partida {
     this.reinicio = null;
     this.fase = FASE.gol;
     this.faseAte = this.t + PARTIDA.golComemoracaoS;
+    if (this.emProrrogacao) this.fimAposGol = true; // gol de ouro: acabou
     this.saidaTime = time === 0 ? 1 : 0; // quem sofreu o gol sai jogando
     this.evento({
       tipo: "gol",
@@ -989,10 +994,17 @@ export class Partida {
       }
       case FASE.jogo:
         this.relogio = Math.max(0, this.relogio - DT);
-        if (this.relogio <= 0) this.terminar();
+        if (this.relogio <= 0) {
+          if (this.config.golDeOuro && !this.emProrrogacao && this.placar[0] === this.placar[1]) this.iniciarProrrogacao();
+          else this.terminar();
+        }
         return;
       case FASE.gol:
         if (this.t >= this.faseAte) {
+          if (this.fimAposGol) {
+            this.terminar();
+            return;
+          }
           this.posicionarParaSaida();
           this.evento({ tipo: "apito", dados: { motivo: "reinicio" } });
           this.entrarNaSaida();
@@ -1007,6 +1019,17 @@ export class Partida {
     this.fase = FASE.reinicio;
     this.reinicio = { tipo: "saida", time: this.saidaTime, x: 0, z: 0, cobrador: null, pronto: true, desde: this.t, prontoEm: this.t };
     this.evento({ tipo: "saida", dados: { time: this.saidaTime } });
+  }
+
+  /** Empatou no tempo normal com o gol de ouro ligado: bola ao centro e o primeiro gol decide (F8b). */
+  private iniciarProrrogacao(): void {
+    this.emProrrogacao = true;
+    this.relogio = PARTIDA.prorrogacaoS;
+    this.dominante = null;
+    this.reinicio = null;
+    this.posicionarParaSaida();
+    this.evento({ tipo: "prorrogacao", dados: { segundos: PARTIDA.prorrogacaoS } });
+    this.entrarNaSaida();
   }
 
   private terminar(): void {
@@ -1162,6 +1185,7 @@ export class Partida {
       t: "fim",
       placar: [this.placar[0], this.placar[1]],
       gols: this.gols.map((g) => ({ ...g })),
+      ...(this.emProrrogacao ? { prorrogacao: true } : {}),
       destaques: {
         artilheiro: contar(this.gols.filter((g) => !g.contra).map((g) => g.slot)),
         assistencias: contar(repetir(this.assistenciasPorSlot)),

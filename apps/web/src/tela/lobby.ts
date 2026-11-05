@@ -12,6 +12,7 @@ function resumoConfig(c: Config): string {
     `${c.duracao} min`,
     `Bots: ${DIFICULDADES[c.dificuldade]}`,
     `Faltas: ${c.faltas ? "sim" : "não"}`,
+    ...(c.golDeOuro ? ["Gol de ouro"] : []),
   ].join("  ·  ");
 }
 

@@ -981,3 +981,28 @@ body.tela:has(.vitrine:not([hidden])) {
 .tab tr.lider td {
   background: rgba(255, 213, 74, 0.1);
 }
+
+/* Gol de ouro (F8b): etiqueta ao lado do placar durante a prorrogação */
+.ouro-tag {
+  position: absolute;
+  left: 1.5vw;
+  top: 15vh;
+  padding: 0.25em 0.9em;
+  border-radius: 0.5em;
+  background: #ffd54a;
+  color: #111;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  animation: pulsa 1.4s ease-in-out infinite;
+}
+
+.ouro-tag[hidden] {
+  display: none;
+}
+
+.painel-fim .fim-ouro {
+  font-size: 1.1em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffd54a;
+}

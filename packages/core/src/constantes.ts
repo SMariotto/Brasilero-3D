@@ -68,6 +68,8 @@ export const PARTIDA = {
   cobradorDeslizaS: 1,
   /** Comemoração depois do gol, com o relógio parado (provisório, F2). */
   golComemoracaoS: 6,
+  /** Prorrogação de gol de ouro (F8b, provisório): se ninguém marcar nesse tempo, o jogo termina empatado. */
+  prorrogacaoS: 120,
   /** Cores fixas dos goleiros (provisório, ver PROGRESSO). (SPEC 9.3) */
   corGoleiroCasa: "#E6D800",
   corGoleiroVisitante: "#FF7F11",

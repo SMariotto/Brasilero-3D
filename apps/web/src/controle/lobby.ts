@@ -118,6 +118,8 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
   );
   const faltas = selecao("Faltas", [["sim", "Sim"], ["nao", "Não"]], (v) => acoes.config({ faltas: v === "sim" }));
 
+  const golDeOuro = selecao("Se empatar", [["nao", "Termina empatado"], ["sim", "Gol de ouro (2 min)"]], (v) => acoes.config({ golDeOuro: v === "sim" }));
+
   const comecar = el("button", { type: "button", class: "comecar" }, "Começar");
   comecar.addEventListener("click", () => acoes.comecar());
 
@@ -157,6 +159,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
     duracao.linha,
     dificuldade.linha,
     faltas.linha,
+    golDeOuro.linha,
     comecar,
   );
   painelDono.hidden = true;
@@ -200,6 +203,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
       duracao.definir(String(c.duracao));
       dificuldade.definir(c.dificuldade);
       faltas.definir(c.faltas ? "sim" : "nao");
+      golDeOuro.definir(c.golDeOuro ? "sim" : "nao");
 
       trocar(
         lista,

@@ -16,6 +16,8 @@ export interface Config {
   duracao: Duracao;
   dificuldade: Dificuldade;
   faltas: boolean;
+  /** Se a partida terminar empatada, joga uma prorrogação em que o primeiro gol vence (F8b). */
+  golDeOuro: boolean;
 }
 
 /** Valor de `casa` ou `visitante` que pede um clube sorteado quando a partida começa (F5). */
@@ -31,6 +33,7 @@ export const CONFIG_PADRAO: Config = {
   duracao: PARTIDA.duracaoPadraoMin,
   dificuldade: "medio",
   faltas: true,
+  golDeOuro: false,
 };
 
 const MODOS: readonly string[] = ["campo", "arena"];
@@ -71,6 +74,10 @@ export function lerConfigParcial(o: Record<string, unknown>): Partial<Config> | 
   if ("faltas" in o) {
     if (typeof o["faltas"] !== "boolean") return null;
     r.faltas = o["faltas"];
+  }
+  if ("golDeOuro" in o) {
+    if (typeof o["golDeOuro"] !== "boolean") return null;
+    r.golDeOuro = o["golDeOuro"];
   }
   return r;
 }

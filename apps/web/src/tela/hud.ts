@@ -19,6 +19,7 @@ export class Hud {
   private faixaGol = el("div", { id: "faixa-gol", class: "faixa-gol" });
   private painelFim = el("div", { id: "painel-fim", class: "painel-fim" });
   private replayTag = el("div", { id: "replay-tag", class: "replay-tag" }, "REPLAY");
+  private ouroTag = el("div", { id: "ouro-tag", class: "ouro-tag" }, "GOL DE OURO");
   private modoLeveTag = el("div", { id: "modo-leve-tag", class: "modo-leve-tag" }, "Modo leve");
   readonly botaoLeve = el("button", { id: "botao-leve", class: "botao-camera botao-leve", type: "button", title: "Modo leve: tira sombras, torcida e brilho (tecla L)" }, "Modo leve");
   readonly botaoCamera = el("button", { id: "botao-camera", class: "botao-camera", type: "button", title: "Trocar a câmera (tecla C)" }, "Câmera");
@@ -63,8 +64,9 @@ export class Hud {
     this.painelFim.replaceChildren();
     this.painelFim.hidden = true;
     this.replayTag.hidden = true;
+    this.ouroTag.hidden = true;
     this.modoLeveTag.hidden = true;
-    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
+    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.ouroTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
   }
 
   /** Mesma partida, elenco mudou (humano entrou ou saiu): só atualiza os nomes. */
@@ -116,7 +118,10 @@ export class Hud {
     else if (e.tipo === "lateral") this.textoReinicio = `Lateral: ${this.siglas[e.dados.time]}`;
     else if (e.tipo === "escanteio") this.textoReinicio = `Escanteio: ${this.siglas[e.dados.time]}`;
     else if (e.tipo === "tiroDeMeta") this.textoReinicio = `Tiro de meta: ${this.siglas[e.dados.time]}`;
-    else if (e.tipo === "falta") {
+    else if (e.tipo === "prorrogacao") {
+      this.ouroTag.hidden = false;
+      this.textoReinicio = "Empatou! Gol de ouro: quem marcar vence";
+    } else if (e.tipo === "falta") {
       const vitima = this.p?.elenco.find((v) => v.slot === e.dados.em);
       this.textoReinicio = `Falta! Tiro livre: ${this.siglas[vitima?.time ?? 0]}`;
     }
@@ -180,6 +185,7 @@ export class Hud {
         lado(1, b),
       ),
       el("span", { class: "resultado" }, ganhou === null ? "Empate" : `${nomes[ganhou]} venceu`),
+      f.prorrogacao === true && el("span", { class: "fim-ouro" }, ganhou === null ? "Prorrogação sem gols" : "Decidido no gol de ouro"),
       el("div", { class: "fim-gols-lista" }, coluna(golsCasa), coluna(golsVisitante)),
       el(
         "div",
