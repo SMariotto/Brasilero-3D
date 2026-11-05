@@ -24,6 +24,9 @@ const ESPERA_REPLAY_MS = 1400;
  * Recebe os snapshots, interpola e desenha a cada quadro (ARQUITETURA 6). Faz também o replay do gol, o medidor de fps
  * e o modo leve (SPEC 7.3 e 7.4).
  */
+/** `?capsula=1`: força as cápsulas no lugar do jogador feito por código (e do modelo GLB). */
+const CAPSULA_FORCADA = (): boolean => new URLSearchParams(location.search).get("capsula") === "1";
+
 export class CenaJogo {
   private readonly hud: Hud;
   private readonly interp = new Interpolador();
@@ -79,7 +82,8 @@ export class CenaJogo {
     if (p.id === this.partidaId && this.scene && this.jogadores) {
       this.scene.remove(this.jogadores.grupo);
       this.jogadores.liberar();
-      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo);
+      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo, !CAPSULA_FORCADA());
+      this.jogadores.definirLeve(this.medidor.leve);
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
       this.elenco = p.elenco;
@@ -147,7 +151,8 @@ export class CenaJogo {
     scene.background = this.estadio.ceu;
     scene.fog = new THREE.Fog(0x0d1a33, 95, 280);
 
-    this.jogadores = new Jogadores(p.elenco, uniformes, this.modelo);
+    this.jogadores = new Jogadores(p.elenco, uniformes, this.modelo, !CAPSULA_FORCADA());
+    this.jogadores.definirLeve(this.medidor.leve);
     scene.add(this.jogadores.grupo);
     this.bola = criarBola3D();
     scene.add(this.bola.grupo);
@@ -275,6 +280,7 @@ export class CenaJogo {
     }
     if (this.sol) this.sol.castShadow = !leve;
     this.estadio?.torcida.definirVisivel(!leve);
+    this.jogadores?.definirLeve(leve); // o modo leve volta para as cápsulas
     // Trocar sombras liga e desliga trechos do shader: os materiais precisam recompilar
     this.scene?.traverse((o) => {
       const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;

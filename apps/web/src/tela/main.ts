@@ -269,6 +269,11 @@ if (new URLSearchParams(location.search).get("vitrine") === "1") {
   inicio.hidden = true;
   porId("vitrine").hidden = false;
   void import("./vitrine").then((m) => m.abrirVitrine(porId("vitrine")));
+} else if (new URLSearchParams(location.search).get("poses") === "1") {
+  // `tela.html?poses=1`: o jogador feito por código fazendo cada animação (G3)
+  inicio.hidden = true;
+  porId("vitrine").hidden = false;
+  void import("./vitrinePoses").then((m) => m.abrirVitrinePoses(porId("vitrine")));
 } else if (sala) {
   // Página recarregada com ?sala=ABCD: volta a assistir sem pedir nada.
   iniciar();

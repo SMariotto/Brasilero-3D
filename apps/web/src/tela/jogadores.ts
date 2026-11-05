@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type DonoDeSlot, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
 import { criarMaterialUniforme } from "./uniforme";
+import { ElencoProcedural } from "./corpos";
 import { FiguraModelo, type ModeloBase } from "./modelo";
 
 /** Etiqueta com o apelido, desenhada num canvas e usada como sprite (sempre virada para a câmera). */
@@ -56,6 +57,8 @@ interface Figura {
   grupo: THREE.Group;
   /** A cápsula (reserva). Fica `null` quando o modelo 3D está em uso. */
   corpo: THREE.Mesh | null;
+  /** A cápsula e o nariz juntos, para esconder quando o corpo feito por código (G3) está em uso. */
+  capsula: THREE.Group | null;
   /** O modelo 3D animado, se o `jogador.glb` carregou. */
   modelo: FiguraModelo | null;
   /** Número da camisa em cima do bot (G1: some quando um humano passa a controlar este jogador). Fora do grupo, para não girar. */
@@ -70,8 +73,9 @@ interface Figura {
 }
 
 /**
- * Os jogadores: o modelo 3D animado do `jogador.glb` quando ele existe (F6) ou cápsulas na cor do time (reserva), com apelido
- * e seta em cima dos humanos e um anel no chão sob quem está com a bola.
+ * Os jogadores. O corpo é, nesta ordem de preferência: o `jogador.glb` se alguém o pôs em `modelos/` (F6, obsoleto desde a G3),
+ * o jogador feito por código (G3, o padrão), ou a cápsula na cor do time (modo leve e `?capsula=1`). Por cima, apelido, seta e anel
+ * em quem um humano controla agora e um anel no chão sob quem está com a bola.
  */
 export class Jogadores {
   readonly grupo = new THREE.Group();
@@ -81,8 +85,12 @@ export class Jogadores {
   private donos = new Map<number, string>();
   /** Etiquetas de apelido já desenhadas (uma por apelido e cor), reaproveitadas a cada troca. */
   private readonly etiquetas = new Map<string, THREE.Sprite>();
+  /** O jogador feito por código (G3), ou `null` se não foi pedido (`?capsula=1`) ou há um modelo GLB. */
+  private readonly procedural: ElencoProcedural | null;
+  private leve = false;
 
-  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null) {
+  /** `procedural`: usar o jogador feito por código (G3). Falso com `?capsula=1`. */
+  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null, procedural = true) {
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
 
     for (const v of elenco) {
@@ -92,6 +100,7 @@ export class Jogadores {
       const grupo = new THREE.Group();
 
       let corpo: THREE.Mesh | null = null;
+      let capsula: THREE.Group | null = null;
       let figuraModelo: FiguraModelo | null = null;
       if (modelo) {
         figuraModelo = new FiguraModelo(modelo, uniforme);
@@ -100,12 +109,14 @@ export class Jogadores {
         corpo = new THREE.Mesh(new THREE.CapsuleGeometry(JOGADOR.raio, alturaTronco, 4, 14), criarMaterialUniforme(uniforme));
         corpo.position.y = JOGADOR.alturaCorpo / 2;
         corpo.castShadow = true;
-        grupo.add(corpo);
+        capsula = new THREE.Group();
+        capsula.add(corpo);
 
         // "Nariz": mostra para onde o corpo olha
         const nariz = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.28), new THREE.MeshStandardMaterial({ color: 0xffffff }));
         nariz.position.set(JOGADOR.raio, JOGADOR.alturaCorpo * 0.72, 0);
-        grupo.add(nariz);
+        capsula.add(nariz);
+        grupo.add(capsula);
       }
 
       // Seta e anel na cor do time: aparecem no jogador que um humano controla AGORA (G1). Goleiro nunca tem humano.
@@ -129,9 +140,13 @@ export class Jogadores {
       }
 
       this.grupo.add(grupo);
-      this.figuras.set(v.slot, { grupo, corpo, modelo: figuraModelo, numero, seta, anelDono, apelido: null, cor });
+      this.figuras.set(v.slot, { grupo, corpo, capsula, modelo: figuraModelo, numero, seta, anelDono, apelido: null, cor });
     }
     this.definirDonos(donosDoElenco(elenco));
+
+    this.procedural = !modelo && procedural ? new ElencoProcedural(elenco, uniformes) : null;
+    if (this.procedural) this.grupo.add(this.procedural.grupo);
+    this.aplicarVisibilidade();
 
     this.anel = new THREE.Mesh(
       new THREE.RingGeometry(0.62, 0.82, 32),
@@ -141,6 +156,22 @@ export class Jogadores {
     this.anel.position.y = 0.04;
     this.anel.visible = false;
     this.grupo.add(this.anel);
+  }
+
+  /** Modo leve (SPEC 7.3): volta para as cápsulas; fora dele, o jogador feito por código. */
+  definirLeve(leve: boolean): void {
+    this.leve = leve;
+    this.aplicarVisibilidade();
+  }
+
+  private get usandoProcedural(): boolean {
+    return this.procedural !== null && !this.leve;
+  }
+
+  private aplicarVisibilidade(): void {
+    const proc = this.usandoProcedural;
+    if (this.procedural) this.procedural.grupo.visible = proc;
+    for (const f of this.figuras.values()) if (f.capsula) f.capsula.visible = !proc;
   }
 
   private readonly geoSeta = new THREE.ConeGeometry(0.32, 0.6, 4);
@@ -209,6 +240,7 @@ export class Jogadores {
   /** Solta o que o modelo animado prendeu (mixers). A cena chama ao trocar de partida ou de elenco. */
   liberar(): void {
     for (const f of this.figuras.values()) f.modelo?.liberar();
+    this.procedural?.liberar();
     for (const e of this.etiquetas.values()) {
       e.material.map?.dispose();
       e.material.dispose();
@@ -222,12 +254,13 @@ export class Jogadores {
 
   atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0): void {
     this.anel.visible = false;
+    if (this.usandoProcedural) this.procedural!.atualizar(jogadores, dtS);
     for (const j of jogadores) {
       const f = this.figuras.get(j.slot);
       if (!f) continue;
       f.grupo.position.set(j.x, 0, j.z);
       f.grupo.rotation.y = -j.dir; // dirX = cos, dirZ = sin: girar +X para +Z é no sentido horário visto de cima
-      this.pose(f, j);
+      if (!this.usandoProcedural) this.pose(f, j);
       f.modelo?.atualizar(j.anim, j.vel, dtS);
 
       if (f.apelido) f.apelido.position.set(j.x, JOGADOR.alturaCorpo + 1.35, j.z);
