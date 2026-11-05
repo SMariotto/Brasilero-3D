@@ -1,0 +1,150 @@
+{
+  "_leia": "Clubes do Brasilero 3D. Nome oficial, nome curto, sigla e cidade sao dados publicos. As cores em hexadecimal sao APROXIMADAS: ajuste a vontade. O padrao da camisa vem 'liso' em todos; troque pelo padrao que quiser (liso, listras-verticais, listras-horizontais, faixa-diagonal, faixa-horizontal, metade-vertical, mangas-contraste). Escudo: coloque apps/web/public/escudos/<id>.png. Para adicionar um clube, copie um bloco inteiro e troque o id (minusculo, sem acento, sem espaco).",
+  "versao": 1,
+  "times": [
+    {
+      "id": "vasco",
+      "nomeOficial": "Club de Regatas Vasco da Gama",
+      "nome": "Vasco",
+      "sigla": "VAS",
+      "cidade": "Rio de Janeiro, RJ",
+      "cores": { "primaria": "#111111", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "primaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "flamengo",
+      "nomeOficial": "Clube de Regatas do Flamengo",
+      "nome": "Flamengo",
+      "sigla": "FLA",
+      "cidade": "Rio de Janeiro, RJ",
+      "cores": { "primaria": "#C8102E", "secundaria": "#111111" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "#F2F2F2", "cor2": "primaria" },
+      "calcao": "#F2F2F2",
+      "meiao": "primaria"
+    },
+    {
+      "id": "fluminense",
+      "nomeOficial": "Fluminense Football Club",
+      "nome": "Fluminense",
+      "sigla": "FLU",
+      "cidade": "Rio de Janeiro, RJ",
+      "cores": { "primaria": "#8A1538", "secundaria": "#006B3F", "terciaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "terciaria", "cor2": "primaria" },
+      "calcao": "terciaria",
+      "meiao": "terciaria"
+    },
+    {
+      "id": "botafogo",
+      "nomeOficial": "Botafogo de Futebol e Regatas",
+      "nome": "Botafogo",
+      "sigla": "BOT",
+      "cidade": "Rio de Janeiro, RJ",
+      "cores": { "primaria": "#111111", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "primaria",
+      "meiao": "secundaria"
+    },
+    {
+      "id": "corinthians",
+      "nomeOficial": "Sport Club Corinthians Paulista",
+      "nome": "Corinthians",
+      "sigla": "COR",
+      "cidade": "São Paulo, SP",
+      "cores": { "primaria": "#F2F2F2", "secundaria": "#111111" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "secundaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "palmeiras",
+      "nomeOficial": "Sociedade Esportiva Palmeiras",
+      "nome": "Palmeiras",
+      "sigla": "PAL",
+      "cidade": "São Paulo, SP",
+      "cores": { "primaria": "#006437", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "secundaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "saopaulo",
+      "nomeOficial": "São Paulo Futebol Clube",
+      "nome": "São Paulo",
+      "sigla": "SAO",
+      "cidade": "São Paulo, SP",
+      "cores": { "primaria": "#F2F2F2", "secundaria": "#D10F24", "terciaria": "#111111" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "terciaria" },
+      "calcao": "primaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "santos",
+      "nomeOficial": "Santos Futebol Clube",
+      "nome": "Santos",
+      "sigla": "SAN",
+      "cidade": "Santos, SP",
+      "cores": { "primaria": "#F2F2F2", "secundaria": "#111111" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "primaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "gremio",
+      "nomeOficial": "Grêmio Foot-Ball Porto Alegrense",
+      "nome": "Grêmio",
+      "sigla": "GRE",
+      "cidade": "Porto Alegre, RS",
+      "cores": { "primaria": "#0D80BF", "secundaria": "#111111", "terciaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "terciaria", "cor2": "primaria" },
+      "calcao": "secundaria",
+      "meiao": "terciaria"
+    },
+    {
+      "id": "internacional",
+      "nomeOficial": "Sport Club Internacional",
+      "nome": "Internacional",
+      "sigla": "INT",
+      "cidade": "Porto Alegre, RS",
+      "cores": { "primaria": "#D2232A", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "secundaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "atleticomg",
+      "nomeOficial": "Clube Atlético Mineiro",
+      "nome": "Atlético-MG",
+      "sigla": "CAM",
+      "cidade": "Belo Horizonte, MG",
+      "cores": { "primaria": "#111111", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "primaria",
+      "meiao": "primaria"
+    },
+    {
+      "id": "cruzeiro",
+      "nomeOficial": "Cruzeiro Esporte Clube",
+      "nome": "Cruzeiro",
+      "sigla": "CRU",
+      "cidade": "Belo Horizonte, MG",
+      "cores": { "primaria": "#1B3F95", "secundaria": "#F2F2F2" },
+      "camisa": { "padrao": "liso", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "secundaria",
+      "meiao": "secundaria"
+    }
+  ]
+}

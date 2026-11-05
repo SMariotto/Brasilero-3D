@@ -1,0 +1,279 @@
+// TODOS os números ajustáveis do jogo moram aqui. Mexa à vontade; nada de número mágico espalhado.
+// A seção da SPEC de cada bloco está no comentário. Unidades: metro, segundo, grau (salvo aviso).
+// Os valores são pontos de partida para ajuste de "sentimento".
+
+// ---------------------------------------------------------------------------
+// Tempo (SPEC 6 e ARQUITETURA 4.1)
+// ---------------------------------------------------------------------------
+export const TEMPO = {
+  /** Passos da física por segundo. Passo fixo de 1/60 s. */
+  tickHz: 60,
+  /** Snapshots por segundo mandados aos telões. */
+  snapHz: 30,
+  /** No máximo quantos passos o laço roda por volta, para não espiralar se o PC engasgar. */
+  maxPassosPorVolta: 5,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Campo (SPEC 4.3). Eixo X = comprimento (gol da Casa em X negativo), Z = largura, Y = altura.
+// areaLarg = largura da área em Z; areaProf = profundidade da área em X (no PROTOCOLO: areaComp).
+// ---------------------------------------------------------------------------
+export interface MedidasCampo {
+  comp: number;
+  larg: number;
+  golLarg: number;
+  golAlt: number;
+  areaLarg: number;
+  areaProf: number;
+}
+
+export const CAMPOS: Record<3 | 4 | 5, MedidasCampo> = {
+  3: { comp: 44, larg: 28, golLarg: 5.0, golAlt: 2.0, areaLarg: 10, areaProf: 6 },
+  4: { comp: 52, larg: 33, golLarg: 5.5, golAlt: 2.1, areaLarg: 11, areaProf: 7 },
+  5: { comp: 60, larg: 38, golLarg: 6.0, golAlt: 2.2, areaLarg: 12, areaProf: 8 },
+};
+
+/** Altura das paredes do modo Arena (SPEC 4.2). */
+export const PAREDE_ALTURA = 1;
+
+// ---------------------------------------------------------------------------
+// Partida (SPEC 3.2, 4.1, 4.4, 4.5, 4.6, 4.7)
+// ---------------------------------------------------------------------------
+export const PARTIDA = {
+  duracoesMin: [2, 4, 6, 8] as const,
+  duracaoPadraoMin: 4,
+  nLinhaPadrao: 5,
+  nLinhaMax: 5,
+  /** Máximo de humanos por lado (provisório, ver PROGRESSO). */
+  maxHumanosPorLado: 5,
+  /** A saída de bola solta sozinha depois disso, se ninguém tocar. (SPEC 4.4) */
+  saidaSoltaAposS: 3,
+  /** Duração do pré-jogo, com os times entrando. (SPEC 3.1) */
+  preJogoS: 3,
+  /** Cobrança automática de lateral, escanteio e falta. (SPEC 4.5) */
+  cobrancaAutomaticaS: 5,
+  /** Tempo para o cobrador de lateral deslizar até a bola. (SPEC 4.5) */
+  lateralDeslizaS: 1,
+  /** Distância mínima dos adversários à bola num reinício. (SPEC 4.5) */
+  distanciaAdversarioReinicioM: 4,
+  /** Distância dos adversários numa falta. (SPEC 4.6) */
+  distanciaAdversarioFaltaM: 5,
+  /** Janela para contar assistência (toque anterior do mesmo time). (SPEC 4.7) */
+  assistenciaJanelaS: 6,
+  /** Vaga guardada de quem caiu da conexão; um bot joga no lugar. (SPEC 4.1) */
+  vagaGuardadaS: 30,
+  /** Cores fixas dos goleiros (provisório, ver PROGRESSO). (SPEC 9.3) */
+  corGoleiroCasa: "#E6D800",
+  corGoleiroVisitante: "#FF7F11",
+  /** Diferença de cor (ΔE em Lab) abaixo da qual o Visitante troca de camisa. (SPEC 9.3) */
+  conflitoCorDeltaE: 25,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Bola (SPEC 6.1)
+// ---------------------------------------------------------------------------
+export const BOLA = {
+  raio: 0.11,
+  gravidade: 9.81,
+  /** v -= arrasto · v · |v| · dt */
+  arrasto: 0.012,
+  /** Desaceleração rolando na grama (m/s²). */
+  atritoChao: 1.6,
+  restituicaoChao: 0.55,
+  /** Fração da velocidade horizontal perdida a cada quique. */
+  perdaHorizontalQuique: 0.15,
+  /** Abaixo disso (m/s) a bola para. */
+  velocidadeParada: 0.05,
+  travesRaio: 0.06,
+  travesRestituicao: 0.6,
+  paredeRestituicao: 0.7,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Jogador (SPEC 6.2)
+// ---------------------------------------------------------------------------
+export const JOGADOR = {
+  raio: 0.4,
+  velocidadeMax: 6.5,
+  fatorVelocidadeComBola: 0.9,
+  arrancada: 8.2,
+  fatorArrancadaComBola: 0.85,
+  aceleracao: 18,
+  freada: 24,
+  /** Graus por segundo. */
+  giroMax: 720,
+  energiaMax: 100,
+  /** Gasto por segundo na arrancada. */
+  energiaGasto: 25,
+  /** Recuperação por segundo sem arrancar. */
+  energiaRecupera: 12,
+  /** Abaixo disso não arranca... */
+  energiaMinimaParaArrancar: 15,
+  /** ...até voltar a este valor. */
+  energiaVoltaAArrancar: 30,
+  massa: 1,
+  massaGoleiro: 1.3,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Domínio e condução (SPEC 6.3)
+// A mola de condução (rigidez e amortecimento) não está na SPEC: entra na F2, marcada como provisória.
+// ---------------------------------------------------------------------------
+export const DOMINIO = {
+  /** Distância máxima do centro do jogador à bola. */
+  alcance: 0.7,
+  alturaMax: 0.6,
+  /** Velocidade relativa máxima (m/s). A SPEC original dizia 9; a R0 subiu para 14. */
+  velocidadeRelativaMax: 14,
+  /** Distância à frente do jogador onde a bola é conduzida. */
+  alvoConducao: 0.55,
+  /** Intervalo do "toque" extra quando o jogador corre com a bola. */
+  toqueIntervaloS: 0.35,
+  /** Depois de chutar ou passar, o próprio jogador não domina por este tempo. */
+  bloqueioAposChuteS: 0.25,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Passe (SPEC 6.4)
+// ---------------------------------------------------------------------------
+export const PASSE = {
+  /** Abertura total do cone de busca (graus). */
+  coneGraus: 60,
+  pesoAlinhamento: 0.6,
+  pesoDistancia: 0.25,
+  pesoLinhaLivre: 0.15,
+  distanciaIdealMin: 8,
+  distanciaIdealMax: 18,
+  /** Velocidade rasteira: limitar(base + porMetro · distância, min, max). A R0 baixou o máximo de 20 para 16. */
+  velocidadeBase: 6,
+  velocidadePorMetro: 0.9,
+  velocidadeMin: 8,
+  velocidadeMax: 16,
+  /** Segurar PASSE mais que isso vira lançamento por cima. */
+  lancamentoSegurarS: 0.25,
+  lancamentoVzMin: 5,
+  lancamentoVzMax: 9,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Chute (SPEC 6.5)
+// ---------------------------------------------------------------------------
+export const CHUTE = {
+  /** Tempo segurando CHUTE para a carga ir de 0 a 1. */
+  cargaTotalS: 0.8,
+  /** Força de um toque rápido. */
+  forcaToque: 0.15,
+  /** Velocidade = base + extra · força. */
+  velocidadeBase: 14,
+  velocidadeExtra: 16,
+  /** Velocidade vertical = base + extra · força. */
+  vzBase: 1,
+  vzExtra: 5,
+  /** Mira assistida: até quantos graus para fora da trave ela vale, e quanto puxa para dentro. */
+  miraMargemGraus: 25,
+  miraPuxaGraus: 12,
+  /** Erro angular aleatório (graus). */
+  erroGraus: 2,
+  erroAltoGraus: 7,
+  /** Acima desta força (ou durante arrancada) vale o erro alto. */
+  erroAltoForca: 0.9,
+  /** Voleio: alcance horizontal, faixa de altura e força fixa. */
+  voleioAlcance: 1,
+  voleioAlturaMin: 0.6,
+  voleioAlturaMax: 1.6,
+  voleioForca: 0.7,
+  /** Cabeceio (F6): bola entre voleioAlturaMax e esta altura. */
+  cabeceioAlturaMax: 2.2,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Defesa (SPEC 6.6)
+// ---------------------------------------------------------------------------
+export const DEFESA = {
+  bote: {
+    duracaoS: 0.25,
+    velocidade: 9,
+    /** Se a bola ficar a menos disto durante o avanço, rouba. */
+    raioRoubo: 0.8,
+    recargaS: 0.8,
+  },
+  carrinho: {
+    duracaoS: 1.0,
+    velocidadeInicial: 9,
+    /** Velocidade da bola quando o carrinho encosta nela. */
+    velocidadeBola: 8,
+    /** Quanto tempo o adversário atingido antes da bola fica caído. */
+    quedaAdversarioS: 1.2,
+    /** Quanto tempo quem deu o carrinho fica no chão depois do deslize. */
+    chaoAposS: 0.8,
+    recargaS: 1.5,
+  },
+} as const;
+
+// ---------------------------------------------------------------------------
+// Goleiro bot (SPEC 6.7)
+// ---------------------------------------------------------------------------
+export type Dificuldade = "facil" | "medio" | "dificil";
+
+export const GOLEIRO = {
+  /** Quanto à frente da linha do gol ele fica, conforme a distância da bola. */
+  adiantadoMin: 0.5,
+  adiantadoMax: 3,
+  alcanceLateral: 2.2,
+  alcanceAltura: 2.4,
+  /** Atraso de reação do mergulho (s). */
+  reacaoS: { facil: 0.3, medio: 0.22, dificil: 0.15 } satisfies Record<Dificuldade, number>,
+  /** Encaixa se a bola chega abaixo disto (m/s); acima, espalma. */
+  encaixaAteVelocidade: 18,
+  /** Espera com a bola na mão antes de repor. */
+  esperaComBolaS: 1.5,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Bots de linha (SPEC 6.8)
+// ---------------------------------------------------------------------------
+export const BOT = {
+  /** Tempo de reação por dificuldade (s). */
+  reacaoS: { facil: 0.35, medio: 0.22, dificil: 0.12 } satisfies Record<Dificuldade, number>,
+  /** Passa se tiver adversário a menos disto na frente. */
+  passaSeAdversarioAMenosDe: 2,
+  /** Chuta se estiver a menos disto do gol, com ângulo aberto. */
+  chutaSeAMenosDe: 18,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Controle (SPEC 5)
+// ---------------------------------------------------------------------------
+export const CONTROLE = {
+  joystickRaioPx: 60,
+  joystickZonaMorta: 0.1,
+  botaoMinPx: 72,
+  /** Mudança só do joystick sai no máximo isto por segundo. */
+  envioJoystickMaxHz: 30,
+  /** "Ainda estou aqui" quando nada muda. */
+  envioPresencaS: 1,
+  apelidoMaxCaracteres: 12,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Servidor e salas (ARQUITETURA 4.2, 4.4 e PROTOCOLO 1)
+// ---------------------------------------------------------------------------
+export const SERVIDOR = {
+  portaPadrao: 8787,
+  maxControlesPorSala: 10,
+  maxTelasPorSala: 8,
+  maxSalasPadrao: 50,
+  /** Mensagem maior que isto derruba a conexão. */
+  maxBytesMensagem: 1024,
+  /** Acima disto por segundo, o excesso é descartado. */
+  maxMensagensPorSegundo: 60,
+  /** Sala sem nenhuma conexão por este tempo é apagada. */
+  salaVaziaApagaAposS: 120,
+  /** Sem `ola` neste tempo, o servidor fecha a conexão. */
+  olaTimeoutS: 5,
+  /** Alfabeto do código da sala, sem I e O. */
+  alfabetoSala: "ABCDEFGHJKLMNPQRSTUVWXYZ",
+  tamanhoCodigoSala: 4,
+  /** Ping/pong do telão e do controle. */
+  pingIntervaloS: 2,
+} as const;

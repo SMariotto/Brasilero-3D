@@ -1,0 +1,18 @@
+{
+  "_leia": "Nomes ficticios para os bots: o jogo sorteia um primeiro nome e, em metade das vezes, junta um sobrenome. Pode adicionar ou tirar nomes a vontade.",
+  "versao": 1,
+  "primeiros": [
+    "Adriano", "Bruno", "Caio", "Danilo", "Edson", "Fabinho", "Gilberto", "Heitor",
+    "Igor", "Jefferson", "Kauã", "Leandro", "Marcelo", "Nathan", "Otávio", "Paulinho",
+    "Renan", "Sandro", "Thiago", "Vitor", "Wesley", "Yuri", "Zeca", "Alisson",
+    "Breno", "Cauê", "Diego", "Elias", "Felipe", "Gustavo", "Hugo", "Jonas",
+    "Luan", "Matheus", "Nico", "Pedrinho", "Rafael", "Samuca", "Tiago", "Wallace"
+  ],
+  "sobrenomes": [
+    "Silva", "Souza", "Oliveira", "Santos", "Pereira", "Costa", "Rodrigues", "Almeida",
+    "Nascimento", "Lima", "Araújo", "Fernandes", "Carvalho", "Gomes", "Martins", "Rocha",
+    "Ribeiro", "Alves", "Monteiro", "Mendes", "Barros", "Freitas", "Barbosa", "Pinto",
+    "Moura", "Cavalcanti", "Dias", "Castro", "Campos", "Cardoso", "Teixeira", "Correia",
+    "Batista", "Nunes", "Moreira", "Vieira", "Lopes", "Machado", "Farias", "Reis"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@b3d/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "carga": "tsx src/ferramentas/carga.ts"
+  },
+  "dependencies": {
+    "@b3d/core": "*",
+    "ws": "^8.22.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15"
+  }
+}

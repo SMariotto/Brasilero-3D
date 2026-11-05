@@ -1,0 +1,17 @@
+{
+  "name": "@b3d/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@b3d/core": "*"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}

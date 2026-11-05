@@ -1,0 +1,27 @@
+{
+  "name": "brasilero-3d",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Brasilero 3D: futebol 3D para jogar com os amigos, celular como controle",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n servidor,site -c blue,green \"npm run dev -w @b3d/server\" \"npm run dev -w @b3d/web\"",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web && tsc -p apps/web/tsconfig.node.json",
+    "build": "npm run build -w @b3d/web && node ferramentas/checar-controle.mjs",
+    "carga": "npm run carga -w @b3d/server"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "concurrently": "^10.0.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
