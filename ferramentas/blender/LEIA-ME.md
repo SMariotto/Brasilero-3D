@@ -1,5 +1,7 @@
 # Jogador 3D animado (Mixamo + Blender)
 
+> **OBSOLETO desde a G3.** O jogador 3D agora é feito por código no Three.js (corpo de peças articuladas, animações por conta, sem arquivo de terceiros). Este caminho (Mixamo + Blender) não é mais necessário e eu não apaguei nada: **o Samuel decide se posso apagar** (pergunta no PROGRESSO.md, item 18). Se alguém ainda pôr um `jogador.glb` em `apps/web/public/modelos/`, o telão continua carregando ele no lugar do jogador feito por código.
+
 O jogo funciona sem isto: enquanto não existe `apps/web/public/modelos/jogador.glb`, os jogadores aparecem como **cápsulas** na cor do time. Quando o arquivo existe, o telão carrega sozinho e passa a mostrar o modelo animado, com o uniforme do clube pintado na camisa.
 
 > Estado: o carregador do telão está testado (com um boneco de caixas). O script `montar_jogador.py` foi escrito mas **ainda não foi rodado**, porque o Blender não estava instalado na máquina onde a F6 foi feita. Se der erro, copie a mensagem e peça para o Claude Code corrigir.

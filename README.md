@@ -12,7 +12,8 @@ Futebol 3D para jogar com os amigos: a TV (ou o PC) mostra o jogo e cada pessoa 
 8. `npm run carga`: teste de carga com clientes falsos (sobe um servidor próprio; 6 controles e 8 telões por 30 s). Opções: `npm run carga -- --controles 6 --telas 8 --seg 30 --url ws://localhost:8787/ws`.
 9. `npm run simular`: simulador de bots contra bots (e de um driblador humano de mentira contra eles) com semente fixa; imprime por dificuldade botes, desarmes, posse, passes, chutes e gols por partida de 8 min. Opções: `npm run simular -- --partidas 10 --seg 480 --semente 7 --cenarios medio:medio,dificil:facil`.
 10. `node ferramentas/gerar-icones.mjs` redesenha os ícones do app (só se quiser mudar o desenho).
-11. `npm run boneco-teste`: grava um boneco de caixas para testar o carregador do modelo 3D (`tela.html?modelo=boneco-teste`). O jogador de verdade vem do Mixamo + Blender: veja `ferramentas/blender/LEIA-ME.md`.
+11. ~~`npm run boneco-teste` e o caminho Mixamo + Blender (`ferramentas/blender/`)~~ **OBSOLETO desde a G3** (o jogador agora é feito por código; nada foi apagado, o Samuel decide). `npm run boneco-teste` ainda grava um boneco de caixas para testar o carregador de GLB (`tela.html?modelo=boneco-teste`).
+12. `tela.html?poses=1`: vitrine das poses do jogador feito por código (as 14 animações lado a lado; `&vel=7` muda a velocidade da corrida).
 
 Teclas do telão: **C** troca a câmera (TV, aérea, segue um jogador), **N** troca quem é seguido, **T** abre a tabela do campeonato da sala, **M** liga/desliga o som, **L** modo leve (sem sombras, torcida e brilho). Endereços úteis: `?segue=Apelido` abre o telão seguindo aquele jogador; `?debug=1` mostra fps e draw calls; `?capsula=1` usa cápsulas no lugar do modelo 3D; `?vitrine=1` mostra as camisas dos clubes.
 

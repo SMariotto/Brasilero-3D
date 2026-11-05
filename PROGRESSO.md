@@ -5,12 +5,12 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 ## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodada G1, G2, G3)
 - **G1 (controle estilo FIFA): FEITA**, tag `g1-ok`. Máx. 3 humanos por time, 6 controles por sala; cada humano controla um jogador de cada vez; o controle passa para quem recebe o passe; CHUTE sem a bola troca de jogador; carrinho agora é segurar PASSE por 0,3 s.
 - **G2 (bots: desarme, pressão, dificuldade): FEITA**, tag `g2-ok`. Simulador `npm run simular`; Fácil, Médio e Difícil agora são bem diferentes (velocidade, alcance e mira do bote, antecipação). Tabela antes e depois em "Testes que o Samuel precisa fazer", G2.
-- **G3 (jogador 3D feito por código): NÃO COMEÇOU.**
+- **G3 (jogador 3D feito por código): FEITA**, tag `g3-ok`. Corpo humanoide de peças articuladas (InstancedMesh, 82 draw calls no jogo), animações por código, vitrine `tela.html?poses=1`. Mixamo e Blender marcados **obsoletos, nada apagado: posso apagar? (item 18)**.
 - **Não testado por mim:** nada disso no Render nem com celulares de verdade (só testes automáticos e Edge sem placa de vídeo). O "sentimento" da troca de jogador precisa de você.
-- **Perguntas abertas para você** (seção "Dúvidas para o Samuel", itens 16 em diante): o carrinho no PASSE segurado; o número de 6 controles por sala; o `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" (não mexi, é seu).
-- **Para subir tudo:** `cd "C:UsersSamuelDocumentsJarvisaultprojetosBrasilero 3Dprojeto"; git push; git push --tags`
-- Para voltar uma fase se ela ficar ruim: `git checkout g1-ok` (e `git switch main` para voltar).
-- Os passos de teste no Render estão em "Testes que o Samuel precisa fazer", **G1 primeiro**.
+- **Perguntas abertas para você** (seção "Dúvidas para o Samuel", itens 16, 17 e 18): o carrinho no PASSE segurado; 6 controles por sala; o `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" e o passo 7 (Mixamo) ficou obsoleto (não mexi, é seu); **posso apagar os arquivos do Mixamo e do Blender?** (item 18).
+- **Para subir tudo** (no PowerShell): `cd "C:\Users\Samuel\Documents\Jarvis\vault\projetos\Brasilero 3D\projeto"; git push; git push --tags`
+- Para voltar a uma fase (se uma ficar ruim): `git checkout g1-ok`, `g2-ok` ou `g3-ok` (e `git switch main` para voltar ao mais novo).
+- Os passos de teste no Render estão em "Testes que o Samuel precisa fazer", na ordem das fases: **G1, G2, G3** (e depois os das fases antigas).
 
 ## Estado das fases
 | Fase | Estado | Último commit | Observação |
@@ -28,12 +28,12 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 | G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
 | G2 Bots (desarme, pressão, dificuldade) | pronta (falta o Samuel conferir) | tag `g2-ok` | Simulador de bots, diagnóstico, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, qualquer bot defensor dá o bote ao alcance |
-| G3 Jogador 3D por código | não começou | | |
+| G3 Jogador 3D por código | pronta (falta o Samuel conferir) | tag `g3-ok` | Corpo humanoide de peças articuladas por código (InstancedMesh), animações por conta sem patinar, uniforme pelo shader do clube, modo leve/`?capsula=1` com cápsulas, vitrine de poses |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F3 a F7, F8a e F8b prontas (esperando o Samuel conferir). O Samuel pediu em 05/11: "ainda não dá pra testar, faz os próximos 3": fiz a F7 e dois extras da F8 (F8a e F8b, escolhidos por mim da lista da SPEC 10). Ele só vai testar tudo no fim. Próximo passo, se ele disser "sim": os extras que sobraram da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti) ou o que ele pedir; antes, ele precisa testar F3 a F8 e baixar o personagem do Mixamo para a F6. Nada pela metade.
+F0 a F8b, G1, G2 e G3 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
 
 Para jogar pelo site sem rodar no PC: o plano é UM link só pelo Render (grátis), passo a passo em "F4 (publicar de verdade)" mais abaixo. Nada foi publicado; falta o Samuel criar a conta e dar o `git push`.
 
@@ -87,6 +87,13 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Não dei carrinho aos bots* (só bote): carrinho de bot gera falta e fica injusto para o humano. Posso liberar só no Difícil se você quiser.
    - *Não mexi no bote do humano* (alcance 0,8 m, avanço de 0,25 s), só na mira dos bots.
    - *Dificuldade por time* (`Partida.dificuldades`) existe só para o simulador e os testes; no jogo a dificuldade continua sendo uma só, a do Dono.
+18. **G3, o que eu completei (confirme ou mande mudar):**
+   - *O jogador:* cabeça, tronco, calção, coxa, canela, chuteira, braço e antebraço em formas básicas do Three.js (cilindros, esferas, caixas). Pele em 5 tons, escolhidos pelo número do jogador (só enfeite). A camisa leva o padrão e as cores do clube pelo shader da F5 (listras, faixa diagonal etc.); o goleiro usa a cor fixa (amarelo ou laranja), calção preto.
+   - *Animações por código* (`pose.ts`): parado (respira), corrida e arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola e goleiro mergulhando (esquerda e direita). A passagem de uma para outra é suave. **A cadência da corrida sai da velocidade real** (`ω = v / (comprimento da perna × amplitude)`), então o pé de apoio anda para trás à mesma velocidade que o jogador corre (testado de 1 a 9 m/s).
+   - *Medi e corrigi:* os pés afundavam até 15 cm no gramado na corrida. Agora ficam a no máximo 2 cm abaixo do chão em todas as poses em pé (teste permanente).
+   - *Desempenho:* 82 draw calls no jogo (as cápsulas eram 64; limite 300) e ~24 mil triângulos. O fps que medi (8 fps) é do navegador sem placa de vídeo desta máquina, não diz nada sobre o seu PC. O modo leve (L, ou automático abaixo de 45 fps) volta para as cápsulas; `?capsula=1` também.
+   - *Não feito:* **número nas costas da camisa** (você disse "se couber"; o número continua em cima do bot). Dá para fazer com um atlas de números numa próxima rodada.
+   - *Obsoleto, NÃO apaguei:* o caminho do Mixamo e do Blender (`ferramentas/blender/montar_jogador.py` e `LEIA-ME.md`, o carregador de GLB em `modelo.ts` e `animacoes.ts`, o gerador `npm run boneco-teste`, os itens 5 e 6 de teste da F6, o passo 7 do `guia-manual`, que é seu). O jogo só usa um `jogador.glb` se alguém o puser em `apps/web/public/modelos/`. **Posso apagar esses arquivos?**
 12. **F5, o que eu completei (confirme ou mande mudar):**
    - *Conflito de cor:* se as camisas dos dois clubes ficam parecidas (diferença de cor ΔE < 25), o Visitante usa o uniforme reserva; se ainda assim parecer, usa branco ou preto. Conferi os 132 pares de clubes do `times.json`: nenhum fica abaixo de 25.
    - *"Aleatório":* aparece como opção de clube no lobby; o servidor sorteia na hora de começar e a Revanche mantém os mesmos clubes sorteados.
@@ -113,6 +120,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+G1 (controle estilo FIFA; no site do Render, com 2 celulares no mínimo; o ideal é 3 + 3):
+1. Entre com 2 celulares no mesmo time (os dois escolhem "Casa") e comece. Cada celular tem a faixa de cima com o número do **jogador que ele controla agora**; no telão, só esses dois jogadores têm **seta, anel no chão e apelido** na cor do time. Os outros têm só o número.
+2. **Com a bola:** quem estiver com a bola é controlado por um de vocês (o primeiro que entrou, se nenhum controlar o portador). Passe (toque em PASSE): na hora em que a bola sai, **o controle e a seta vão para quem recebeu**, e a faixa do celular **pisca** com o número novo. Com 2 humanos, o outro celular não troca (a menos que o passe vá para o jogador dele).
+3. **Fila:** com 3 celulares no time, passem a bola para um bot várias vezes: o controle do bot que recebe vai rodando entre os humanos (quem passou vai para o fim da fila).
+4. **Sem a bola:** deixe o time sem a bola. Seu jogador troca sozinho para o companheiro mais perto da bola, **sem ficar trocando toda hora**. Aperte **CHUTE** (agora escrito "TROCAR"): vai para o próximo companheiro mais perto da bola. Se o time inteiro dos humanos estiver na defesa e a troca parecer rápida ou lenta demais, me diga (os números estão em `TROCA`).
+5. **Carrinho:** o botão PASSE sem a bola diz "BOTE / segure: carrinho". Toque rápido = bote; segurando mais de 0,3 s = carrinho.
+6. **Queda:** desligue o Wi-Fi de um celular por 5 s e religue: um bot joga no lugar dele, e ao voltar ele recebe o companheiro mais perto da bola. Ninguém fica sem jogador.
+7. **Entrar no meio:** entre com um celular novo no meio da partida: ele pega um bot do time com menos humanos (máx. 3 por time). O 4º no mesmo time recebe "Esse lado já tem 3 jogadores". A sala aceita no máximo 6 controles.
+8. **Fim de jogo e tabela (T):** o artilheiro e os gols saem no **seu apelido**, mesmo que você tenha trocado de jogador antes de a bola entrar.
 G2 (bots; no site do Render, 1 ou 2 celulares, o resto é bot):
 1. Escolha **Bots: Fácil**, jogue 2 minutos: os bots têm que ser **visivelmente mais lentos** que você, quase não dão bote, passam e chutam mal. Dá para driblar e fazer gol com facilidade.
 2. Troque para **Médio** (Revanche com o Dono mudando a opção no lobby): eles correm quase tanto quanto você e dão bote se você passar a menos de ~1,5 m. Você perde a bola de vez em quando.
@@ -131,15 +147,13 @@ Bots de dificuldades diferentes (Casa:Visitante, gols por partida). Antes: Difí
 
 Qual parece mais divertido: o driblador de mentira é burro (corre em zigue-zague sem passar nem proteger a bola), então o humano de verdade perde menos que esse número. Mesmo assim, no Difícil ele perde a bola a cada ~1,7 s, o que é duro de propósito; no Médio, a cada ~3,5 s; no Fácil, a cada ~16 s. Minha recomendação: **Médio como padrão**, Fácil para quem nunca jogou. Se o Difícil estiver frustrante, baixe `BOT.chanceBote.dificil` (0,32) para 0,25.
 
-G1 (controle estilo FIFA; no site do Render, com 2 celulares no mínimo; o ideal é 3 + 3):
-1. Entre com 2 celulares no mesmo time (os dois escolhem "Casa") e comece. Cada celular tem a faixa de cima com o número do **jogador que ele controla agora**; no telão, só esses dois jogadores têm **seta, anel no chão e apelido** na cor do time. Os outros têm só o número.
-2. **Com a bola:** quem estiver com a bola é controlado por um de vocês (o primeiro que entrou, se nenhum controlar o portador). Passe (toque em PASSE): na hora em que a bola sai, **o controle e a seta vão para quem recebeu**, e a faixa do celular **pisca** com o número novo. Com 2 humanos, o outro celular não troca (a menos que o passe vá para o jogador dele).
-3. **Fila:** com 3 celulares no time, passem a bola para um bot várias vezes: o controle do bot que recebe vai rodando entre os humanos (quem passou vai para o fim da fila).
-4. **Sem a bola:** deixe o time sem a bola. Seu jogador troca sozinho para o companheiro mais perto da bola, **sem ficar trocando toda hora**. Aperte **CHUTE** (agora escrito "TROCAR"): vai para o próximo companheiro mais perto da bola. Se o time inteiro dos humanos estiver na defesa e a troca parecer rápida ou lenta demais, me diga (os números estão em `TROCA`).
-5. **Carrinho:** o botão PASSE sem a bola diz "BOTE / segure: carrinho". Toque rápido = bote; segurando mais de 0,3 s = carrinho.
-6. **Queda:** desligue o Wi-Fi de um celular por 5 s e religue: um bot joga no lugar dele, e ao voltar ele recebe o companheiro mais perto da bola. Ninguém fica sem jogador.
-7. **Entrar no meio:** entre com um celular novo no meio da partida: ele pega um bot do time com menos humanos (máx. 3 por time). O 4º no mesmo time recebe "Esse lado já tem 3 jogadores". A sala aceita no máximo 6 controles.
-8. **Fim de jogo e tabela (T):** o artilheiro e os gols saem no **seu apelido**, mesmo que você tenha trocado de jogador antes de a bola entrar.
+G3 (jogador feito por código; no site do Render):
+1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **14 jogadores fazendo cada animação** (de trás para a frente, da esquerda para a direita: parado, corrida, arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
+2. Jogue uma partida: os jogadores têm corpo, camisa com o padrão do clube, calção, meias e chuteiras. Olhe a **corrida**: as pernas têm que acompanhar a velocidade (sem "patinar") e acelerar quando o jogador usa CORRER. Chute, passe, carrinho, queda, gol (comemoração) e defesa do goleiro têm animação própria.
+3. Aperte **L** (modo leve): voltam as cápsulas. `tela.html?capsula=1` também. Aperte L de novo: voltam os jogadores.
+4. `?debug=1` mostra os draw calls (têm que ficar abaixo de 300; eu medi 82) e o fps do **seu** PC. Se o fps ficar baixo, me diga o número.
+5. Diga o que achou do visual (proporções, cor da pele, tamanho): é estilizado de propósito. Dá para ajustar tudo em `apps/web/src/tela/corpos.ts` (formas) e `pose.ts` (movimentos).
+
 F8a e F8b (extras):
 1. **Campeonato:** jogue uma partida até o fim. Quando ela acaba, aparece no telão (lobby e fim) o botão **Tabela (T)**; a tecla **T** (ou clique) abre/fecha. Mostra a tabela dos clubes (3 pontos por vitória, 1 por empate; desempate por vitórias, saldo e gols) e o ranking dos jogadores humanos (gols, assistências, desarmes). Jogue a Revanche: os números somam. No celular do Dono, no fim do lobby: "Campeonato da sala: N partidas" e o botão "Zerar campeonato" (dois toques). Quem não é o Dono não vê o botão.
 2. **Gol de ouro:** no celular do Dono, em "Se empatar", escolha "Gol de ouro (2 min)". Deixe o jogo empatar até o fim do tempo (ou faça isso com 2 min de duração): o apito toca, a bola volta ao centro, aparece a etiqueta amarela "GOL DE OURO" e o relógio recomeça em 02:00. O primeiro gol acaba a partida (depois da comemoração e do replay); o fim mostra "Decidido no gol de ouro". Sem gol em 2 min: termina empatado, "Prorrogação sem gols".
@@ -239,6 +253,7 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
+| 05/11/2026 | G3 | Jogador 3D por código: `pose.ts` (poses, cadência sem patinar), `corpos.ts` (peças articuladas em InstancedMesh, uniforme por shader), integração com o modo leve e `?capsula=1`, vitrine de poses, testes, Mixamo e Blender marcados obsoletos | ver git log (tag `g3-ok`) |
 | 05/11/2026 | G2 | Simulador de bots (`npm run simular`, laço no núcleo em `simulacao.ts`), dificuldade por time para medir, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, defensores oportunistas, testes de dificuldade | ver git log (tag `g2-ok`) |
 | 05/11/2026 | G1 | Controle estilo FIFA: gestor de controle no núcleo (`controle.ts`), 3 humanos por time e 6 por sala, troca por passe/sozinha/à mão, carrinho no PASSE segurado, mensagem `donos`, créditos por humano, seta/anel/apelido no telão, faixa que pisca no celular, SPEC/PROTOCOLO atualizados | ver git log (tag `g1-ok`) |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
