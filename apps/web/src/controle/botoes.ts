@@ -24,8 +24,15 @@ export class Botao {
     if (sim && this.apertado) this.zerar();
   }
 
-  rotulo(texto: string): void {
-    this.elemento.textContent = texto;
+  /** O texto do botão, com uma dica pequena embaixo se houver ("segure: carrinho"). */
+  rotulo(texto: string, dica?: string): void {
+    if (dica === undefined) {
+      this.elemento.textContent = texto;
+      return;
+    }
+    const pequeno = document.createElement("small");
+    pequeno.textContent = dica;
+    this.elemento.replaceChildren(texto, pequeno);
   }
 
   /** Solta na marra (a tela do jogo fechou com o dedo ainda no botão). */

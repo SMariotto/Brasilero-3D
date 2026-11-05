@@ -1,4 +1,4 @@
-import { FASE, acharTime, type Evento, type Fim, type PartidaMsg } from "@b3d/core";
+import { FASE, acharTime, type Destaque, type Evento, type Fim, type PartidaMsg } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { corDoTexto as corTexto, distintivo, escudoSeExistir } from "../comum/escudo";
 import { golsPorTime, textoDaLinha, vencedor, type LinhaDeGol } from "./fim";
@@ -76,6 +76,11 @@ export class Hud {
     this.p = p;
   }
 
+  /** O humano trocou de jogador (mensagem `donos`, G1): guarda o elenco novo para os nomes dos avisos. */
+  definirElenco(elenco: PartidaMsg["elenco"]): void {
+    if (this.p) this.p = { ...this.p, elenco };
+  }
+
   /** O replay do gol está passando: mostra a etiqueta REPLAY e esconde a faixa de GOOOL. */
   replay(ativo: boolean): void {
     this.replayTag.hidden = !ativo;
@@ -137,7 +142,8 @@ export class Hud {
 
     const d = e.dados;
     const cor = this.p.cores[d.time];
-    const quem = d.contra ? `${this.nome(d.slot)} (contra)` : this.nome(d.slot);
+    const nomeGol = d.nome ?? this.nome(d.slot); // o nome vem no gol: o humano pode já ter trocado de jogador (G1)
+    const quem = d.contra ? `${nomeGol} (contra)` : nomeGol;
     this.faixaGol.style.setProperty("--cor-gol", cor);
     this.faixaGol.style.setProperty("--cor-texto-gol", corDoTexto(cor));
     const clube = acharTime(d.time === 0 ? this.p.config.casa : this.p.config.visitante);
@@ -147,7 +153,7 @@ export class Hud {
       el("strong", {}, "GOOOL!"),
       el("span", { class: "gol-time" }, `${this.siglas[d.time]}  ${d.placar[0]} x ${d.placar[1]}`),
       el("span", { class: "gol-quem" }, quem),
-      d.assistencia !== undefined && el("span", { class: "gol-assist" }, `assistência: ${this.nome(d.assistencia)}`),
+      d.assistencia !== undefined && el("span", { class: "gol-assist" }, `assistência: ${d.nomeAssistencia ?? this.nome(d.assistencia)}`),
     );
     this.faixaGol.hidden = false;
   }
@@ -179,8 +185,8 @@ export class Hud {
     const coluna = (linhas: LinhaDeGol[]): HTMLElement =>
       el("ul", { class: "fim-quem" }, ...(linhas.length > 0 ? linhas.map((l) => el("li", {}, `⚽ ${textoDaLinha(l)}`)) : [el("li", { class: "vazio" }, "sem gols")]));
 
-    const cartao = (rotulo: string, d: { slot: number; quantidade: number } | null): HTMLElement | false =>
-      d !== null && el("div", { class: "fim-cartao" }, el("small", {}, rotulo), el("strong", {}, this.nome(d.slot)), el("span", {}, String(d.quantidade)));
+    const cartao = (rotulo: string, d: Destaque | null): HTMLElement | false =>
+      d !== null && el("div", { class: "fim-cartao" }, el("small", {}, rotulo), el("strong", {}, d.nome ?? this.nome(d.slot)), el("span", {}, String(d.quantidade)));
 
     trocar(
       this.painelFim,

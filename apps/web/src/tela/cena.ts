@@ -3,7 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { FASE, SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot, type VagaElenco } from "@b3d/core";
+import { FASE, SEM_DOMINANTE, aplicarDonos, uniformesDaPartida, type DonoDeSlot, type Evento, type Fim, type PartidaMsg, type Snapshot, type VagaElenco } from "@b3d/core";
 import { criarBola3D, type Bola3D } from "./bola";
 import { CameraJogo } from "./camera";
 import { criarCampo3D, type Campo3D } from "./campo";
@@ -14,7 +14,7 @@ import { Interpolador, type Amostra } from "./interpolacao";
 import { Jogadores } from "./jogadores";
 import { obterModelo, urlDoModelo, type ModeloBase } from "./modelo";
 import { GravadorDeReplay, Reproducao } from "./replay";
-import { proximoSlot, slotDoApelido, slotsHumanos } from "./seguir";
+import { idDoApelido, idsHumanos, proximoId, slotDoHumano } from "./seguir";
 
 /** Quanto o GOOOL fica sozinho na tela antes de o replay começar. */
 const ESPERA_REPLAY_MS = 1400;
@@ -47,8 +47,10 @@ export class CenaJogo {
 
   private partidaId = -1;
   private elenco: VagaElenco[] = [];
-  /** Slot do jogador que a câmera segue (F8b), ou `null`. */
+  /** Id do controle do humano que a câmera segue (F8b), ou `null`. O jogador dele muda durante a partida (G1). */
   private seguindo: number | null = null;
+  /** O último `donos` recebido, para aplicar ao elenco quando a partida (assíncrona) terminar de montar. */
+  private ultimosDonos: DonoDeSlot[] | null = null;
   private quadro = 0;
   private quadros = 0;
   private ultimo = 0;
@@ -81,11 +83,15 @@ export class CenaJogo {
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
       this.elenco = p.elenco;
+      this.ultimosDonos = null; // o elenco que veio já é o de agora
       this.mostrarSeguindo();
       return;
     }
     // O modelo 3D (se existir) baixa uma vez; enquanto isso, ou sem ele, valem as cápsulas
+    this.ultimosDonos = null;
     this.modelo = await obterModelo(urlDoModelo(location.search, import.meta.env.BASE_URL));
+    // `donos` que chegaram enquanto o modelo baixava valem sobre o elenco da mensagem `partida` (que é anterior a eles)
+    if (this.ultimosDonos) p = { ...p, elenco: aplicarDonos(p.elenco, this.ultimosDonos) };
     this.partidaId = p.id;
     this.interp.reiniciar();
     this.gravador.reiniciar();
@@ -152,9 +158,9 @@ export class CenaJogo {
     // `tela.html?segue=Apelido`: este telão já abre seguindo aquele jogador (por exemplo, o telão do amigo que está de longe)
     this.seguindo = null;
     const queroSeguir = new URLSearchParams(location.search).get("segue");
-    const slotPedido = queroSeguir ? slotDoApelido(p.elenco, queroSeguir) : null;
-    if (slotPedido !== null) {
-      this.seguindo = slotPedido;
+    const idPedido = queroSeguir ? idDoApelido(p.elenco, queroSeguir) : null;
+    if (idPedido !== null) {
+      this.seguindo = idPedido;
       this.camera.definirModo("jogador");
     }
     this.mostrarSeguindo();
@@ -172,6 +178,15 @@ export class CenaJogo {
   receberSnapshot(s: Snapshot): void {
     this.interp.adicionar(s, performance.now());
     this.gravador.capturar(s);
+  }
+
+  /** Mensagem `donos` (G1): quem controla qual jogador mudou. Atualiza o elenco, as setas e os nomes. */
+  donos(donos: DonoDeSlot[]): void {
+    this.ultimosDonos = donos;
+    this.elenco = aplicarDonos(this.elenco, donos);
+    this.jogadores?.definirDonos(donos);
+    this.hud.definirElenco(this.elenco);
+    this.mostrarSeguindo();
   }
 
   evento(e: Evento): void {
@@ -193,8 +208,8 @@ export class CenaJogo {
   alternarCamera(): void {
     if (this.reproducao) return; // no replay a câmera é a de trás do gol
     if (!this.camera) return;
-    const humanos = slotsHumanos(this.elenco);
-    if (this.camera.modo === "aerea" && humanos.length > 0 && this.seguindo === null) this.seguindo = proximoSlot(humanos, null);
+    const humanos = idsHumanos(this.elenco);
+    if (this.camera.modo === "aerea" && humanos.length > 0 && this.seguindo === null) this.seguindo = proximoId(humanos, null);
     this.camera.alternar(humanos.length > 0);
     this.mostrarSeguindo();
   }
@@ -202,15 +217,15 @@ export class CenaJogo {
   /** Tecla N: passa a seguir o próximo jogador humano (e liga a câmera que segue, se não estava ligada). */
   seguirProximo(): void {
     if (this.reproducao || !this.camera) return;
-    const humanos = slotsHumanos(this.elenco);
+    const humanos = idsHumanos(this.elenco);
     if (humanos.length === 0) return;
-    this.seguindo = proximoSlot(humanos, this.seguindo);
+    this.seguindo = proximoId(humanos, this.seguindo);
     this.camera.definirModo("jogador");
     this.mostrarSeguindo();
   }
 
   private mostrarSeguindo(): void {
-    const nome = this.camera?.modo === "jogador" ? this.elenco.find((v) => v.slot === this.seguindo)?.nome : undefined;
+    const nome = this.camera?.modo === "jogador" ? this.elenco.find((v) => v.humano && v.idControle === this.seguindo)?.nome : undefined;
     this.hud.seguindo(nome ?? null);
   }
 
@@ -338,7 +353,8 @@ export class CenaJogo {
     if (a) {
       this.bola?.atualizar(a.bola);
       this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt);
-      const seguido = this.seguindo === null ? undefined : a.jogadores.find((j) => j.slot === this.seguindo);
+      const slotSeguido = this.seguindo === null ? null : slotDoHumano(this.elenco, this.seguindo);
+      const seguido = slotSeguido === null ? undefined : a.jogadores.find((j) => j.slot === slotSeguido);
       this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro, seguido ? { x: seguido.x, z: seguido.z } : null);
       this.primeiroQuadro = false;
     }

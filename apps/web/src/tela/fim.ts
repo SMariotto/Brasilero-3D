@@ -16,10 +16,12 @@ export function golsPorTime(f: Fim, elenco: VagaElenco[]): [LinhaDeGol[], LinhaD
     const vaga = elenco.find((v) => v.slot === g.slot);
     if (!vaga) continue;
     const timeDoGol = g.contra ? (vaga.time === 0 ? 1 : 0) : vaga.time;
-    const chave = `${g.slot}:${g.contra ? "c" : "n"}`;
+    // G1: o nome vem do gol (quem tocou na bola), porque o humano muda de jogador durante a partida
+    const nome = g.nome ?? vaga.nome;
+    const chave = `${nome}:${g.contra ? "c" : "n"}`;
     const linha = times[timeDoGol].get(chave);
     if (linha) linha.quantidade++;
-    else times[timeDoGol].set(chave, { nome: vaga.nome, quantidade: 1, contra: g.contra });
+    else times[timeDoGol].set(chave, { nome, quantidade: 1, contra: g.contra });
   }
   return [[...times[0].values()], [...times[1].values()]];
 }

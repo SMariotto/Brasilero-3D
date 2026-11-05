@@ -53,7 +53,7 @@ test("telão e dois celulares: entram, começam, um segura CHUTE perto do gol e 
   await expect(telao.locator("#gols-casa")).toHaveText("0");
   await expect(ana.page.locator("#jogo")).toBeVisible();
   await expect(beto.page.locator("#jogo")).toBeVisible();
-  await expect(ana.page.locator(".botao-jogo.chute")).toHaveText("CARRINHO"); // sem a bola o rótulo é outro
+  await expect(ana.page.locator(".botao-jogo.chute")).toHaveText(/^TROCAR/); // sem a bola o rótulo é outro (G1: CHUTE sem a bola troca de jogador)
 
   // Rota de teste: põe a Ana perto do gol, olhando para ele, com a bola no pé (e solta o jogo)
   const posicionou = await request.post(`${API}/teste/posicionar`, { data: { sala, id: 0, x: 20, z: 0, bolaX: 20.55, bolaZ: 0 } });

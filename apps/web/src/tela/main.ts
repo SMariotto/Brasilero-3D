@@ -169,6 +169,9 @@ function aoMensagem(msg: MensagemServidor): void {
       mostrar("jogo");
       naCena((c) => c.iniciar(msg));
       return;
+    case "donos":
+      naCena((c) => c.donos(msg.donos)); // quem controla qual jogador mudou (G1)
+      return;
     case "evento":
       som.evento(msg);
       naCena((c) => c.evento(msg));

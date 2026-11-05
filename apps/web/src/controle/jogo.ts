@@ -134,12 +134,22 @@ export class JogoControle {
       return;
     }
     this.aviso.hidden = true;
+    // O controle passou para outro jogador (passe, troca sozinha ou à mão, G1): a faixa pisca para o dedo perceber
+    if (this.meuSlot >= 0 && v.slot !== this.meuSlot) this.piscarTroca();
     this.meuSlot = v.slot;
     this.faixa.style.background = v.cor;
     this.faixa.style.color = corDoTexto(v.cor);
     this.numero.textContent = String(v.numero);
     (this.energia.firstElementChild as HTMLElement).style.width = `${Math.max(0, Math.min(100, v.energia))}%`;
     this.aplicarSituacao(v.comBola, v.situacao);
+  }
+
+  /** Pisca a faixa de cima e o número: "agora você é este jogador". */
+  private piscarTroca(): void {
+    this.faixa.classList.remove("troca");
+    void this.faixa.offsetWidth; // reinicia a animação se trocar de novo logo em seguida
+    this.faixa.classList.add("troca");
+    navigator.vibrate?.(12);
   }
 
   /** Aviso de conexão lenta na faixa de cima (só aparece acima de 150 ms). */
@@ -194,8 +204,14 @@ export class JogoControle {
       this.chute.rotulo(situacao === "lateral" ? "CHUTE" : "CRUZAR");
       this.passe.rotulo("PASSE");
     } else {
-      this.chute.rotulo(tem ? "CHUTE" : "CARRINHO");
-      this.passe.rotulo(tem ? "PASSE" : "BOTE");
+      // Sem a bola (G1): CHUTE troca de jogador; PASSE dá o bote e, segurado por 0,3 s, vira carrinho
+      if (tem) {
+        this.chute.rotulo("CHUTE");
+        this.passe.rotulo("PASSE");
+      } else {
+        this.chute.rotulo("TROCAR", "de jogador");
+        this.passe.rotulo("BOTE", "segure: carrinho");
+      }
     }
     this.correr.rotulo("CORRER");
 

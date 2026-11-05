@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
+import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type DonoDeSlot, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
 import { criarMaterialUniforme } from "./uniforme";
 import { FiguraModelo, type ModeloBase } from "./modelo";
 
@@ -58,8 +58,15 @@ interface Figura {
   corpo: THREE.Mesh | null;
   /** O modelo 3D animado, se o `jogador.glb` carregou. */
   modelo: FiguraModelo | null;
-  /** Apelido em cima do jogador (só humanos). Fica fora do grupo para não girar com o corpo. */
-  rotulo: THREE.Sprite | null;
+  /** Número da camisa em cima do bot (G1: some quando um humano passa a controlar este jogador). Fora do grupo, para não girar. */
+  numero: THREE.Sprite | null;
+  /** Seta e anel "este é o jogador de um humano agora" (G1), na cor do time. Dentro do grupo. */
+  seta: THREE.Mesh | null;
+  anelDono: THREE.Mesh | null;
+  /** O apelido que está aparecendo em cima do jogador agora (G1). */
+  apelido: THREE.Sprite | null;
+  /** Cor do time (hexadecimal) para o apelido. */
+  cor: string;
 }
 
 /**
@@ -70,6 +77,10 @@ export class Jogadores {
   readonly grupo = new THREE.Group();
   private readonly figuras = new Map<number, Figura>();
   private readonly anel: THREE.Mesh;
+  /** Quem controla qual jogador agora (slot → apelido). Muda durante a partida (G1). */
+  private donos = new Map<number, string>();
+  /** Etiquetas de apelido já desenhadas (uma por apelido e cor), reaproveitadas a cada troca. */
+  private readonly etiquetas = new Map<string, THREE.Sprite>();
 
   constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null) {
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
@@ -97,23 +108,30 @@ export class Jogadores {
         grupo.add(nariz);
       }
 
-      let rotulo: THREE.Sprite | null = null;
-      if (v.humano) {
-        const seta = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.6, 4), new THREE.MeshBasicMaterial({ color: new THREE.Color(cor) }));
+      // Seta e anel na cor do time: aparecem no jogador que um humano controla AGORA (G1). Goleiro nunca tem humano.
+      let seta: THREE.Mesh | null = null;
+      let anelDono: THREE.Mesh | null = null;
+      let numero: THREE.Sprite | null = null;
+      if (!v.goleiro) {
+        seta = new THREE.Mesh(this.geoSeta, this.materialDaCor(cor));
         seta.rotation.x = Math.PI; // ponta para baixo
         seta.position.y = JOGADOR.alturaCorpo + 0.55;
         seta.name = "seta";
+        seta.visible = false;
         grupo.add(seta);
-        rotulo = etiqueta(v.nome, cor);
-        this.grupo.add(rotulo);
-      } else if (!v.goleiro) {
-        rotulo = etiquetaNumero(v.numero);
-        this.grupo.add(rotulo);
+        anelDono = new THREE.Mesh(this.geoAnelDono, this.materialDaCor(cor));
+        anelDono.rotation.x = -Math.PI / 2;
+        anelDono.position.y = 0.05;
+        anelDono.visible = false;
+        grupo.add(anelDono);
+        numero = etiquetaNumero(v.numero);
+        this.grupo.add(numero);
       }
 
       this.grupo.add(grupo);
-      this.figuras.set(v.slot, { grupo, corpo, modelo: figuraModelo, rotulo });
+      this.figuras.set(v.slot, { grupo, corpo, modelo: figuraModelo, numero, seta, anelDono, apelido: null, cor });
     }
+    this.definirDonos(donosDoElenco(elenco));
 
     this.anel = new THREE.Mesh(
       new THREE.RingGeometry(0.62, 0.82, 32),
@@ -123,6 +141,47 @@ export class Jogadores {
     this.anel.position.y = 0.04;
     this.anel.visible = false;
     this.grupo.add(this.anel);
+  }
+
+  private readonly geoSeta = new THREE.ConeGeometry(0.32, 0.6, 4);
+  private readonly geoAnelDono = new THREE.RingGeometry(0.5, 0.66, 28);
+  private readonly materiaisDaCor = new Map<string, THREE.MeshBasicMaterial>();
+
+  private materialDaCor(cor: string): THREE.MeshBasicMaterial {
+    let m = this.materiaisDaCor.get(cor);
+    if (!m) {
+      m = new THREE.MeshBasicMaterial({ color: new THREE.Color(cor), side: THREE.DoubleSide, depthWrite: false });
+      this.materiaisDaCor.set(cor, m);
+    }
+    return m;
+  }
+
+  /** O apelido em cima do jogador, desenhado uma vez por apelido e cor. */
+  private etiquetaDe(nome: string, cor: string): THREE.Sprite {
+    const chave = `${cor}|${nome}`;
+    let e = this.etiquetas.get(chave);
+    if (!e) {
+      e = etiqueta(nome, cor);
+      e.visible = false;
+      this.grupo.add(e);
+      this.etiquetas.set(chave, e);
+    }
+    return e;
+  }
+
+  /** Quem controla qual jogador mudou (mensagem `donos`, G1): move a seta, o anel e o apelido. */
+  definirDonos(donos: DonoDeSlot[]): void {
+    this.donos = new Map(donos.map((d) => [d.slot, d.nome]));
+    for (const [slot, f] of this.figuras) {
+      const nome = this.donos.get(slot);
+      const tem = nome !== undefined;
+      if (f.seta) f.seta.visible = tem;
+      if (f.anelDono) f.anelDono.visible = tem;
+      if (f.numero) f.numero.visible = !tem;
+      if (f.apelido) f.apelido.visible = false;
+      f.apelido = tem ? this.etiquetaDe(nome, f.cor) : null;
+      if (f.apelido) f.apelido.visible = true;
+    }
   }
 
   /** Pose da cápsula: em pé (inclinando na corrida), deitada (caído), deslizando (carrinho) ou mergulhando (goleiro). */
@@ -150,6 +209,15 @@ export class Jogadores {
   /** Solta o que o modelo animado prendeu (mixers). A cena chama ao trocar de partida ou de elenco. */
   liberar(): void {
     for (const f of this.figuras.values()) f.modelo?.liberar();
+    for (const e of this.etiquetas.values()) {
+      e.material.map?.dispose();
+      e.material.dispose();
+    }
+    this.etiquetas.clear();
+    this.geoSeta.dispose();
+    this.geoAnelDono.dispose();
+    for (const m of this.materiaisDaCor.values()) m.dispose();
+    this.materiaisDaCor.clear();
   }
 
   atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0): void {
@@ -162,7 +230,8 @@ export class Jogadores {
       this.pose(f, j);
       f.modelo?.atualizar(j.anim, j.vel, dtS);
 
-      f.rotulo?.position.set(j.x, JOGADOR.alturaCorpo + (j.humano ? 1.35 : 0.75), j.z);
+      if (f.apelido) f.apelido.position.set(j.x, JOGADOR.alturaCorpo + 1.35, j.z);
+      f.numero?.position.set(j.x, JOGADOR.alturaCorpo + 0.75, j.z);
 
       if (j.slot === dominante && dominante !== SEM_DOMINANTE) {
         this.anel.visible = true;
