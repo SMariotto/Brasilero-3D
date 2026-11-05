@@ -62,6 +62,8 @@ export const PARTIDA = {
   assistenciaJanelaS: 6,
   /** Vaga guardada de quem caiu da conexão; um bot joga no lugar. (SPEC 4.1) */
   vagaGuardadaS: 30,
+  /** Comemoração depois do gol, com o relógio parado (provisório, F2). */
+  golComemoracaoS: 3,
   /** Cores fixas dos goleiros (provisório, ver PROGRESSO). (SPEC 9.3) */
   corGoleiroCasa: "#E6D800",
   corGoleiroVisitante: "#FF7F11",
@@ -87,6 +89,16 @@ export const BOLA = {
   travesRaio: 0.06,
   travesRestituicao: 0.6,
   paredeRestituicao: 0.7,
+  /** Provisório (F2): abaixo desta velocidade vertical (m/s) a bola não quica mais, só rola. */
+  quiqueMinimo: 1,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Gol e rede (provisório, F2): depois de entrar, a bola fica presa numa caixa atrás da linha até a saída de bola.
+// ---------------------------------------------------------------------------
+export const GOL = {
+  profundidadeRede: 2,
+  restituicaoRede: 0.2,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -113,6 +125,10 @@ export const JOGADOR = {
   energiaVoltaAArrancar: 30,
   massa: 1,
   massaGoleiro: 1.3,
+  /** Altura do corpo (m): a bola abaixo disso e perto do corpo bate nele (F2, provisório). */
+  alturaCorpo: 1.8,
+  /** Quanto a bola quica no corpo quando o jogador não consegue dominá-la (F2, provisório). */
+  restituicaoCorpo: 0.5,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -131,6 +147,13 @@ export const DOMINIO = {
   toqueIntervaloS: 0.35,
   /** Depois de chutar ou passar, o próprio jogador não domina por este tempo. */
   bloqueioAposChuteS: 0.25,
+  /** Mola de condução (provisório, F2: a SPEC não define). Amortecimento perto do crítico: 2·√rigidez. */
+  molaRigidez: 180,
+  molaAmortecimento: 26,
+  /** Velocidade extra (m/s) dada à bola a cada "toque" de drible (provisório, F2). */
+  toqueImpulso: 2,
+  /** Ao disputar, vence quem estiver mais perto do alvo; diferença menor que isto conta como empate. */
+  disputaEmpateM: 0.05,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -153,6 +176,8 @@ export const PASSE = {
   lancamentoSegurarS: 0.25,
   lancamentoVzMin: 5,
   lancamentoVzMax: 9,
+  /** Provisório (F2): velocidade do passe sem mira em alvo. Na F3 vira a fórmula por distância. */
+  velocidadeSemAlvo: 12,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -185,6 +210,9 @@ export const CHUTE = {
   /** Cabeceio (F6): bola entre voleioAlturaMax e esta altura. */
   cabeceioAlturaMax: 2.2,
 } as const;
+
+/** Tempo (s) que a animação de chute e de passe aparece no snapshot (provisório, F2). */
+export const ANIMACAO = { chuteS: 0.3, passeS: 0.3 } as const;
 
 // ---------------------------------------------------------------------------
 // Defesa (SPEC 6.6)

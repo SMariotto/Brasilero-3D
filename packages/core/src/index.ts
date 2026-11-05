@@ -3,3 +3,7 @@ export * from "./util/rng";
 export * from "./util/vetor";
 export * from "./protocolo/index";
 export * from "./dados/index";
+export * from "./fisica/campo";
+export * from "./fisica/bola";
+export * from "./fisica/jogador";
+export * from "./regras/acoes";
