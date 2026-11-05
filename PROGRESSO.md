@@ -2,6 +2,16 @@
 
 O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova começa lendo daqui.
 
+## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodada G1, G2, G3)
+- **G1 (controle estilo FIFA): FEITA**, tag `g1-ok`. Máx. 3 humanos por time, 6 controles por sala; cada humano controla um jogador de cada vez; o controle passa para quem recebe o passe; CHUTE sem a bola troca de jogador; carrinho agora é segurar PASSE por 0,3 s.
+- **G2 (bots: desarme, pressão, dificuldade): NÃO COMEÇOU.**
+- **G3 (jogador 3D feito por código): NÃO COMEÇOU.**
+- **Não testado por mim:** nada disso no Render nem com celulares de verdade (só testes automáticos e Edge sem placa de vídeo). O "sentimento" da troca de jogador precisa de você.
+- **Perguntas abertas para você** (seção "Dúvidas para o Samuel", itens 16 em diante): o carrinho no PASSE segurado; o número de 6 controles por sala; o `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" (não mexi, é seu).
+- **Para subir tudo:** `cd "C:UsersSamuelDocumentsJarvisaultprojetosBrasilero 3Dprojeto"; git push; git push --tags`
+- Para voltar uma fase se ela ficar ruim: `git checkout g1-ok` (e `git switch main` para voltar).
+- Os passos de teste no Render estão em "Testes que o Samuel precisa fazer", **G1 primeiro**.
+
 ## Estado das fases
 | Fase | Estado | Último commit | Observação |
 |---|---|---|---|
@@ -16,6 +26,9 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F7 Som e acabamento | pronta (falta o Samuel conferir) | b520fa7 | Sons por Web Audio e botão de mudo (tecla M), identidade visual dos menus, manifest + ícones, Wake Lock, dica do iPhone, tela de fim nova, revisão de textos |
 | F8a Campeonato da sala | pronta (falta o Samuel conferir) | 4ba83b8 | Tabela de pontos corridos dos clubes e estatísticas dos jogadores na memória da sala; tecla T no telão; o Dono zera pelo celular |
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
+| G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
+| G2 Bots (desarme, pressão, dificuldade) | não começou | | |
+| G3 Jogador 3D por código | não começou | | |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
@@ -28,7 +41,7 @@ Dois itens da F6 dependem do Samuel e **não foram feitos nem testados com o mod
 
 ## Dúvidas para o Samuel
 Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opção mais simples; diga se quer outra:
-1. **Limite de 5 humanos por lado.** Quem tenta entrar num lado cheio recebe `LADO_CHEIO`. (SPEC 4.1)
+1. ~~Limite de 5 humanos por lado.~~ **Mudou na G1 (decisão sua): 3 humanos por time**, `LADO_CHEIO` ao passar disso (`PARTIDA.maxHumanosPorTime`). (SPEC 4.1)
 2. **"Pronto" só informativo.** O Dono pode começar com qualquer número de prontos. (SPEC 3.2)
 3. **Cores dos goleiros fixas:** Casa amarelo `#E6D800`, Visitante laranja `#FF7F11`. (SPEC 9.3)
 4. **Números de física que mudei na R0:** domínio 9 → 14 m/s e passe máximo 20 → 16 m/s, porque com os valores antigos ninguém conseguia receber um passe. Confirmar no sentimento do jogo na F3.
@@ -58,6 +71,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *ORIGENS não é obrigatória:* o código nunca exigiu (mesma origem passa em produção, `servidor.test.ts` agora prova a combinação produção + `SITE_DIR` + sem `ORIGENS`). `render.yaml` e `fly.toml` não pedem mais o valor. Só quem usar o plano B da Vercel precisa dela. O serviço do Render passou a se chamar `brasilero3d` (era `brasilero3d-servidor`).
    - *Não testei o `docker build`* (Docker não está instalado aqui): simulei as duas etapas à mão em pastas limpas, copiando só o que cada `COPY` copia e respeitando o `.dockerignore` (ver o registro de 05/11, "F4 correção do Dockerfile").
    - *`fly.toml`:* a máquina nunca dorme (`auto_stop_machines = "off"`), 1 máquina de 256 MB em `gru`, checagem em `/saude`.
+16. **G1, o que eu completei (confirme ou mande mudar):**
+   - *6 controles por sala* (3 + 3, `SERVIDOR.maxControlesPorSala`): mais gente assiste por um telão. O `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" num desenho: **obsoleto, não mexi (é seu). Posso corrigir?** O `npm run carga` passou a usar 6 controles por padrão.
+   - *Carrinho = segurar PASSE por 0,3 s sem a bola* (o bote sai no aperto e, se continuar segurando, vira carrinho; se o bote roubou a bola, não vira carrinho). Era o CHUTE sem a bola, que agora **troca de jogador**. Provisório (`DEFESA.carrinho.segurarPasseS`).
+   - *Fila rotativa só gira quando o humano passa para um BOT.* Passe para um companheiro que já é de outro humano não muda a fila. Passe sem destino também não.
+   - *Troca sozinha sem a bola:* o companheiro livre mais perto da bola, só se estiver 2,5 m mais perto que o atual, com pausa de 0,6 s (1,5 s depois de uma troca à mão). Números em `constantes.ts` (`TROCA`), ajustáveis. "Mais bem posicionado" do CHUTE sem a bola = o mais perto da bola (não olhei o joystick): simples e provisório.
+   - *Goleiro nunca é controlado por humano.* Quem cobra um reinício do time conta como portador (o primeiro da fila assume o cobrador).
+   - *Estatísticas e campeonato são do humano* (pelo apelido), não do jogador que ele controlava: gol, assistência e desarme vão para quem tocou na bola, mesmo que o humano já tenha trocado de jogador.
+   - *Câmera que segue (tecla N / `?segue=Apelido`)* agora segue o humano, esteja ele em qual jogador estiver.
+   - *Modo antigo nos testes:* `Partida` tem a opção `controleFifa` (o servidor liga; desligada, cada humano fica na vaga fixa, que é o que os testes das fases F2 a F8 esperam). Só os testes usam o modo antigo.
 12. **F5, o que eu completei (confirme ou mande mudar):**
    - *Conflito de cor:* se as camisas dos dois clubes ficam parecidas (diferença de cor ΔE < 25), o Visitante usa o uniforme reserva; se ainda assim parecer, usa branco ou preto. Conferi os 132 pares de clubes do `times.json`: nenhum fica abaixo de 25.
    - *"Aleatório":* aparece como opção de clube no lobby; o servidor sorteia na hora de começar e a Revanche mantém os mesmos clubes sorteados.
@@ -84,6 +106,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+G1 (controle estilo FIFA; no site do Render, com 2 celulares no mínimo; o ideal é 3 + 3):
+1. Entre com 2 celulares no mesmo time (os dois escolhem "Casa") e comece. Cada celular tem a faixa de cima com o número do **jogador que ele controla agora**; no telão, só esses dois jogadores têm **seta, anel no chão e apelido** na cor do time. Os outros têm só o número.
+2. **Com a bola:** quem estiver com a bola é controlado por um de vocês (o primeiro que entrou, se nenhum controlar o portador). Passe (toque em PASSE): na hora em que a bola sai, **o controle e a seta vão para quem recebeu**, e a faixa do celular **pisca** com o número novo. Com 2 humanos, o outro celular não troca (a menos que o passe vá para o jogador dele).
+3. **Fila:** com 3 celulares no time, passem a bola para um bot várias vezes: o controle do bot que recebe vai rodando entre os humanos (quem passou vai para o fim da fila).
+4. **Sem a bola:** deixe o time sem a bola. Seu jogador troca sozinho para o companheiro mais perto da bola, **sem ficar trocando toda hora**. Aperte **CHUTE** (agora escrito "TROCAR"): vai para o próximo companheiro mais perto da bola. Se o time inteiro dos humanos estiver na defesa e a troca parecer rápida ou lenta demais, me diga (os números estão em `TROCA`).
+5. **Carrinho:** o botão PASSE sem a bola diz "BOTE / segure: carrinho". Toque rápido = bote; segurando mais de 0,3 s = carrinho.
+6. **Queda:** desligue o Wi-Fi de um celular por 5 s e religue: um bot joga no lugar dele, e ao voltar ele recebe o companheiro mais perto da bola. Ninguém fica sem jogador.
+7. **Entrar no meio:** entre com um celular novo no meio da partida: ele pega um bot do time com menos humanos (máx. 3 por time). O 4º no mesmo time recebe "Esse lado já tem 3 jogadores". A sala aceita no máximo 6 controles.
+8. **Fim de jogo e tabela (T):** o artilheiro e os gols saem no **seu apelido**, mesmo que você tenha trocado de jogador antes de a bola entrar.
 F8a e F8b (extras):
 1. **Campeonato:** jogue uma partida até o fim. Quando ela acaba, aparece no telão (lobby e fim) o botão **Tabela (T)**; a tecla **T** (ou clique) abre/fecha. Mostra a tabela dos clubes (3 pontos por vitória, 1 por empate; desempate por vitórias, saldo e gols) e o ranking dos jogadores humanos (gols, assistências, desarmes). Jogue a Revanche: os números somam. No celular do Dono, no fim do lobby: "Campeonato da sala: N partidas" e o botão "Zerar campeonato" (dois toques). Quem não é o Dono não vê o botão.
 2. **Gol de ouro:** no celular do Dono, em "Se empatar", escolha "Gol de ouro (2 min)". Deixe o jogo empatar até o fim do tempo (ou faça isso com 2 min de duração): o apito toca, a bola volta ao centro, aparece a etiqueta amarela "GOL DE OURO" e o relógio recomeça em 02:00. O primeiro gol acaba a partida (depois da comemoração e do replay); o fim mostra "Decidido no gol de ouro". Sem gol em 2 min: termina empatado, "Prorrogação sem gols".
@@ -183,4 +214,5 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
+| 05/11/2026 | G1 | Controle estilo FIFA: gestor de controle no núcleo (`controle.ts`), 3 humanos por time e 6 por sala, troca por passe/sozinha/à mão, carrinho no PASSE segurado, mensagem `donos`, créditos por humano, seta/anel/apelido no telão, faixa que pisca no celular, SPEC/PROTOCOLO atualizados | ver git log (tag `g1-ok`) |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
