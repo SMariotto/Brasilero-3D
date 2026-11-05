@@ -13,12 +13,12 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F4 No ar | pronta (falta o Samuel conferir) | ver registro | ORIGENS, servidor serve o site, npm run festa, vercel.json, Dockerfile, fly.toml, render.yaml, telões extras, aviso de ping; 358 testes + 4 Playwright |
 | F5 Times e uniformes | pronta (falta o Samuel conferir) | b5a730f | Clubes sem conflito de cor (ΔE), "Aleatório", distintivo (PNG opcional ou neutro), uniforme por shader (7 padrões), vitrine, placar de TV |
 | F6 Visual 3D realista | pronta (falta o Samuel conferir) | 69da5c0 | Estádio noturno, torcida, sombras, bloom, replay do gol, modo leve, `?debug=1`, jogador 3D (GLB) com reserva em cápsula, script do Blender. **O modelo do Mixamo ainda não existe**: precisa do Samuel (passo 7 do guia manual) |
-| F7 Som e acabamento | não começou | | |
+| F7 Som e acabamento | pronta (falta o Samuel conferir) | b520fa7 | Sons por Web Audio e botão de mudo (tecla M), identidade visual dos menus, manifest + ícones, Wake Lock, dica do iPhone, tela de fim nova, revisão de textos |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F3, F4, F5 e F6 prontas (as quatro esperando o Samuel conferir). Próximo passo: F7 (Som e acabamento), depois que o Samuel testar e responder "sim". Nada pela metade.
+F3 a F7 prontas (esperando o Samuel conferir). O Samuel pediu em 05/11: "ainda não dá pra testar, faz os próximos 3": F7 e mais dois extras da F8 (ver a linha F8 abaixo). Ele só vai testar tudo no fim. Nada pela metade.
 
 Dois itens da F6 dependem do Samuel e **não foram feitos nem testados com o modelo de verdade**: (1) o `jogador.glb` do Mixamo (o carregador está pronto e testado com um boneco de caixas; sem o arquivo o jogo usa cápsulas); (2) o `ferramentas/blender/montar_jogador.py` foi escrito mas nunca rodado (Blender e Python não estão instalados nesta máquina). Passo a passo em `ferramentas/blender/LEIA-ME.md`.
 
@@ -57,6 +57,12 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *"Aleatório":* aparece como opção de clube no lobby; o servidor sorteia na hora de começar e a Revanche mantém os mesmos clubes sorteados.
    - *Escudos:* só os PNGs que você colocar em `apps/web/public/escudos/<id-do-clube>.png` (ver o LEIA-ME.txt lá). Sem arquivo aparece um distintivo neutro com a sigla nas cores do clube. Não coloquei nenhum escudo nem camisa real.
    - *Goleiros e bots:* goleiro em cor lisa fixa (amarelo/laranja), bot mostra o número da camisa, humano mostra o apelido e a seta.
+14. **F7, o que eu completei (confirme ou mande mudar):**
+   - *Som:* tudo gerado por código (nenhum arquivo de áudio). Só o telão **principal** toca por padrão; extras ficam mudos até a pessoa ligar. A escolha de mudo fica guardada no navegador. A torcida de fundo sobe com a bola perto do gol e fica alta por 3 s depois de um gol.
+   - *Telão sem clique:* se a página recarrega com a sala (`?sala=`) o navegador não deixa tocar até o primeiro clique; o botão fica amarelo piscando ("Clique para ativar o som").
+   - *Ícones:* desenhados por código (`node ferramentas/gerar-icones.mjs`): uma bola com anel amarelo num gramado. Se quiser outro desenho, mande um PNG de 512 px que eu troco.
+   - *Manifest:* abre em `/controle.html`, tela cheia e deitado. O telão não é "instalável" (só o controle).
+   - *Rota de teste nova:* `POST /teste/relogio` (só com NODE_ENV=test), para ver a tela de fim sem esperar 4 min.
 13. **F6, o que eu completei (confirme ou mande mudar):**
    - *Comemoração do gol subiu de 3 s para 6 s* (`PARTIDA.golComemoracaoS`): 1,4 s de "GOOOL" e depois o replay de ~4 s em câmera lenta (0,8x) atrás do gol. O relógio continua parado nesse tempo.
    - *Estilo:* noite com refletores, céu com estrelas, bloom leve (brilho nos refletores), sombras de um "sol" de transmissão, torcida de 3 silhuetas nas cores dos dois clubes que pula no gol. Tudo opcional: o modo leve desliga sombras, torcida 3D e bloom.
@@ -67,6 +73,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+F7 (som e acabamento):
+1. **Som (só no telão):** no telão, clique em qualquer lugar (o navegador só libera o áudio depois de um clique). O botão embaixo, no meio, diz "Som ligado". Tecla **M** liga/desliga. Escute: chute (pancada grave), passe (mais leve), apito no começo/falta/fim (3 apitos), torcida de fundo que sobe quando a bola chega perto de um gol, "uuuh" na trave e na defesa espalmada, e a explosão no gol. **Eu não consegui ouvir nada** (só conferi que nenhum som dá erro no navegador): se algum soar feio, me diga qual e eu ajusto.
+2. **Telão extra** (amigo que "assiste uma sala"): começa mudo; ele liga no botão.
+3. **Menus:** logo com bola e "3D" amarelo, fundo de gramado em faixas, botões verdes. Confira se dá para ler de longe na TV.
+4. **Celular (Android):** abra o controle, entre na sala e deixe 1 minuto sem encostar: a tela não deve apagar (Wake Lock). Em pé aparece "Fica melhor deitado".
+5. **iPhone:** no Safari do iPhone aparece na tela de entrada a dica de "Adicionar à Tela de Início"; depois de adicionar e abrir pelo ícone, o jogo abre em tela cheia. Toque em "Entendi" e a dica some. **Não tenho iPhone para testar**: só testei com um navegador fingindo ser iPhone.
+6. **Ícone:** ao "Adicionar à tela inicial" (Android: menu do Chrome > Instalar app), o ícone é uma bola num campo, com o nome "Brasilero 3D".
+7. **Fim de jogo:** no 1º gol, o telão mostra o replay; ao acabar o tempo aparece placar grande com os dois distintivos, quem fez os gols de cada time, artilheiro/assistências/desarmes e confete na cor de quem venceu. Empate: sem confete.
+
 F6 (visual; no PC, `npm run dev`, telão em `http://localhost:5173/tela.html`, 1 celular entrando e começando):
 1. Olhe o campo: noite, refletores brilhando, placas "BRASILERO 3D" em volta, torcida vermelha e verde (cores dos clubes) nas arquibancadas, sombra dos jogadores e da bola no gramado. A tecla **C** troca entre câmera de TV e aérea.
 2. Faça um gol (ou deixe o bot fazer): aparece "GOOOL", a torcida pula, a rede balança e depois entra o **REPLAY** em câmera lenta, atrás do gol, com a etiqueta vermelha. Depois de uns 6 s o jogo volta sozinho.
