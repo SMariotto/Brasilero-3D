@@ -115,6 +115,23 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots,
       });
       return;
     }
+    if (testeLigado && req.method === "POST" && url.pathname === "/teste/relogio") {
+      // Só testes: muda quantos segundos faltam para o fim da partida da sala.
+      let corpo = "";
+      req.on("data", (d: Buffer) => (corpo += d.toString()));
+      req.on("end", () => {
+        try {
+          const o = JSON.parse(corpo) as { sala: string; segundos: number };
+          const partida = salas.achar(o.sala)?.partida;
+          partida?.definirRelogioParaTeste(o.segundos);
+          json(res, { ok: partida !== null && partida !== undefined });
+        } catch {
+          res.writeHead(400, CORS);
+          res.end("corpo inválido");
+        }
+      });
+      return;
+    }
     if (pastaDoSite && servirSite(pastaDoSite, req, res)) return;
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     res.end("Brasilero 3D: servidor da partida. Use /saude ou o WebSocket em /ws.");

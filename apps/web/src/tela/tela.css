@@ -711,3 +711,154 @@ body.tela:has(.vitrine:not([hidden])) {
     transform: scale(1.06);
   }
 }
+
+/* Tela de fim (F7): placar grande, gols de cada time, destaques e confete na cor de quem venceu */
+.painel-fim {
+  --cor-vencedor: #ffd54a;
+  overflow: hidden;
+  min-width: 62vw;
+  max-width: 86vw;
+  gap: 1.1vh;
+  padding: 3.5vh 3vw;
+  border: 0.22em solid var(--cor-vencedor);
+  background: linear-gradient(rgba(8, 20, 12, 0.95), rgba(5, 14, 8, 0.97));
+  box-shadow: 0 0 6vw color-mix(in srgb, var(--cor-vencedor) 45%, transparent), 0 2vh 6vh rgba(0, 0, 0, 0.6);
+}
+
+.painel-fim .fim-titulo {
+  font-size: 1.1em;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.fim-placar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3vw;
+}
+
+.fim-lado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+  min-width: 12vw;
+  opacity: 0.78;
+}
+
+.fim-lado.vencedor {
+  opacity: 1;
+  transform: scale(1.08);
+}
+
+.fim-nome {
+  font-size: 1.3em;
+  font-weight: 800;
+}
+
+.fim-gols-num {
+  font-size: 6em;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.painel-fim .fim-x {
+  font-size: 2.6em;
+  opacity: 0.5;
+  font-weight: 800;
+}
+
+.painel-fim .resultado {
+  font-size: 2em;
+  color: color-mix(in srgb, var(--cor-vencedor) 55%, white);
+  text-shadow: 0 0 0.6em color-mix(in srgb, var(--cor-vencedor) 55%, transparent);
+}
+
+.fim-gols-lista {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4vw;
+  width: 100%;
+  font-size: 1.05em;
+}
+
+.fim-quem {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.fim-quem li.vazio {
+  opacity: 0.45;
+}
+
+.fim-gols-lista .fim-quem:first-child {
+  text-align: right;
+}
+
+.fim-gols-lista .fim-quem:last-child {
+  text-align: left;
+}
+
+.fim-destaques {
+  display: flex;
+  gap: 1.5vw;
+  margin-top: 0.4em;
+}
+
+.fim-destaques .fim-cartao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1em;
+  min-width: 13vw;
+  padding: 0.6em 1em;
+  border-radius: 0.7em;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--linha, rgba(255, 255, 255, 0.1));
+}
+
+.fim-destaques .fim-cartao small {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  opacity: 0.75;
+}
+
+.painel-fim .fim-destaques strong {
+  font-size: 1.4em;
+}
+
+.fim-destaques .fim-cartao span {
+  font-size: 1.1em;
+  color: #ffd54a;
+  font-weight: 800;
+}
+
+.confete {
+  position: absolute;
+  top: -4%;
+  left: var(--x);
+  width: 0.55em;
+  height: 0.9em;
+  border-radius: 0.1em;
+  opacity: 0;
+  pointer-events: none;
+  animation: confete var(--dur) linear var(--atraso) infinite;
+}
+
+@keyframes confete {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--giro));
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(130vh) rotate(calc(var(--giro) + 540deg));
+  }
+}

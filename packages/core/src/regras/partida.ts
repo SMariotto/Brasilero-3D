@@ -1174,6 +1174,11 @@ export class Partida {
   // Só para testes e para a rota de teste do servidor (NODE_ENV=test)
   // ---------------------------------------------------------------------------
 
+  /** Muda o tempo que falta para o fim da partida (para ver a tela de fim sem esperar). */
+  definirRelogioParaTeste(segundos: number): void {
+    this.relogio = Math.max(0, segundos);
+  }
+
   /** Põe um jogador e a bola onde o teste quer, a bola parada, e solta o jogo (fase "jogo"). */
   posicionarParaTeste(slot: number, x: number, z: number, bolaX: number, bolaZ: number, dir = 0): void {
     const j = this.jogador(slot);

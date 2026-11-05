@@ -1,6 +1,7 @@
 import { FASE, acharTime, type Evento, type Fim, type PartidaMsg } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
-import { corDoTexto as corTexto, escudoSeExistir } from "../comum/escudo";
+import { corDoTexto as corTexto, distintivo, escudoSeExistir } from "../comum/escudo";
+import { golsPorTime, textoDaLinha, vencedor, type LinhaDeGol } from "./fim";
 
 const corDoTexto = corTexto;
 
@@ -142,20 +143,68 @@ export class Hud {
     this.fim = true;
     this.faixaGol.hidden = true;
     const [a, b] = f.placar;
-    const venceu = a === b ? "Empate" : a > b ? `${this.siglas[0]} venceu` : `${this.siglas[1]} venceu`;
-    const art = f.destaques.artilheiro;
-    const ass = f.destaques.assistencias;
-    const des = f.destaques.desarmes;
+    const ganhou = vencedor(f);
+    const times = [acharTime(this.p?.config.casa ?? ""), acharTime(this.p?.config.visitante ?? "")] as const;
+    const nomes = [times[0]?.nome ?? this.siglas[0], times[1]?.nome ?? this.siglas[1]] as const;
+    const corVencedora = ganhou === null || !this.p ? "#ffd54a" : this.p.cores[ganhou];
+    this.painelFim.style.setProperty("--cor-vencedor", corVencedora);
+    this.painelFim.classList.toggle("empate", ganhou === null);
+
+    const lado = (t: 0 | 1, gols: number): HTMLElement => {
+      const badge = distintivo(times[t], this.siglas[t]);
+      badge.style.setProperty("--tam", "5.5em");
+      return el(
+        "div",
+        { class: `fim-lado${ganhou === t ? " vencedor" : ""}` },
+        badge,
+        el("span", { class: "fim-nome" }, nomes[t]),
+        el("span", { class: "fim-gols-num" }, String(gols)),
+      );
+    };
+
+    const [golsCasa, golsVisitante] = golsPorTime(f, this.p?.elenco ?? []);
+    const coluna = (linhas: LinhaDeGol[]): HTMLElement =>
+      el("ul", { class: "fim-quem" }, ...(linhas.length > 0 ? linhas.map((l) => el("li", {}, `⚽ ${textoDaLinha(l)}`)) : [el("li", { class: "vazio" }, "sem gols")]));
+
+    const cartao = (rotulo: string, d: { slot: number; quantidade: number } | null): HTMLElement | false =>
+      d !== null && el("div", { class: "fim-cartao" }, el("small", {}, rotulo), el("strong", {}, this.nome(d.slot)), el("span", {}, String(d.quantidade)));
+
     trocar(
       this.painelFim,
-      el("small", {}, "Fim de jogo"),
-      el("strong", { id: "placar-final" }, `${this.siglas[0]} ${a} x ${b} ${this.siglas[1]}`),
-      el("span", { class: "resultado" }, venceu),
-      art && el("span", {}, `Artilheiro: ${this.nome(art.slot)} (${art.quantidade})`),
-      ass && el("span", {}, `Assistências: ${this.nome(ass.slot)} (${ass.quantidade})`),
-      des && el("span", {}, `Desarmes: ${this.nome(des.slot)} (${des.quantidade})`),
+      el("small", { class: "fim-titulo" }, "Fim de jogo"),
+      el(
+        "div",
+        { class: "fim-placar", id: "placar-final" },
+        lado(0, a),
+        el("span", { class: "fim-x" }, "x"),
+        lado(1, b),
+      ),
+      el("span", { class: "resultado" }, ganhou === null ? "Empate" : `${nomes[ganhou]} venceu`),
+      el("div", { class: "fim-gols-lista" }, coluna(golsCasa), coluna(golsVisitante)),
+      el(
+        "div",
+        { class: "fim-destaques" },
+        cartao("Artilheiro", f.destaques.artilheiro),
+        cartao("Assistências", f.destaques.assistencias),
+        cartao("Desarmes", f.destaques.desarmes),
+      ),
       el("span", { class: "espera" }, "O Dono da sala escolhe: Revanche ou Lobby"),
+      ...(ganhou === null ? [] : confete(corVencedora)),
     );
     this.painelFim.hidden = false;
   }
+}
+
+/** Papeizinhos que caem na tela de fim, na cor do time vencedor e em branco/amarelo. Só CSS: cada um tem o seu atraso e posição. */
+function confete(cor: string): HTMLElement[] {
+  const cores = [cor, "#ffffff", "#ffd54a", cor];
+  return Array.from({ length: 36 }, (_, i) => {
+    const p = el("i", { class: "confete" });
+    p.style.setProperty("--x", `${(i * 2.77) % 100}%`);
+    p.style.setProperty("--atraso", `${((i * 0.37) % 3).toFixed(2)}s`);
+    p.style.setProperty("--dur", `${3.2 + ((i * 0.53) % 2.4)}s`);
+    p.style.setProperty("--giro", `${(i * 47) % 360}deg`);
+    p.style.background = cores[i % cores.length]!;
+    return p;
+  });
 }
