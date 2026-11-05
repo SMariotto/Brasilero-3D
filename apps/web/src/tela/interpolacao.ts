@@ -172,3 +172,20 @@ function misturar(a: Snapshot, b: Snapshot, k: number): Amostra {
     jogadores,
   };
 }
+
+/**
+ * O estado do jogo num instante (em ticks, pode ser fracionado) de uma sequência de snapshots já guardada, em ordem de tick.
+ * É o que o replay usa: a mesma mistura do telão ao vivo, só que lendo de uma lista em vez do relógio da rede.
+ */
+export function amostrarEmTick(snaps: Snapshot[], tick: number): Amostra | null {
+  const primeiro = snaps[0];
+  const ultimo = snaps[snaps.length - 1];
+  if (!primeiro || !ultimo) return null;
+  if (tick <= primeiro.tick) return copiar(primeiro);
+  if (tick >= ultimo.tick) return copiar(ultimo);
+  let i = 0;
+  while (i < snaps.length - 2 && snaps[i + 1]!.tick < tick) i++;
+  const a = snaps[i]!;
+  const b = snaps[i + 1]!;
+  return misturar(a, b, Math.max(0, Math.min(1, (tick - a.tick) / Math.max(1, b.tick - a.tick))));
+}

@@ -3,6 +3,7 @@ import type { BolaSnap, CampoMsg } from "@b3d/core";
 
 export type ModoCamera = "tv" | "aerea";
 
+
 const FOV = 35;
 /** Inclinação da câmera de TV, em radianos acima do campo (como a transmissão). */
 const INCLINACAO = (38 * Math.PI) / 180;
@@ -18,6 +19,7 @@ interface Ponto {
  * TV: lateral e alta, olhando para -Z (a Casa fica à esquerda), segue a bola com suavização, abre o zoom quando os jogadores
  * se espalham e fecha quando se juntam; todo mundo que importa fica dentro do quadro, inclusive quem está com a bola.
  * Aérea: de cima, o campo inteiro, com a mesma orientação.
+ * Replay: atrás do gol, só durante o replay do gol (SPEC 7.1).
  */
 export class CameraJogo {
   readonly camera = new THREE.PerspectiveCamera(FOV, 16 / 9, 0.5, 500);
@@ -25,6 +27,9 @@ export class CameraJogo {
   private alvoX = 0;
   private alvoZ = 0;
   private distancia = 45;
+  private replayLado: 1 | -1 | null = null;
+  private olhaX = 0;
+  private olhaZ = 0;
 
   constructor(private readonly campo: CampoMsg) {
     this.atualizar(1, { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0 }, [], true);
@@ -33,6 +38,23 @@ export class CameraJogo {
   definirAspecto(aspecto: number): void {
     this.camera.aspect = aspecto;
     this.camera.updateProjectionMatrix();
+  }
+
+  /** Começa o replay do gol que entrou no lado `lado` (+1 = gol de X positivo): a câmera vai para trás dele. */
+  iniciarReplay(lado: 1 | -1): void {
+    this.replayLado = lado;
+    this.olhaX = lado * (this.campo.comp / 2 - 6);
+    this.olhaZ = 0;
+    this.camera.up.set(0, 1, 0);
+  }
+
+  terminarReplay(): void {
+    this.replayLado = null;
+    this.camera.up.set(0, this.modo === "aerea" ? 0 : 1, this.modo === "aerea" ? -1 : 0);
+  }
+
+  get emReplay(): boolean {
+    return this.replayLado !== null;
   }
 
   alternar(): ModoCamera {
@@ -54,6 +76,16 @@ export class CameraJogo {
 
   /** `dt` em segundos. `imediato` pula a suavização (primeiro quadro). */
   atualizar(dt: number, bola: BolaSnap, jogadores: Ponto[], imediato = false): void {
+    if (this.replayLado !== null) {
+      // Atrás do gol, um pouco de lado e no alto, seguindo a bola com suavização
+      const k = 1 - Math.exp(-dt * 4);
+      this.olhaX += (bola.x - this.olhaX) * k;
+      this.olhaZ += (bola.z - this.olhaZ) * k;
+      this.camera.position.set(this.replayLado * (this.campo.comp / 2 + 9), 3.4, 6);
+      this.camera.lookAt(this.olhaX, 0.8, this.olhaZ);
+      return;
+    }
+
     if (this.modo === "aerea") {
       const { v, h } = this.tangentes();
       const alt = Math.max((this.campo.comp / 2 + 2) / h, (this.campo.larg / 2 + 2) / v);

@@ -67,7 +67,7 @@ export const PARTIDA = {
   /** Tempo máximo (s) que o cobrador leva para deslizar até a bola. */
   cobradorDeslizaS: 1,
   /** Comemoração depois do gol, com o relógio parado (provisório, F2). */
-  golComemoracaoS: 3,
+  golComemoracaoS: 6,
   /** Cores fixas dos goleiros (provisório, ver PROGRESSO). (SPEC 9.3) */
   corGoleiroCasa: "#E6D800",
   corGoleiroVisitante: "#FF7F11",

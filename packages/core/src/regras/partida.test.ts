@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PARTIDA } from "../constantes";
 import { CONFIG_PADRAO, type Config } from "../protocolo/config";
 import { ACAO, BOTAO, FASE, SEM_DOMINANTE, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
 import { Partida, type VagaPartida } from "./partida";
@@ -347,7 +348,7 @@ describe("partida: gol", () => {
   it("depois da comemoração a bola volta ao centro e quem sofreu o gol sai jogando", () => {
     const p = golDaCasa();
     p.eventosPendentes();
-    rodar(p, 3);
+    rodar(p, PARTIDA.golComemoracaoS);
     expect(p.fase).toBe(FASE.reinicio);
     expect(p.saidaTime).toBe(1);
     expect(p.bola.x).toBe(0);
@@ -359,7 +360,7 @@ describe("partida: gol", () => {
 
   it("o relógio só volta a correr quando a saída é tocada", () => {
     const p = golDaCasa();
-    rodar(p, 3.1);
+    rodar(p, PARTIDA.golComemoracaoS + 0.1);
     const relogio = p.relogio;
     rodar(p, 1);
     expect(p.relogio).toBe(relogio);
