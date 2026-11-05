@@ -14,11 +14,13 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F5 Times e uniformes | pronta (falta o Samuel conferir) | b5a730f | Clubes sem conflito de cor (ΔE), "Aleatório", distintivo (PNG opcional ou neutro), uniforme por shader (7 padrões), vitrine, placar de TV |
 | F6 Visual 3D realista | pronta (falta o Samuel conferir) | 69da5c0 | Estádio noturno, torcida, sombras, bloom, replay do gol, modo leve, `?debug=1`, jogador 3D (GLB) com reserva em cápsula, script do Blender. **O modelo do Mixamo ainda não existe**: precisa do Samuel (passo 7 do guia manual) |
 | F7 Som e acabamento | pronta (falta o Samuel conferir) | b520fa7 | Sons por Web Audio e botão de mudo (tecla M), identidade visual dos menus, manifest + ícones, Wake Lock, dica do iPhone, tela de fim nova, revisão de textos |
+| F8a Campeonato da sala | pronta (falta o Samuel conferir) | 4ba83b8 | Tabela de pontos corridos dos clubes e estatísticas dos jogadores na memória da sala; tecla T no telão; o Dono zera pelo celular |
+| F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F3 a F7 prontas (esperando o Samuel conferir). O Samuel pediu em 05/11: "ainda não dá pra testar, faz os próximos 3": F7 e mais dois extras da F8 (ver a linha F8 abaixo). Ele só vai testar tudo no fim. Nada pela metade.
+F3 a F7, F8a e F8b prontas (esperando o Samuel conferir). O Samuel pediu em 05/11: "ainda não dá pra testar, faz os próximos 3": fiz a F7 e dois extras da F8 (F8a e F8b, escolhidos por mim da lista da SPEC 10). Ele só vai testar tudo no fim. Próximo passo, se ele disser "sim": os extras que sobraram da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti) ou o que ele pedir; antes, ele precisa testar F3 a F8 e baixar o personagem do Mixamo para a F6. Nada pela metade.
 
 Dois itens da F6 dependem do Samuel e **não foram feitos nem testados com o modelo de verdade**: (1) o `jogador.glb` do Mixamo (o carregador está pronto e testado com um boneco de caixas; sem o arquivo o jogo usa cápsulas); (2) o `ferramentas/blender/montar_jogador.py` foi escrito mas nunca rodado (Blender e Python não estão instalados nesta máquina). Passo a passo em `ferramentas/blender/LEIA-ME.md`.
 
@@ -63,6 +65,11 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Ícones:* desenhados por código (`node ferramentas/gerar-icones.mjs`): uma bola com anel amarelo num gramado. Se quiser outro desenho, mande um PNG de 512 px que eu troco.
    - *Manifest:* abre em `/controle.html`, tela cheia e deitado. O telão não é "instalável" (só o controle).
    - *Rota de teste nova:* `POST /teste/relogio` (só com NODE_ENV=test), para ver a tela de fim sem esperar 4 min.
+15. **F8a/F8b, o que eu completei (confirme ou mande mudar):**
+   - *Eu escolhi os dois extras* porque você pediu "os próximos 3" e só a F7 é uma fase fechada do guia. Escolhi o que não mexe no jeito de jogar e que muda a festa: campeonato, gol de ouro e câmera que segue. Se preferia outros (goleiro humano, pênalti, chuva...), me diga.
+   - *Campeonato:* as linhas são por **clube** (o clube que o Dono escolheu em cada partida) e por **apelido** do jogador (sem ligar para maiúscula). Fica só na memória da sala (some quando a sala fecha). Conta toda partida que chega ao fim, inclusive a Revanche. Um humano que entrou no meio herda as estatísticas da vaga do bot que ele assumiu (limite que aceitei).
+   - *Gol de ouro:* desligado por padrão; prorrogação de 120 s (`PARTIDA.prorrogacaoS`); recomeça com bola ao centro; se ninguém marcar, empata. Um telão que abre **durante** a prorrogação não mostra a etiqueta "GOL DE OURO" (o aviso vai só no momento em que ela começa), mas o relógio e o resto funcionam.
+   - *Câmera que segue:* a orientação é a da TV (não gira junto com o jogador, para não dar enjoo); a bola puxa a câmera no máximo 5 m. Só segue humanos.
 13. **F6, o que eu completei (confirme ou mande mudar):**
    - *Comemoração do gol subiu de 3 s para 6 s* (`PARTIDA.golComemoracaoS`): 1,4 s de "GOOOL" e depois o replay de ~4 s em câmera lenta (0,8x) atrás do gol. O relógio continua parado nesse tempo.
    - *Estilo:* noite com refletores, céu com estrelas, bloom leve (brilho nos refletores), sombras de um "sol" de transmissão, torcida de 3 silhuetas nas cores dos dois clubes que pula no gol. Tudo opcional: o modo leve desliga sombras, torcida 3D e bloom.
@@ -73,6 +80,11 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+F8a e F8b (extras):
+1. **Campeonato:** jogue uma partida até o fim. Quando ela acaba, aparece no telão (lobby e fim) o botão **Tabela (T)**; a tecla **T** (ou clique) abre/fecha. Mostra a tabela dos clubes (3 pontos por vitória, 1 por empate; desempate por vitórias, saldo e gols) e o ranking dos jogadores humanos (gols, assistências, desarmes). Jogue a Revanche: os números somam. No celular do Dono, no fim do lobby: "Campeonato da sala: N partidas" e o botão "Zerar campeonato" (dois toques). Quem não é o Dono não vê o botão.
+2. **Gol de ouro:** no celular do Dono, em "Se empatar", escolha "Gol de ouro (2 min)". Deixe o jogo empatar até o fim do tempo (ou faça isso com 2 min de duração): o apito toca, a bola volta ao centro, aparece a etiqueta amarela "GOL DE OURO" e o relógio recomeça em 02:00. O primeiro gol acaba a partida (depois da comemoração e do replay); o fim mostra "Decidido no gol de ouro". Sem gol em 2 min: termina empatado, "Prorrogação sem gols".
+3. **Câmera que segue o jogador:** no telão, aperte **C** até aparecer a terceira câmera (depois da TV e da aérea): "Seguindo: Fulano". **N** troca para o próximo humano. Para um telão extra abrir seguindo o amigo dele: acrescente `?segue=Apelido` no endereço do telão (sem ligar para maiúscula/acento). **Teste com 2 humanos** (eu só testei com 1).
+
 F7 (som e acabamento):
 1. **Som (só no telão):** no telão, clique em qualquer lugar (o navegador só libera o áudio depois de um clique). O botão embaixo, no meio, diz "Som ligado". Tecla **M** liga/desliga. Escute: chute (pancada grave), passe (mais leve), apito no começo/falta/fim (3 apitos), torcida de fundo que sobe quando a bola chega perto de um gol, "uuuh" na trave e na defesa espalmada, e a explosão no gol. **Eu não consegui ouvir nada** (só conferi que nenhum som dá erro no navegador): se algum soar feio, me diga qual e eu ajusto.
 2. **Telão extra** (amigo que "assiste uma sala"): começa mudo; ele liga no botão.
@@ -151,4 +163,7 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F3 | Reinícios do modo Campo, passe com mira e lançamento, voleio, bote, carrinho, faltas, goleiro bot, bots de linha, vagas e substituição por bot, estatísticas, telão e controle da F3 | a3042d7, 7628599, 519dffc, e commits de interface (ver git log) |
 | 05/11/2026 | F5 | Cores sem conflito (ΔE76), clube "Aleatório", distintivos com PNG opcional, uniforme por shader com 7 padrões, vitrine, placar de TV | 9db9ba9, 379e69a, b5a730f |
 | 05/11/2026 | F6 | Estádio noturno e torcida, sombras e bloom, rede que balança, replay do gol, medidor de fps com modo leve e `?debug=1`, carregador do `jogador.glb` com animações e reserva em cápsula, script do Blender (não rodado), boneco de teste | 19e1942, 4d0dc36, ae08100, 8ec76d1, 1b968aa, 69da5c0 |
+| 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
+| 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
+| 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
