@@ -62,7 +62,13 @@ function texturaDaRede(): THREE.CanvasTexture {
   return tex;
 }
 
-function gol(c: CampoMsg, lado: 1 | -1, metal: THREE.Material, rede: THREE.CanvasTexture): THREE.Group {
+interface GolMontado {
+  grupo: THREE.Group;
+  /** Rede de trás e teto: são o que balança quando a bola entra. */
+  moveis: { malha: THREE.Mesh; x0: number }[];
+}
+
+function gol(c: CampoMsg, lado: 1 | -1, metal: THREE.Material, rede: THREE.CanvasTexture): GolMontado {
   const g = new THREE.Group();
   const x = lado * (c.comp / 2);
   const meia = c.golLarg / 2;
@@ -92,6 +98,7 @@ function gol(c: CampoMsg, lado: 1 | -1, metal: THREE.Material, rede: THREE.Canva
   fundo.position.set(x + lado * prof, c.golAlt / 2, 0);
   fundo.rotation.y = Math.PI / 2;
   g.add(fundo);
+  const moveis = [{ malha: fundo, x0: fundo.position.x }];
   for (const z of [-meia, meia]) {
     const lateral = malha(prof, c.golAlt);
     lateral.position.set(x + (lado * prof) / 2, c.golAlt / 2, z);
@@ -102,11 +109,19 @@ function gol(c: CampoMsg, lado: 1 | -1, metal: THREE.Material, rede: THREE.Canva
   teto.rotation.z = Math.PI / 2;
   teto.position.set(x + (lado * prof) / 2, c.golAlt, 0);
   g.add(teto);
-  return g;
+  moveis.push({ malha: teto, x0: teto.position.x });
+  return { grupo: g, moveis };
 }
 
-/** Tudo que é parado: gramado, linhas, gols com rede e, no modo Arena, as paredes de 1 m. */
-export function criarCampo3D(c: CampoMsg): THREE.Group {
+export interface Campo3D {
+  grupo: THREE.Group;
+  /** A bola entrou no gol deste lado (+1 = gol de X positivo): a rede balança por um segundo e meio. */
+  balancarRede(lado: 1 | -1): void;
+  atualizar(dtS: number): void;
+}
+
+/** Gramado, linhas, gols com rede (que balança) e, no modo Arena, as paredes de 1 m. */
+export function criarCampo3D(c: CampoMsg): Campo3D {
   const grupo = new THREE.Group();
 
   const chao = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshLambertMaterial({ color: 0x1c5a2a }));
@@ -116,11 +131,15 @@ export function criarCampo3D(c: CampoMsg): THREE.Group {
 
   const gramado = new THREE.Mesh(new THREE.PlaneGeometry(c.comp, c.larg), new THREE.MeshLambertMaterial({ map: texturaDoGramado(c) }));
   gramado.rotation.x = -Math.PI / 2;
+  gramado.receiveShadow = true;
   grupo.add(gramado);
 
   const metal = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, metalness: 0.6, roughness: 0.35 });
   const rede = texturaDaRede();
-  grupo.add(gol(c, -1, metal, rede), gol(c, 1, metal, rede));
+  const golCasa = gol(c, -1, metal, rede);
+  const golVisitante = gol(c, 1, metal, rede);
+  grupo.add(golCasa.grupo, golVisitante.grupo);
+  const balanco = new Map<1 | -1, number>();
 
   if (c.paredes) {
     const parede = new THREE.MeshStandardMaterial({ color: 0x2563eb, transparent: true, opacity: 0.55, roughness: 0.5 });
@@ -142,5 +161,22 @@ export function criarCampo3D(c: CampoMsg): THREE.Group {
       }
     }
   }
-  return grupo;
+  return {
+    grupo,
+    balancarRede(lado) {
+      balanco.set(lado, 0);
+    },
+    atualizar(dtS) {
+      for (const [lado, tempo] of balanco) {
+        const t = tempo + dtS;
+        const fim = t > 1.5;
+        // Balanço amortecido: vai para trás (para fora do gol) e volta
+        const amp = fim ? 0 : 0.7 * Math.exp(-3 * t) * Math.sin(t * 18);
+        const gol = lado === 1 ? golVisitante : golCasa;
+        for (const m of gol.moveis) m.malha.position.x = m.x0 + lado * amp;
+        if (fim) balanco.delete(lado);
+        else balanco.set(lado, t);
+      }
+    },
+  };
 }
