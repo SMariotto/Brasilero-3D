@@ -3,7 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { FASE, SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot } from "@b3d/core";
+import { FASE, SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot, type VagaElenco } from "@b3d/core";
 import { criarBola3D, type Bola3D } from "./bola";
 import { CameraJogo } from "./camera";
 import { criarCampo3D, type Campo3D } from "./campo";
@@ -14,6 +14,7 @@ import { Interpolador, type Amostra } from "./interpolacao";
 import { Jogadores } from "./jogadores";
 import { obterModelo, urlDoModelo, type ModeloBase } from "./modelo";
 import { GravadorDeReplay, Reproducao } from "./replay";
+import { proximoSlot, slotDoApelido, slotsHumanos } from "./seguir";
 
 /** Quanto o GOOOL fica sozinho na tela antes de o replay começar. */
 const ESPERA_REPLAY_MS = 1400;
@@ -45,6 +46,9 @@ export class CenaJogo {
   private sol: THREE.DirectionalLight | null = null;
 
   private partidaId = -1;
+  private elenco: VagaElenco[] = [];
+  /** Slot do jogador que a câmera segue (F8b), ou `null`. */
+  private seguindo: number | null = null;
   private quadro = 0;
   private quadros = 0;
   private ultimo = 0;
@@ -55,6 +59,7 @@ export class CenaJogo {
   private readonly aoRedimensionar = (): void => this.ajustarTamanho();
   private readonly aoTeclar = (e: KeyboardEvent): void => {
     if (e.key === "c" || e.key === "C") this.alternarCamera();
+    else if (e.key === "n" || e.key === "N") this.seguirProximo();
     else if (e.key === "l" || e.key === "L") this.medidor.alternar();
   };
 
@@ -75,6 +80,8 @@ export class CenaJogo {
       this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo);
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
+      this.elenco = p.elenco;
+      this.mostrarSeguindo();
       return;
     }
     // O modelo 3D (se existir) baixa uma vez; enquanto isso, ou sem ele, valem as cápsulas
@@ -141,6 +148,16 @@ export class CenaJogo {
 
     this.scene = scene;
     this.camera = new CameraJogo(p.campo);
+    this.elenco = p.elenco;
+    // `tela.html?segue=Apelido`: este telão já abre seguindo aquele jogador (por exemplo, o telão do amigo que está de longe)
+    this.seguindo = null;
+    const queroSeguir = new URLSearchParams(location.search).get("segue");
+    const slotPedido = queroSeguir ? slotDoApelido(p.elenco, queroSeguir) : null;
+    if (slotPedido !== null) {
+      this.seguindo = slotPedido;
+      this.camera.definirModo("jogador");
+    }
+    this.mostrarSeguindo();
     this.montarPosProcessamento();
 
     window.addEventListener("resize", this.aoRedimensionar);
@@ -175,7 +192,26 @@ export class CenaJogo {
 
   alternarCamera(): void {
     if (this.reproducao) return; // no replay a câmera é a de trás do gol
-    this.camera?.alternar();
+    if (!this.camera) return;
+    const humanos = slotsHumanos(this.elenco);
+    if (this.camera.modo === "aerea" && humanos.length > 0 && this.seguindo === null) this.seguindo = proximoSlot(humanos, null);
+    this.camera.alternar(humanos.length > 0);
+    this.mostrarSeguindo();
+  }
+
+  /** Tecla N: passa a seguir o próximo jogador humano (e liga a câmera que segue, se não estava ligada). */
+  seguirProximo(): void {
+    if (this.reproducao || !this.camera) return;
+    const humanos = slotsHumanos(this.elenco);
+    if (humanos.length === 0) return;
+    this.seguindo = proximoSlot(humanos, this.seguindo);
+    this.camera.definirModo("jogador");
+    this.mostrarSeguindo();
+  }
+
+  private mostrarSeguindo(): void {
+    const nome = this.camera?.modo === "jogador" ? this.elenco.find((v) => v.slot === this.seguindo)?.nome : undefined;
+    this.hud.seguindo(nome ?? null);
   }
 
   /** Para de desenhar e solta o que é pesado. */
@@ -302,7 +338,8 @@ export class CenaJogo {
     if (a) {
       this.bola?.atualizar(a.bola);
       this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt);
-      this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro);
+      const seguido = this.seguindo === null ? undefined : a.jogadores.find((j) => j.slot === this.seguindo);
+      this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro, seguido ? { x: seguido.x, z: seguido.z } : null);
       this.primeiroQuadro = false;
     }
 

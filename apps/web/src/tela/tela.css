@@ -1006,3 +1006,19 @@ body.tela:has(.vitrine:not([hidden])) {
   text-transform: uppercase;
   color: #ffd54a;
 }
+
+/* Câmera que segue um jogador (F8b) */
+.seguindo-tag {
+  position: absolute;
+  right: 1vw;
+  top: 5vh;
+  padding: 0.25em 0.8em;
+  border-radius: 0.5em;
+  background: rgba(8, 23, 14, 0.78);
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.seguindo-tag[hidden] {
+  display: none;
+}

@@ -19,6 +19,7 @@ export class Hud {
   private faixaGol = el("div", { id: "faixa-gol", class: "faixa-gol" });
   private painelFim = el("div", { id: "painel-fim", class: "painel-fim" });
   private replayTag = el("div", { id: "replay-tag", class: "replay-tag" }, "REPLAY");
+  private seguindoTag = el("div", { id: "seguindo-tag", class: "seguindo-tag" });
   private ouroTag = el("div", { id: "ouro-tag", class: "ouro-tag" }, "GOL DE OURO");
   private modoLeveTag = el("div", { id: "modo-leve-tag", class: "modo-leve-tag" }, "Modo leve");
   readonly botaoLeve = el("button", { id: "botao-leve", class: "botao-camera botao-leve", type: "button", title: "Modo leve: tira sombras, torcida e brilho (tecla L)" }, "Modo leve");
@@ -65,8 +66,9 @@ export class Hud {
     this.painelFim.hidden = true;
     this.replayTag.hidden = true;
     this.ouroTag.hidden = true;
+    this.seguindoTag.hidden = true;
     this.modoLeveTag.hidden = true;
-    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.ouroTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
+    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.ouroTag, this.seguindoTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
   }
 
   /** Mesma partida, elenco mudou (humano entrou ou saiu): só atualiza os nomes. */
@@ -78,6 +80,12 @@ export class Hud {
   replay(ativo: boolean): void {
     this.replayTag.hidden = !ativo;
     if (ativo) this.faixaGol.hidden = true;
+  }
+
+  /** Mostra "Seguindo: Nome" quando a câmera segue um jogador (ou esconde com `null`). */
+  seguindo(nome: string | null): void {
+    this.seguindoTag.hidden = nome === null;
+    this.seguindoTag.textContent = nome === null ? "" : `Seguindo: ${nome}  (tecla N troca)`;
   }
 
   /** Avisa que o modo leve está ligado (o jogo roda sem sombras, torcida e brilho). */

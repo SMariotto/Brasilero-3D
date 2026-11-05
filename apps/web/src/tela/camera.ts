@@ -1,13 +1,15 @@
 import * as THREE from "three";
 import type { BolaSnap, CampoMsg } from "@b3d/core";
 
-export type ModoCamera = "tv" | "aerea";
+export type ModoCamera = "tv" | "aerea" | "jogador";
 
 
 const FOV = 35;
 /** Inclinação da câmera de TV, em radianos acima do campo (como a transmissão). */
 const INCLINACAO = (38 * Math.PI) / 180;
 const DISTANCIA_MIN = 22;
+/** Distância da câmera que segue um jogador (F8b): mais perto que a de TV. */
+const DISTANCIA_JOGADOR = 19;
 
 interface Ponto {
   x: number;
@@ -50,17 +52,23 @@ export class CameraJogo {
 
   terminarReplay(): void {
     this.replayLado = null;
-    this.camera.up.set(0, this.modo === "aerea" ? 0 : 1, this.modo === "aerea" ? -1 : 0);
+    this.definirModo(this.modo);
   }
 
   get emReplay(): boolean {
     return this.replayLado !== null;
   }
 
-  alternar(): ModoCamera {
-    this.modo = this.modo === "tv" ? "aerea" : "tv";
-    this.camera.up.set(0, this.modo === "aerea" ? 0 : 1, this.modo === "aerea" ? -1 : 0);
+  /** Passa para a próxima câmera: TV, aérea e (se houver quem seguir) a que segue um jogador. */
+  alternar(comJogador = false): ModoCamera {
+    const ordem: ModoCamera[] = comJogador ? ["tv", "aerea", "jogador"] : ["tv", "aerea"];
+    this.definirModo(ordem[(ordem.indexOf(this.modo) + 1) % ordem.length]!);
     return this.modo;
+  }
+
+  definirModo(modo: ModoCamera): void {
+    this.modo = modo;
+    this.camera.up.set(0, modo === "aerea" ? 0 : 1, modo === "aerea" ? -1 : 0);
   }
 
   private tangentes(): { v: number; h: number } {
@@ -75,7 +83,7 @@ export class CameraJogo {
   }
 
   /** `dt` em segundos. `imediato` pula a suavização (primeiro quadro). */
-  atualizar(dt: number, bola: BolaSnap, jogadores: Ponto[], imediato = false): void {
+  atualizar(dt: number, bola: BolaSnap, jogadores: Ponto[], imediato = false, seguir: Ponto | null = null): void {
     if (this.replayLado !== null) {
       // Atrás do gol, um pouco de lado e no alto, seguindo a bola com suavização
       const k = 1 - Math.exp(-dt * 4);
@@ -92,6 +100,22 @@ export class CameraJogo {
       const alt = Math.max((this.campo.comp / 2 + 2) / h, (this.campo.larg / 2 + 2) / v);
       this.camera.position.set(0, alt, 0.001);
       this.camera.lookAt(0, 0, 0);
+      return;
+    }
+
+    if (this.modo === "jogador" && seguir) {
+      // Segue o jogador de perto, com a bola puxando um pouco a câmera; a orientação é a da TV (não gira junto com o jogador)
+      const kJ = imediato ? 1 : 1 - Math.exp(-dt * 4.5);
+      // A bola puxa a câmera um pouco para o lado dela (no máximo 5 m), para o jogador nunca sair do quadro
+      const dx = bola.x - seguir.x;
+      const dz = bola.z - seguir.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const puxao = Math.min(d * 0.25, 5) / d;
+      this.alvoX += (seguir.x + dx * puxao - this.alvoX) * kJ;
+      this.alvoZ += (seguir.z + dz * puxao - this.alvoZ) * kJ;
+      this.distancia += (DISTANCIA_JOGADOR - this.distancia) * (imediato ? 1 : 1 - Math.exp(-dt * 2));
+      this.camera.position.set(this.alvoX, this.distancia * Math.sin(INCLINACAO), this.alvoZ + this.distancia * Math.cos(INCLINACAO));
+      this.camera.lookAt(this.alvoX, 0, this.alvoZ);
       return;
     }
 
