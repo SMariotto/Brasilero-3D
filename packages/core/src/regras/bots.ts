@@ -71,7 +71,7 @@ export function posicoesDeSaida(p: Partida, time: 0 | 1): Map<number, { x: numbe
 }
 
 /** Manda o jogador ir até (x, z) como se fosse um joystick: direção, força e CORRER. */
-export function mover(j: JogadorPartida, x: number, z: number, correr: boolean): void {
+export function mover(j: JogadorPartida, x: number, z: number, correr: boolean, fator = 1): void {
   const dx = x - j.corpo.x;
   const dz = z - j.corpo.z;
   const d = Math.hypot(dx, dz);
@@ -79,7 +79,7 @@ export function mover(j: JogadorPartida, x: number, z: number, correr: boolean):
     j.cmd = { ...j.cmd, mag: 0, seguros: 0 };
     return;
   }
-  j.cmd = { ...j.cmd, ang: anguloParaByte(Math.atan2(-dz, dx)), mag: magParaByte(Math.min(1, d / 1.5)), seguros: correr ? 4 : 0 };
+  j.cmd = { ...j.cmd, ang: anguloParaByte(Math.atan2(-dz, dx)), mag: magParaByte(Math.min(1, d / 1.5) * fator), seguros: correr ? 4 : 0 };
 }
 
 function distanciaAoSegmento(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
@@ -156,8 +156,11 @@ export class Bots {
       const porDistancia = [...bots].sort((x, y) => Math.hypot(x.corpo.x - b.x, x.corpo.z - b.z) - Math.hypot(y.corpo.x - b.x, y.corpo.z - b.z));
       for (const bot of bots) bot.cerebro.papel = "apoio";
       if (!timeComBola && !humanoPerto) {
-        if (porDistancia[0]) porDistancia[0].cerebro.papel = "pressionar";
-        if (porDistancia[1]) porDistancia[1].cerebro.papel = "fechar";
+        const quantos = BOT.pressionam[p.dificuldadeDe(time)];
+        porDistancia.forEach((bot, i) => {
+          if (i < quantos) bot.cerebro.papel = "pressionar";
+          else if (i === quantos) bot.cerebro.papel = "fechar";
+        });
       }
     }
   }
@@ -177,7 +180,7 @@ export class Bots {
   private atualizarBot(j: JogadorPartida): void {
     const p = this.p;
     const c = j.cerebro;
-    const dif = p.config.dificuldade;
+    const dif = p.dificuldadeDe(j.vaga.time);
 
     if (p.noChao(j) || j.desliza || j.carrinho || j.bote) {
       j.cmd = { ...j.cmd, mag: 0, seguros: 0 };
@@ -196,7 +199,7 @@ export class Bots {
       this.decidir(j);
       c.proximaDecisao = p.t + BOT.reacaoS[dif] * (0.8 + 0.4 * p.rng.proximo());
     }
-    mover(j, c.alvoX, c.alvoZ, c.correr && j.corpo.energia > 25);
+    mover(j, c.alvoX, c.alvoZ, c.correr && j.corpo.energia > 25, BOT.velocidade[dif]);
   }
 
   private decidir(j: JogadorPartida): void {
@@ -205,6 +208,7 @@ export class Bots {
     const b = p.bola;
     const a = ataqueDe(j.vaga.time);
     const r = p.reinicio;
+    const dif = p.dificuldadeDe(j.vaga.time);
 
     c.correr = false;
     c.alvoX = c.baseX;
@@ -235,15 +239,15 @@ export class Bots {
     }
 
     if (c.papel === "pressionar") {
-      // Vai na bola (um pouco à frente do que ela está fazendo)
-      c.alvoX = b.x + b.vx * 0.25;
-      c.alvoZ = b.z + b.vz * 0.25;
+      // Intercepta a bola: mira onde ela vai estar quando o bot chegar (limitado pela antecipação da dificuldade)
+      const distBola = Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z);
+      const tChegada = Math.min(BOT.antecipacaoS[dif], distBola / BOT.velocidadeParaInterceptar);
+      c.alvoX = b.x + b.vx * tChegada;
+      c.alvoZ = b.z + b.vz * tChegada;
       c.correr = true;
-      if (dono && dono.vaga.time !== j.vaga.time && !dono.vaga.goleiro) {
-        const d = Math.hypot(dono.corpo.x - j.corpo.x, dono.corpo.z - j.corpo.z);
-        if (d < 1.6 && p.t >= j.boteProntoEm && p.rng.sorteio(BOT.chanceBote[p.config.dificuldade])) p.iniciarBote(j);
-      }
+      this.tentarBote(j, dono, 1);
     } else if (c.papel === "fechar") {
+      this.tentarBote(j, dono, 0.8); // se o portador passar perto, aproveita
       // Fecha a linha de passe: fica entre a bola e o próprio gol, a uns 6 m da bola
       const gx = -a * p.campo.metadeComp;
       const dx = gx - b.x;
@@ -254,8 +258,19 @@ export class Bots {
       c.alvoZ = b.z + dz * k;
       c.correr = Math.hypot(c.alvoX - j.corpo.x, c.alvoZ - j.corpo.z) > 8;
     } else {
+      this.tentarBote(j, dono, 0.7);
       c.correr = Math.hypot(c.alvoX - j.corpo.x, c.alvoZ - j.corpo.z) > 10;
     }
+  }
+
+  /** Dá o bote no portador adversário se ele estiver ao alcance da dificuldade (`escala` encurta o alcance de quem não está pressionando). */
+  private tentarBote(j: JogadorPartida, dono: JogadorPartida | undefined, escala: number): void {
+    const p = this.p;
+    if (!dono || dono.vaga.time === j.vaga.time || dono.vaga.goleiro) return;
+    const dif = p.dificuldadeDe(j.vaga.time);
+    const d = Math.hypot(dono.corpo.x - j.corpo.x, dono.corpo.z - j.corpo.z);
+    if (d > BOT.alcanceBote[dif] * escala || p.t < j.boteProntoEm) return;
+    if (p.rng.sorteio(BOT.chanceBote[dif])) p.iniciarBote(j, BOT.miraBoteS[dif]);
   }
 
   private ehCobradorDaSaida(j: JogadorPartida): boolean {
@@ -278,8 +293,8 @@ export class Bots {
 
   // --- com a bola ---------------------------------------------------------------
 
-  private errar(): number {
-    return this.p.rng.entre(-1, 1) * BOT.erroGraus[this.p.config.dificuldade];
+  private errar(time: 0 | 1): number {
+    return this.p.rng.entre(-1, 1) * BOT.erroGraus[this.p.dificuldadeDe(time)];
   }
 
   /** Melhor companheiro para passar (cone largo dos bots) e a nota dele. */
@@ -334,7 +349,7 @@ export class Bots {
       const dx = gol.x - j.corpo.x;
       const dz = gol.z - j.corpo.z;
       const d = Math.hypot(dx, dz) || 1;
-      p.chutarComo(j, 0.85 + 0.15 * p.rng.proximo(), dx / d, dz / d, this.errar());
+      p.chutarComo(j, 0.85 + 0.15 * p.rng.proximo(), dx / d, dz / d, this.errar(j.vaga.time));
       return;
     }
 
@@ -356,7 +371,7 @@ export class Bots {
         const dx = passe.alvo.x - j.corpo.x;
         const dz = passe.alvo.z - j.corpo.z;
         const d = Math.hypot(dx, dz) || 1;
-        p.passarComo(j, false, dx / d, dz / d, { cone: 40, erroGraus: this.errar() });
+        p.passarComo(j, false, dx / d, dz / d, { cone: 40, erroGraus: this.errar(j.vaga.time) });
         return;
       }
     }
@@ -374,7 +389,7 @@ export class Bots {
     const p = this.p;
     const a = ataqueDe(j.vaga.time);
     const gol = this.alvoNoGol(j);
-    const erro = this.errar();
+    const erro = this.errar(j.vaga.time);
 
     if (r.tipo === "falta") {
       const dist = Math.hypot(gol.x - j.corpo.x, gol.z - j.corpo.z);

@@ -1,4 +1,4 @@
-import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, TEMPO } from "../constantes";
+import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, TEMPO, type Dificuldade } from "../constantes";
 import { criarCampo, type Campo } from "../fisica/campo";
 import { golMarcado, novaBola, passoBola, type Bola } from "../fisica/bola";
 import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade } from "../fisica/jogador";
@@ -47,6 +47,8 @@ export interface OpcoesPartida {
    * em que começou, que é o que os testes antigos esperam.
    */
   controleFifa?: boolean;
+  /** Só simulador e testes (G2): dificuldade dos bots de cada time [Casa, Visitante]. Padrão: a da config nos dois. */
+  dificuldades?: [Dificuldade, Dificuldade];
 }
 
 /** O que cada jogador (humano ou bot) fez na partida, pelo NOME: o humano muda de jogador durante o jogo (G1). */
@@ -118,6 +120,10 @@ export class Partida {
   private readonly bots: Bots;
   /** Quem controla qual jogador (G1). */
   readonly controle: GestorDeControle;
+  /** Dificuldade dos bots de cada time (G2): normalmente a mesma da config nos dois. */
+  readonly dificuldades: [Dificuldade, Dificuldade];
+  /** Contagens para medir os bots (G2): quantas vezes cada time tentou bote e carrinho. */
+  readonly metricas = { botesTentados: [0, 0], carrinhosTentados: [0, 0] };
   private readonly creditos = new Map<string, Credito>();
   private eventos: EventoDoTick[] = [];
   private faseAte: number;
@@ -130,6 +136,7 @@ export class Partida {
 
   constructor(op: OpcoesPartida) {
     this.config = op.config;
+    this.dificuldades = op.dificuldades ?? [op.config.dificuldade, op.config.dificuldade];
     this.campo = criarCampo(op.config.n, op.config.modo);
     this.rng = criarRng(op.semente);
     this.bola = novaBola();
@@ -173,6 +180,11 @@ export class Partida {
     this.bots = new Bots(this);
     this.faseAte = PARTIDA.preJogoS;
     this.posicionarParaSaida();
+  }
+
+  /** A dificuldade dos bots deste time (G2). */
+  dificuldadeDe(time: 0 | 1): Dificuldade {
+    return this.dificuldades[time];
   }
 
   /** Tempo de jogo em segundos desde o começo. */
@@ -504,11 +516,12 @@ export class Partida {
   // ---------------------------------------------------------------------------
 
   /** Bote: avanço de 0,25 s a 9 m/s em direção à bola. Rouba se a bola ficar a menos de 0,8 m. Recarga de 0,8 s. */
-  iniciarBote(j: JogadorPartida): boolean {
+  iniciarBote(j: JogadorPartida, miraS = 0): boolean {
     if (this.t < j.boteProntoEm || j.bote || this.noChao(j) || j.vaga.goleiro) return false;
     const b = this.bola;
-    let dx = b.x - j.corpo.x;
-    let dz = b.z - j.corpo.z;
+    // `miraS` (bots, G2): mira onde a bola vai estar daqui a esses segundos, não onde ela está
+    let dx = b.x + b.vx * miraS - j.corpo.x;
+    let dz = b.z + b.vz * miraS - j.corpo.z;
     const d = Math.hypot(dx, dz);
     if (d < 1e-6 || d > 6) {
       [dx, dz] = [Math.cos(j.corpo.dir), Math.sin(j.corpo.dir)];
@@ -516,6 +529,7 @@ export class Partida {
       dx /= d;
       dz /= d;
     }
+    this.metricas.botesTentados[j.vaga.time]!++;
     j.bote = { ate: this.t + DEFESA.bote.duracaoS, dx, dz };
     j.boteProntoEm = this.t + DEFESA.bote.recargaS;
     j.corpo.dir = Math.atan2(dz, dx);
@@ -526,6 +540,7 @@ export class Partida {
   iniciarCarrinho(j: JogadorPartida): boolean {
     if (this.t < j.carrinhoProntoEm || j.carrinho || j.bote || this.noChao(j) || j.vaga.goleiro) return false;
     const [dx, dz] = this.direcaoDe(j);
+    this.metricas.carrinhosTentados[j.vaga.time]!++;
     j.carrinho = { desde: this.t, ate: this.t + DEFESA.carrinho.duracaoS, dx, dz, tocouBola: false };
     j.carrinhoProntoEm = this.t + DEFESA.carrinho.duracaoS + DEFESA.carrinho.recargaS;
     j.corpo.dir = Math.atan2(dz, dx);
@@ -648,7 +663,7 @@ export class Partida {
       if (rel < GOLEIRO.encaixaAteVelocidade) continue; // devagar: ele encaixa pelo domínio normal
 
       g.bloqueioAte = this.t + GOLEIRO.bloqueioAposEspalmarS;
-      if (this.rng.sorteio(GOLEIRO.falhaChance[this.config.dificuldade])) continue; // falhou: a bola segue
+      if (this.rng.sorteio(GOLEIRO.falhaChance[this.dificuldadeDe(g.vaga.time)])) continue; // falhou: a bola segue
       const lado = b.z >= g.corpo.z ? 1 : -1;
       b.vx = -b.vx * GOLEIRO.espalmaFator;
       b.vz = lado * GOLEIRO.espalmaLateral;

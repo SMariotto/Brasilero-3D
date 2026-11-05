@@ -19,7 +19,8 @@
     "carga": "npm run carga -w @b3d/server --",
     "e2e": "playwright test",
     "festa": "node ferramentas/festa.mjs",
-    "boneco-teste": "node ferramentas/gerar-boneco-teste.mjs"
+    "boneco-teste": "node ferramentas/gerar-boneco-teste.mjs",
+    "simular": "npm run simular -w @b3d/server --"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

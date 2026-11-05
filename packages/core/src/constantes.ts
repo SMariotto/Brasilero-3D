@@ -306,8 +306,20 @@ export const BOT = {
   chutaSeAMenosDe: 18,
   /** Provisório (F3): erro angular (graus) do passe e do chute dos bots, por dificuldade. */
   erroGraus: { facil: 8, medio: 4, dificil: 1.5 } satisfies Record<Dificuldade, number>,
-  /** Provisório (F3): chance de dar o bote em quem está com a bola, a cada decisão com ele perto. */
-  chanceBote: { facil: 0.15, medio: 0.3, dificil: 0.5 } satisfies Record<Dificuldade, number>,
+  /** G2 (provisório): chance de dar o bote em quem está com a bola, a cada decisão com ele ao alcance. */
+  chanceBote: { facil: 0.14, medio: 0.22, dificil: 0.32 } satisfies Record<Dificuldade, number>,
+  /** G2: a que distância (m) do portador o bot arrisca o bote. O bote avança 2,25 m, então além disso é inútil. */
+  alcanceBote: { facil: 1.2, medio: 1.5, dificil: 1.7 } satisfies Record<Dificuldade, number>,
+  /** G2: fração da velocidade máxima que o bot usa. Fácil é lento de verdade; Difícil corre tanto quanto o humano. */
+  velocidade: { facil: 0.88, medio: 0.96, dificil: 1 } satisfies Record<Dificuldade, number>,
+  /** G2: quantos bots do time sem a bola vão em cima dela (o seguinte fecha a linha de passe). */
+  pressionam: { facil: 1, medio: 1, dificil: 1 } satisfies Record<Dificuldade, number>,
+  /** G2: até quantos segundos à frente o bot que persegue a bola mira (interceptar em vez de correr atrás). */
+  antecipacaoS: { facil: 0.2, medio: 0.4, dificil: 0.6 } satisfies Record<Dificuldade, number>,
+  /** G2: quanto à frente da bola (s da velocidade dela) o bote mira. Fácil mira onde a bola está. */
+  miraBoteS: { facil: 0, medio: 0.06, dificil: 0.12 } satisfies Record<Dificuldade, number>,
+  /** G2: velocidade que o bot supõe para si mesmo ao calcular onde interceptar a bola (m/s). */
+  velocidadeParaInterceptar: 6.5,
   /** Abertura (graus) do cone em que o bot procura companheiro para passar. */
   coneGraus: 140,
   /** Nota mínima de um companheiro para o bot preferir passar a driblar. */

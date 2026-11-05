@@ -47,7 +47,7 @@ export function atualizarGoleiro(p: Partida, g: JogadorPartida): void {
   const t = p.t;
   const campo = p.campo;
   const b = p.bola;
-  const dif = p.config.dificuldade;
+  const dif = p.dificuldadeDe(g.vaga.time);
   const lado = g.vaga.time === 0 ? -1 : 1;
   const golX = lado * campo.metadeComp;
 
