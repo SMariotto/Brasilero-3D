@@ -24,7 +24,8 @@ export class Hud {
 
   private p: PartidaMsg | null = null;
   private siglas: [string, string] = ["CAS", "VIS"];
-  private saidaTime: 0 | 1 = 0;
+  /** O que está acontecendo no reinício atual ("FLA sai jogando", "Lateral: PAL"...). */
+  private textoReinicio = "";
   private fim = false;
 
   constructor(private readonly raiz: HTMLElement) {}
@@ -63,6 +64,11 @@ export class Hud {
     trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.botaoCamera);
   }
 
+  /** Mesma partida, elenco mudou (humano entrou ou saiu): só atualiza os nomes. */
+  atualizarElenco(p: PartidaMsg): void {
+    this.p = p;
+  }
+
   limpar(): void {
     this.p = null;
     trocar(this.raiz);
@@ -83,12 +89,19 @@ export class Hud {
 
     if (this.fim || a.fase === FASE.fim) this.mensagem.textContent = "";
     else if (a.fase === FASE.preJogo) this.mensagem.textContent = "Começando...";
-    else if (a.fase === FASE.reinicio) this.mensagem.textContent = `${this.siglas[this.saidaTime]} sai jogando`;
+    else if (a.fase === FASE.reinicio) this.mensagem.textContent = this.textoReinicio;
     else this.mensagem.textContent = "";
   }
 
   evento(e: Evento): void {
-    if (e.tipo === "saida") this.saidaTime = e.dados.time;
+    if (e.tipo === "saida") this.textoReinicio = `${this.siglas[e.dados.time]} sai jogando`;
+    else if (e.tipo === "lateral") this.textoReinicio = `Lateral: ${this.siglas[e.dados.time]}`;
+    else if (e.tipo === "escanteio") this.textoReinicio = `Escanteio: ${this.siglas[e.dados.time]}`;
+    else if (e.tipo === "tiroDeMeta") this.textoReinicio = `Tiro de meta: ${this.siglas[e.dados.time]}`;
+    else if (e.tipo === "falta") {
+      const vitima = this.p?.elenco.find((v) => v.slot === e.dados.em);
+      this.textoReinicio = `Falta! Tiro livre: ${this.siglas[vitima?.time ?? 0]}`;
+    }
     if (e.tipo !== "gol" || !this.p) return;
 
     const d = e.dados;
@@ -113,6 +126,7 @@ export class Hud {
     const venceu = a === b ? "Empate" : a > b ? `${this.siglas[0]} venceu` : `${this.siglas[1]} venceu`;
     const art = f.destaques.artilheiro;
     const ass = f.destaques.assistencias;
+    const des = f.destaques.desarmes;
     trocar(
       this.painelFim,
       el("small", {}, "Fim de jogo"),
@@ -120,6 +134,7 @@ export class Hud {
       el("span", { class: "resultado" }, venceu),
       art && el("span", {}, `Artilheiro: ${this.nome(art.slot)} (${art.quantidade})`),
       ass && el("span", {}, `Assistências: ${this.nome(ass.slot)} (${ass.quantidade})`),
+      des && el("span", {}, `Desarmes: ${this.nome(des.slot)} (${des.quantidade})`),
       el("span", { class: "espera" }, "O Dono da sala escolhe: Revanche ou Lobby"),
     );
     this.painelFim.hidden = false;

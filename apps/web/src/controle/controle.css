@@ -528,3 +528,9 @@ button {
 .botao-fim:last-child {
   background: #2b4a37;
 }
+
+/* Botão desligado: lateral sem CHUTE, jogador caído, cobrando sem CORRER */
+.botao-jogo.desligado {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}

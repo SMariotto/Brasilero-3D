@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { JOGADOR, SEM_DOMINANTE, type JogadorSnap, type VagaElenco } from "@b3d/core";
+import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, type JogadorSnap, type VagaElenco } from "@b3d/core";
 
 /** Etiqueta com o apelido, desenhada num canvas e usada como sprite (sempre virada para a câmera). */
 function etiqueta(nome: string, cor: string): THREE.Sprite {
@@ -47,7 +47,8 @@ export class Jogadores {
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
 
     for (const v of elenco) {
-      const cor = cores[v.time];
+      // Goleiros usam uma cor fixa de contraste (SPEC 9.3); o resto, a cor do time
+      const cor = v.goleiro ? (v.time === 0 ? PARTIDA.corGoleiroCasa : PARTIDA.corGoleiroVisitante) : cores[v.time];
       const grupo = new THREE.Group();
 
       const corpo = new THREE.Mesh(
@@ -87,6 +88,27 @@ export class Jogadores {
     this.grupo.add(this.anel);
   }
 
+  /** Pose da cápsula: em pé (inclinando na corrida), deitada (caído), deslizando (carrinho) ou mergulhando (goleiro). */
+  private pose(f: Figura, j: Omit<JogadorSnap, "dir"> & { dir: number }): void {
+    const c = f.corpo;
+    c.rotation.set(0, 0, 0);
+    c.scale.y = 1;
+    c.position.y = JOGADOR.alturaCorpo / 2;
+    if (j.anim === ANIM.carrinho) {
+      c.rotation.z = -1.25; // deitado para a frente, deslizando
+      c.position.y = JOGADOR.raio + 0.1;
+    } else if (j.caido || j.anim === ANIM.queda) {
+      c.rotation.z = -Math.PI / 2;
+      c.position.y = JOGADOR.raio;
+    } else if (j.anim === ANIM.goleiroMergulhoEsq || j.anim === ANIM.goleiroMergulhoDir) {
+      c.rotation.x = j.anim === ANIM.goleiroMergulhoEsq ? -1.3 : 1.3;
+      c.position.y = 0.8;
+    } else {
+      c.rotation.z = -Math.min(0.28, j.vel * 0.04); // inclina para a frente conforme a velocidade
+      c.scale.y = j.arrancando ? 0.94 : 1;
+    }
+  }
+
   atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number): void {
     this.anel.visible = false;
     for (const j of jogadores) {
@@ -94,9 +116,7 @@ export class Jogadores {
       if (!f) continue;
       f.grupo.position.set(j.x, 0, j.z);
       f.grupo.rotation.y = -j.dir; // dirX = cos, dirZ = sin: girar +X para +Z é no sentido horário visto de cima
-      // Inclina um pouco para a frente conforme a velocidade (corrida) e "afunda" na arrancada
-      f.corpo.rotation.z = -Math.min(0.28, j.vel * 0.04);
-      f.corpo.scale.y = j.arrancando ? 0.94 : 1;
+      this.pose(f, j);
 
       f.rotulo?.position.set(j.x, JOGADOR.alturaCorpo + 1.35, j.z);
 

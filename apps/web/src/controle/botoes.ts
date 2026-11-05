@@ -1,6 +1,8 @@
 /** Um botão grande da tela: guarda se está apertado e desde quando. Cada botão tem o próprio ponteiro (multitoque). */
 export class Botao {
   apertado = false;
+  /** Botão desligado (lateral sem CHUTE, jogador caído...): fica apagado e não responde ao toque. */
+  private apagado = false;
   /** Hora (performance.now) em que foi apertado. */
   desde = 0;
   private id: number | null = null;
@@ -16,6 +18,12 @@ export class Botao {
     elemento.addEventListener("lostpointercapture", this.cima);
   }
 
+  desligar(sim: boolean): void {
+    this.apagado = sim;
+    this.elemento.classList.toggle("desligado", sim);
+    if (sim && this.apertado) this.zerar();
+  }
+
   rotulo(texto: string): void {
     this.elemento.textContent = texto;
   }
@@ -28,7 +36,7 @@ export class Botao {
   }
 
   private readonly baixo = (e: PointerEvent): void => {
-    if (this.id !== null) return;
+    if (this.id !== null || this.apagado) return;
     e.preventDefault();
     this.id = e.pointerId;
     this.elemento.setPointerCapture(e.pointerId);

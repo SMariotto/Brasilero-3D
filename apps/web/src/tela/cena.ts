@@ -19,6 +19,7 @@ export class CenaJogo {
   private camera: CameraJogo | null = null;
   private jogadores: Jogadores | null = null;
   private bola: Bola3D | null = null;
+  private partidaId = -1;
   private quadro = 0;
   private ultimo = 0;
   private primeiroQuadro = true;
@@ -36,6 +37,15 @@ export class CenaJogo {
 
   /** Monta o campo, os jogadores e a bola para uma partida nova (ou revanche). */
   iniciar(p: PartidaMsg): void {
+    // Mesmo `id`: é a mesma partida com o elenco mudado (humano entrou, saiu ou assumiu vaga de bot). Só refaz os jogadores.
+    if (p.id === this.partidaId && this.scene && this.jogadores) {
+      this.scene.remove(this.jogadores.grupo);
+      this.jogadores = new Jogadores(p.elenco, p.cores);
+      this.scene.add(this.jogadores.grupo);
+      this.hud.atualizarElenco(p);
+      return;
+    }
+    this.partidaId = p.id;
     this.interp.reiniciar();
     this.primeiroQuadro = true;
     this.hud.iniciar(p);
@@ -101,6 +111,7 @@ export class CenaJogo {
     window.removeEventListener("keydown", this.aoTeclar);
     this.hud.limpar();
     this.liberar();
+    this.partidaId = -1;
     this.scene = null;
     this.camera = null;
     this.jogadores = null;

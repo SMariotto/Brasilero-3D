@@ -9,7 +9,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F0 Fundação | pronta (falta o Samuel conferir) | a4c0ccd | Monorepo, servidor /saude e /ws, 3 páginas, 39 testes, controle com 6,7 KB |
 | F1 Sala e conexão | pronta (falta o Samuel conferir) | d0b6073 | Salas, lobby, reconexão, ping, QR, carga 18 conexões sem erro, 95 testes |
 | F2 Primeiro jogo | pronta (falta o Samuel conferir) | 702e32f | Física, partida, protocolo binário, laço 60 Hz, telão 3D, controle com joystick, 243 testes + 2 Playwright |
-| F3 Futebol de verdade | não começou | | |
+| F3 Futebol de verdade | pronta (falta o Samuel conferir) | ver registro | Reinícios, passe com mira, bote, carrinho, faltas, goleiro, bots, vagas; 323 testes; 8 min de bots simulam em ~0,6 s |
 | F4 No ar | não começou | | |
 | F5 Times e uniformes | não começou | | |
 | F6 Visual 3D realista | não começou | | |
@@ -18,7 +18,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F2 pronta. Próximo passo: F3 (Futebol de verdade; o guia sugere fazer em duas partes, A e B), depois que o Samuel conferir a F2 e responder "sim". Nada pela metade.
+F3 pronta. A F4 vem logo em seguida (o Samuel pediu F3 e F4 prontas antes de perguntar). Nada pela metade.
 
 ## Dúvidas para o Samuel
 Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opção mais simples; diga se quer outra:
@@ -38,9 +38,26 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Quem entra com a partida rolando* fica em espera até a próxima (Revanche) e quem cai fica parado na vaga por 30 s (bot só na F3).
    - *Constantes novas provisórias* (a SPEC não define): mola de condução 180/26, toque de drible +2 m/s, quique mínimo 1 m/s, rebote no corpo 0,5, rede com 2 m de fundo. Todas em `constantes.ts`.
    - *Telão:* a bola é desenhada com o dobro do tamanho para dar para ler da TV; o relógio do servidor é estimado pelo caminho de rede mais rápido, não por ping/pong (ver PROTOCOLO 7).
-10. **F4:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
+10. **F3, o que eu completei (confirme ou mande mudar):**
+   - *Gols por partida:* numa partida de 8 min só de bots saem uns 13 a 19 gols (campo pequeno, bots miram o canto longe do goleiro). Se achar demais, ajusto `GOLEIRO.falhaChance`, `BOT.erroGraus` e o alcance do goleiro em `constantes.ts`.
+   - *Quem conduz a bola até o alcance do goleiro a perde para ele* (o goleiro "cai nos pés"); sem isso dava para passear com a bola para dentro do gol.
+   - *Humano que entra no meio* vai para o time com menos humanos e não escolhe o lado; se os dois times só têm humanos, fica em espera.
+   - *Lateral:* cobra o humano do time se estiver a até 12 m da bola; senão o bot mais perto. *Falta com as faltas desligadas:* o carrinho no adversário não faz nada (ninguém cai, sem tiro livre).
+   - *Bots não dão carrinho* (só humanos). Bot dá bote conforme a dificuldade (15%, 30% ou 50% por decisão com o adversário perto).
+   - *Constantes novas provisórias* (a SPEC não define): falha do goleiro por dificuldade (25%, 12%, 5%), mergulho de 0,45 s a 9 m/s, alcance em pé 0,85 m e mergulhando 1,25 m, rebote da bola espalmada, cone de 140° e erro angular dos bots (8°, 4°, 1,5°).
+11. **F4:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
 
 ## Testes que o Samuel precisa fazer
+F3 (1 humano com bots completando 5 contra 5; depois 2 celulares):
+1. `npm run dev`, crie a sala e entre com 1 celular. No lobby o Dono escolhe **Campo** (linhas de verdade) ou Arena. Toque em "Começar": os outros 9 jogadores e os 2 goleiros (amarelo e laranja) são bots.
+2. Jogue um pouco: os bots não podem ficar parados nem amontoados, e têm que passar, chutar e dar bote. Na dificuldade Fácil eles reagem mais devagar e erram mais; no Difícil o contrário.
+3. Chute para fora pela lateral, pela linha de fundo (você é o atacante: tiro de meta; você é o defensor: escanteio). O jogador mais perto desliza até a bola em até 1 s; se for você, os botões mudam: lateral só tem PASSE, escanteio e falta têm CRUZAR. Se você não fizer nada, a cobrança sai sozinha em 5 s.
+4. Carrinho (CHUTE sem a bola) e bote (PASSE sem a bola): se o carrinho pegar o adversário antes da bola é falta (ele cai, tiro livre; o Dono pode desligar as faltas no lobby).
+5. Chute fraco no meio do gol o goleiro pega; chute forte ele espalma ou o gol sai; chute no canto de perto ele não alcança.
+6. Com a bola no ar na altura do peito, CHUTE dispara na hora (voleio). PASSE segurado é lançamento por cima.
+7. Entre com um segundo celular no meio do jogo: ele assume um bot. Desligue o Wi-Fi de um celular: um bot joga por ele até voltar.
+8. No fim: placar, artilheiro, assistências e desarmes no telão; o Dono escolhe Revanche ou Lobby.
+
 F2 (1 contra 1 com 2 celulares, PC como telão):
 1. `npm run dev`; no PC abra `http://localhost:5173/tela.html` e clique em "Criar sala"; entre com os 2 celulares pelo QR (de preferência deitados).
 2. Um celular escolhe Casa e o outro Visitante. O primeiro (Dono) toca em "Começar". O telão mostra o campo 3D, o placar e o relógio; os celulares mostram joystick e 3 botões.
@@ -67,4 +84,5 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 04/11/2026 | R0 | Revisão do guia, 10 correções pequenas nos arquivos do guia, seção "Revisão R0" no DECISOES.md | (guia fora do git) |
 | 04/11/2026 | F0 | Monorepo, constantes, rng, vetores, dados, servidor mínimo, 3 páginas, checagem do controle | 845d52d, a4c0ccd |
 | 04/11/2026 | F1 | Protocolo do lobby, salas e reconexão com token, telas de lobby do telão e do controle, ferramenta de carga | e610a10, 860b1f1, d0b6073 |
+| 05/11/2026 | F3 | Reinícios do modo Campo, passe com mira e lançamento, voleio, bote, carrinho, faltas, goleiro bot, bots de linha, vagas e substituição por bot, estatísticas, telão e controle da F3 | a3042d7, 7628599, 519dffc, e commits de interface (ver git log) |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |

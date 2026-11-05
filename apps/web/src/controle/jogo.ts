@@ -1,4 +1,4 @@
-import { CHUTE, type Evento, type Fim, type PartidaMsg, type Voce } from "@b3d/core";
+import { CHUTE, type Evento, type Fim, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { Botao } from "./botoes";
 import { Envio } from "./envio";
@@ -39,6 +39,7 @@ export class JogoControle {
   private readonly envio: Envio;
 
   private meuSlot = -1;
+  private partidaId = -1;
   private comBola = false;
   private rodando = false;
   private quadro = 0;
@@ -96,12 +97,15 @@ export class JogoControle {
   iniciar(p: PartidaMsg, meuId: number): void {
     const vaga = p.elenco.find((v) => v.idControle === meuId);
     this.meuSlot = vaga?.slot ?? -1;
+    // Mesmo `id`: é a mesma partida com o elenco mudado; não zera nada, para não soltar o dedo do jogador no meio da jogada.
+    if (p.id === this.partidaId && this.rodando) return;
+    this.partidaId = p.id;
     this.fimPainel.hidden = true;
     this.joystick.zerar();
     this.chute.zerar();
     this.passe.zerar();
     this.correr.zerar();
-    this.definirBola(false);
+    this.aplicarSituacao(false, "normal");
     this.rodando = true;
     this.envio.iniciar();
     cancelAnimationFrame(this.quadro);
@@ -110,6 +114,7 @@ export class JogoControle {
 
   parar(): void {
     this.rodando = false;
+    this.partidaId = -1;
     this.envio.parar();
     cancelAnimationFrame(this.quadro);
     this.joystick.zerar();
@@ -133,7 +138,7 @@ export class JogoControle {
     this.faixa.style.color = corDoTexto(v.cor);
     this.numero.textContent = String(v.numero);
     (this.energia.firstElementChild as HTMLElement).style.width = `${Math.max(0, Math.min(100, v.energia))}%`;
-    this.definirBola(v.comBola);
+    this.aplicarSituacao(v.comBola, v.situacao);
   }
 
   setNome(apelido: string): void {
@@ -144,6 +149,8 @@ export class JogoControle {
   evento(e: Evento): void {
     if (e.tipo === "chute" && e.dados.slot === this.meuSlot) navigator.vibrate?.(25);
     else if (e.tipo === "passe" && e.dados.de === this.meuSlot) navigator.vibrate?.(15);
+    else if (e.tipo === "roubo" && e.dados.slot === this.meuSlot) navigator.vibrate?.(30);
+    else if (e.tipo === "falta" && e.dados.em === this.meuSlot) navigator.vibrate?.([40, 30, 40]);
     else if (e.tipo === "gol") navigator.vibrate?.([30, 40, 30]);
   }
 
@@ -170,12 +177,25 @@ export class JogoControle {
     return b;
   }
 
-  private definirBola(tem: boolean): void {
+  /** Os rótulos e os botões ligados mudam conforme a situação (SPEC 5.1). */
+  private aplicarSituacao(tem: boolean, situacao: SituacaoJogador): void {
     this.comBola = tem;
-    // Os rótulos mudam conforme a situação (SPEC 5.1)
-    this.chute.rotulo(tem ? "CHUTE" : "CARRINHO");
-    this.passe.rotulo(tem ? "PASSE" : "BOTE");
+    const caido = situacao === "caido";
+    const cobrando = situacao === "lateral" || situacao === "escanteio" || situacao === "falta";
+
+    if (cobrando) {
+      // Lateral: só PASSE (passe ou lançamento). Escanteio e falta: PASSE e cruzamento forte com CHUTE.
+      this.chute.rotulo(situacao === "lateral" ? "CHUTE" : "CRUZAR");
+      this.passe.rotulo("PASSE");
+    } else {
+      this.chute.rotulo(tem ? "CHUTE" : "CARRINHO");
+      this.passe.rotulo(tem ? "PASSE" : "BOTE");
+    }
     this.correr.rotulo("CORRER");
+
+    this.chute.desligar(caido || situacao === "lateral");
+    this.passe.desligar(caido);
+    this.correr.desligar(caido || cobrando);
   }
 
   /** A barra de carga do chute sobe enquanto CHUTE está apertado com a bola (medida aqui, igual à que vai ao servidor). */
