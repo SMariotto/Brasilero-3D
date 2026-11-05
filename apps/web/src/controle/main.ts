@@ -177,7 +177,10 @@ function entrar(): void {
     },
     aoMensagem,
     aoEstado,
-    aoPing: (ms) => lobbyUI.definirPing(ms),
+    aoPing: (ms) => {
+      lobbyUI.definirPing(ms);
+      jogoUI.definirPing(ms);
+    },
     aoFechar,
   });
 }

@@ -11,9 +11,11 @@ import {
   type Ola,
 } from "@b3d/core";
 import { LimiteTaxa } from "./limite";
+import { lerOrigens, origemPermitida } from "./origens";
 import { ipsDaRede } from "./rede";
 import type { Canal, Jogador, Sala, Tela } from "./sala";
 import { Salas } from "./salas";
+import { servirSite } from "./site";
 
 export interface OpcoesServidor {
   /** Porta HTTP e WebSocket. 0 deixa o sistema escolher (usado nos testes). */
@@ -25,6 +27,12 @@ export interface OpcoesServidor {
   semente?: () => number;
   /** Só testes: partidas sem bots nem goleiros (1 contra 1 puro). Padrão: ligado com a variável SEM_BOTS=1. */
   semBots?: boolean;
+  /** Origens de site que podem abrir o WebSocket (variável ORIGENS). Mesma origem, localhost e rede local (fora de produção) já passam. */
+  origens?: string[];
+  /** Pasta do site compilado (apps/web/dist) para o servidor servir junto (variável SITE_DIR). */
+  siteDir?: string;
+  /** Produção: só a lista ORIGENS e o mesmo site. Padrão: NODE_ENV=production. */
+  producao?: boolean;
 }
 
 export interface ServidorB3D {
@@ -43,7 +51,7 @@ const CORS = { "access-control-allow-origin": "*" };
  * Servidor HTTP (`GET /saude`, `GET /rede`) com WebSocket em `/ws`: salas, lobby, reconexão e ping.
  * O jogo (física, regras) entra na F2.
  */
-export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots }: OpcoesServidor): Promise<ServidorB3D> {
+export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots, origens, siteDir, producao }: OpcoesServidor): Promise<ServidorB3D> {
   const inicio = Date.now();
   const salas = new Salas({
     ...(maxSalas === undefined ? {} : { maxSalas }),
@@ -51,6 +59,9 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots 
     semBots: semBots ?? process.env["SEM_BOTS"] === "1",
   });
   const testeLigado = rotasDeTeste ?? process.env["NODE_ENV"] === "test";
+  const permitidas = origens ?? lerOrigens(process.env["ORIGENS"]);
+  const emProducao = producao ?? process.env["NODE_ENV"] === "production";
+  const pastaDoSite = siteDir ?? process.env["SITE_DIR"];
 
   // Pior tempo de passo de cada um dos últimos 60 segundos (para o /saude).
   const piorPorSegundo = new Array<number>(60).fill(0);
@@ -104,6 +115,7 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots 
       });
       return;
     }
+    if (pastaDoSite && servirSite(pastaDoSite, req, res)) return;
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     res.end("Brasilero 3D: servidor da partida. Use /saude ou o WebSocket em /ws.");
   });
@@ -113,6 +125,12 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots 
   http.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname !== "/ws") {
+      socket.destroy();
+      return;
+    }
+    if (!origemPermitida({ origin: req.headers.origin, host: req.headers.host }, { permitidas, aceitaRedeLocal: !emProducao })) {
+      // Site que não está na lista ORIGENS: recusa antes de abrir o WebSocket.
+      socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
       socket.destroy();
       return;
     }

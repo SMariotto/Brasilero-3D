@@ -1,6 +1,7 @@
 import { toDataURL } from "qrcode";
-import { decodificarSnapshot, normalizarSala, type Lobby, type MensagemServidor } from "@b3d/core";
+import { SERVIDOR, decodificarSnapshot, normalizarSala, type Lobby, type MensagemServidor } from "@b3d/core";
 import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
+import { esquecerServidor, lembrarServidorDaUrl, servidorLembrado } from "../comum/config";
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./tela.css";
@@ -136,7 +137,9 @@ function aoEstado(estado: EstadoCliente): void {
 }
 
 function aoPing(ms: number): void {
-  pingEl.textContent = `ping ${ms} ms`;
+  const lento = ms > SERVIDOR.pingAvisoMs;
+  pingEl.textContent = lento ? `Conexão lenta: ping ${ms} ms` : `ping ${ms} ms`;
+  pingEl.classList.toggle("alto", lento);
 }
 
 function aoFechar(codigo: number): void {
@@ -177,6 +180,21 @@ porId("form-assistir").addEventListener("submit", (e) => {
 
 campoCodigo.addEventListener("input", () => {
   campoCodigo.value = campoCodigo.value.toUpperCase().replace(/[^A-Z]/g, "");
+});
+
+// O servidor que veio no ?srv= fica lembrado; na tela inicial dá para voltar ao padrão.
+lembrarServidorDaUrl();
+const avisoServidor = porId("servidor-lembrado");
+function mostrarServidorLembrado(): void {
+  const s = servidorLembrado();
+  avisoServidor.hidden = s === null;
+  if (s !== null) porId("servidor-texto").textContent = s;
+}
+mostrarServidorLembrado();
+porId("esquecer-servidor").addEventListener("click", () => {
+  esquecerServidor();
+  history.replaceState(null, "", location.pathname);
+  location.reload();
 });
 
 // Página recarregada com ?sala=ABCD: volta a assistir sem pedir nada.

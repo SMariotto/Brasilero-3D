@@ -1,4 +1,4 @@
-import { CHUTE, type Evento, type Fim, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
+import { CHUTE, SERVIDOR, type Evento, type Fim, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { Botao } from "./botoes";
 import { Envio } from "./envio";
@@ -28,6 +28,7 @@ export class JogoControle {
   private readonly nome = el("span", { class: "nome-jogador" }, "");
   private readonly energia = el("div", { class: "barra-energia" }, el("i", {}));
   private readonly carga = el("div", { class: "barra-carga" }, el("i", {}));
+  private readonly ping = el("span", { class: "ping-jogo" });
   private readonly aviso = el("div", { class: "aviso-jogo" });
   private readonly deitado = el("div", { class: "fica-deitado" }, "Fica melhor deitado");
   private readonly fimPainel = el("div", { class: "fim-painel" });
@@ -66,7 +67,7 @@ export class JogoControle {
       this.aviso,
       this.fimPainel,
     );
-    trocar(this.faixa, this.numero, this.nome, this.energia, this.carga);
+    trocar(this.faixa, this.numero, this.nome, this.energia, this.carga, this.ping);
     this.fimPainel.hidden = true;
     this.aviso.hidden = true;
 
@@ -139,6 +140,11 @@ export class JogoControle {
     this.numero.textContent = String(v.numero);
     (this.energia.firstElementChild as HTMLElement).style.width = `${Math.max(0, Math.min(100, v.energia))}%`;
     this.aplicarSituacao(v.comBola, v.situacao);
+  }
+
+  /** Aviso de conexão lenta na faixa de cima (só aparece acima de 150 ms). */
+  definirPing(ms: number): void {
+    this.ping.textContent = ms > SERVIDOR.pingAvisoMs ? `⚠ ${ms} ms` : "";
   }
 
   setNome(apelido: string): void {

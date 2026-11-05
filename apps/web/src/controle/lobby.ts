@@ -1,4 +1,4 @@
-import { TIMES, type Config, type Lado, type Lobby } from "@b3d/core";
+import { SERVIDOR, TIMES, type Config, type Lado, type Lobby } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 
 export interface Acoes {
@@ -98,7 +98,8 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
 
   return {
     definirPing(ms) {
-      ping.textContent = ms === null ? "" : `${ms} ms`;
+      ping.textContent = ms === null ? "" : ms > SERVIDOR.pingAvisoMs ? `⚠ conexão lenta: ${ms} ms` : `${ms} ms`;
+      ping.classList.toggle("alto", ms !== null && ms > SERVIDOR.pingAvisoMs);
     },
 
     atualizar(lobby, meuId) {

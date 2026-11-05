@@ -335,4 +335,6 @@ export const SERVIDOR = {
   tamanhoCodigoSala: 4,
   /** Ping/pong do telão e do controle. */
   pingIntervaloS: 2,
+  /** Acima disto (ms) o telão e o controle avisam "conexão lenta" (F4). */
+  pingAvisoMs: 150,
 } as const;

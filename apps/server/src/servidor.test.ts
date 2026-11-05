@@ -1,4 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { ACAO, BOTAO, FASE, VERSAO_PROTOCOLO, anguloParaByte, codificarComando, comandoParado, decodificarSnapshot, magParaByte, type Snapshot } from "@b3d/core";
 import { criarServidor, type ServidorB3D } from "./servidor";
@@ -408,3 +412,124 @@ describe("partida pelo WebSocket", () => {
     expect(corpo["piorPassoMs"]).toBeLessThan(50);
   });
 });
+
+describe("origem do WebSocket (ORIGENS)", () => {
+  /** Tenta abrir o WebSocket com um cabeçalho Origin e diz se abriu ou foi recusado. */
+  function tentar(porta: number, origin: string | undefined): Promise<"abriu" | number> {
+    return new Promise((resolve) => {
+      const ws = new WebSocket(`ws://127.0.0.1:${porta}/ws`, origin ? { headers: { origin } } : {});
+      ws.once("open", () => {
+        ws.close();
+        resolve("abriu");
+      });
+      ws.once("unexpected-response", (_req, res) => resolve(res.statusCode ?? 0));
+      ws.once("error", () => undefined);
+    });
+  }
+
+  it("em desenvolvimento aceita localhost e recusa site estranho com 403", async () => {
+    servidor = await criarServidor({ porta: 0, producao: false });
+    expect(await tentar(servidor.porta(), "http://localhost:5173")).toBe("abriu");
+    expect(await tentar(servidor.porta(), "http://192.168.0.50:5173")).toBe("abriu");
+    expect(await tentar(servidor.porta(), "https://site-do-mal.com")).toBe(403);
+    expect(await tentar(servidor.porta(), undefined)).toBe("abriu");
+  });
+
+  it("em produção só passa quem está em ORIGENS (ou o mesmo site); localhost é recusado", async () => {
+    servidor = await criarServidor({ porta: 0, producao: true, origens: ["https://brasilero3d.vercel.app", "https://*.preview.app"] });
+    expect(await tentar(servidor.porta(), "https://brasilero3d.vercel.app")).toBe("abriu");
+    expect(await tentar(servidor.porta(), "https://pr-7.preview.app")).toBe("abriu");
+    expect(await tentar(servidor.porta(), "http://localhost:5173")).toBe(403);
+    expect(await tentar(servidor.porta(), "https://site-do-mal.com")).toBe(403);
+    // O mesmo site (Origin com o mesmo host do pedido) passa
+    expect(await tentar(servidor.porta(), `http://127.0.0.1:${servidor.porta()}`)).toBe("abriu");
+  });
+
+  it("um telão recusado por origem não entra em sala nenhuma", async () => {
+    servidor = await criarServidor({ porta: 0, producao: true, origens: [] });
+    await tentar(servidor.porta(), "https://site-do-mal.com");
+    const saude = (await (await fetch(`http://127.0.0.1:${servidor.porta()}/saude`)).json()) as Msg;
+    expect(saude["conexoes"]).toBe(0);
+  });
+});
+
+describe("site servido pelo servidor (SITE_DIR)", () => {
+  let pasta: string;
+
+  beforeAll(() => {
+    pasta = mkdtempSync(join(tmpdir(), "b3d-site-"));
+    mkdirSync(join(pasta, "assets"));
+    writeFileSync(join(pasta, "index.html"), "<h1>inicio</h1>");
+    writeFileSync(join(pasta, "tela.html"), "<h1>tela</h1>");
+    writeFileSync(join(pasta, "assets", "app-abc123.js"), "console.log(1)");
+    writeFileSync(join(pasta, "assets", "estilo.css"), "body{}");
+    writeFileSync(join(pasta, "segredo.txt"), "dentro da pasta");
+    writeFileSync(join(pasta, "..", `b3d-fora-${process.pid}.txt`), "FORA DA PASTA");
+  });
+
+  afterAll(() => {
+    rmSync(pasta, { recursive: true, force: true });
+    rmSync(join(pasta, "..", `b3d-fora-${process.pid}.txt`), { force: true });
+  });
+
+  it("serve as páginas, os assets com o tipo certo e cache longo só nos assets", async () => {
+    servidor = await criarServidor({ porta: 0, siteDir: pasta });
+    const base = `http://127.0.0.1:${servidor.porta()}`;
+
+    const raiz = await fetch(`${base}/`);
+    expect(raiz.status).toBe(200);
+    expect(await raiz.text()).toBe("<h1>inicio</h1>");
+    expect(raiz.headers.get("content-type")).toContain("text/html");
+    expect(raiz.headers.get("cache-control")).toBe("no-cache");
+
+    expect(await (await fetch(`${base}/tela.html`)).text()).toBe("<h1>tela</h1>");
+
+    const js = await fetch(`${base}/assets/app-abc123.js`);
+    expect(js.headers.get("content-type")).toContain("text/javascript");
+    expect(js.headers.get("cache-control")).toContain("immutable");
+    expect((await fetch(`${base}/assets/estilo.css`)).headers.get("content-type")).toContain("text/css");
+  });
+
+  it("HEAD funciona e o /saude continua respondendo", async () => {
+    servidor = await criarServidor({ porta: 0, siteDir: pasta });
+    const base = `http://127.0.0.1:${servidor.porta()}`;
+    const head = await fetch(`${base}/tela.html`, { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(head.headers.get("content-length")).toBe(String("<h1>tela</h1>".length));
+    expect(((await (await fetch(`${base}/saude`)).json()) as Msg)["ok"]).toBe(true);
+  });
+
+  it("não acha arquivo que não existe nem sai da pasta (../)", async () => {
+    servidor = await criarServidor({ porta: 0, siteDir: pasta });
+    const base = `http://127.0.0.1:${servidor.porta()}`;
+    expect((await fetch(`${base}/nao-existe.html`)).status).toBe(404);
+    expect((await fetch(`${base}/assets`)).status).toBe(404); // pasta, não arquivo
+    // fetch normaliza "..", então manda o pedido cru
+    for (const caminho of ["/../b3d-fora-" + process.pid + ".txt", "/%2e%2e/b3d-fora-" + process.pid + ".txt", "/..%2fb3d-fora-" + process.pid + ".txt", "/assets/../../b3d-fora-" + process.pid + ".txt"]) {
+      const corpo = await pedidoCru(servidor.porta(), caminho);
+      expect(corpo, caminho).not.toContain("FORA DA PASTA");
+    }
+  });
+
+  it("só GET e HEAD", async () => {
+    servidor = await criarServidor({ porta: 0, siteDir: pasta });
+    const r = await fetch(`http://127.0.0.1:${servidor.porta()}/tela.html`, { method: "POST", body: "x" });
+    expect(r.status).toBe(404);
+  });
+
+  it("sem SITE_DIR o servidor não serve arquivo nenhum", async () => {
+    servidor = await criarServidor({ porta: 0 });
+    expect((await fetch(`http://127.0.0.1:${servidor.porta()}/tela.html`)).status).toBe(404);
+  });
+});
+
+/** Manda um pedido HTTP com o caminho exatamente como está (sem o fetch "arrumar" o ..). */
+function pedidoCru(porta: number, caminho: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const s = connect(porta, "127.0.0.1", () => s.write(`GET ${caminho} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`));
+    let dados = "";
+    s.on("data", (d) => (dados += d.toString()));
+    s.on("end", () => resolve(dados));
+    s.on("error", reject);
+  });
+}
