@@ -23,6 +23,8 @@ export interface OpcoesServidor {
   rotasDeTeste?: boolean;
   /** Semente fixa das partidas (testes). */
   semente?: () => number;
+  /** Só testes: partidas sem bots nem goleiros (1 contra 1 puro). Padrão: ligado com a variável SEM_BOTS=1. */
+  semBots?: boolean;
 }
 
 export interface ServidorB3D {
@@ -41,9 +43,13 @@ const CORS = { "access-control-allow-origin": "*" };
  * Servidor HTTP (`GET /saude`, `GET /rede`) com WebSocket em `/ws`: salas, lobby, reconexão e ping.
  * O jogo (física, regras) entra na F2.
  */
-export function criarServidor({ porta, maxSalas, rotasDeTeste, semente }: OpcoesServidor): Promise<ServidorB3D> {
+export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots }: OpcoesServidor): Promise<ServidorB3D> {
   const inicio = Date.now();
-  const salas = new Salas({ ...(maxSalas === undefined ? {} : { maxSalas }), ...(semente ? { semente } : {}) });
+  const salas = new Salas({
+    ...(maxSalas === undefined ? {} : { maxSalas }),
+    ...(semente ? { semente } : {}),
+    semBots: semBots ?? process.env["SEM_BOTS"] === "1",
+  });
   const testeLigado = rotasDeTeste ?? process.env["NODE_ENV"] === "test";
 
   // Pior tempo de passo de cada um dos últimos 60 segundos (para o /saude).

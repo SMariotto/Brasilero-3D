@@ -10,6 +10,8 @@ export interface OpcoesSalas {
   gerarToken?: () => string;
   /** Sorteia a semente de cada partida. */
   semente?: () => number;
+  /** Só testes: partidas sem bots nem goleiros. */
+  semBots?: boolean;
 }
 
 /** Todas as salas de um servidor: criar, achar e apagar as abandonadas. */
@@ -20,10 +22,12 @@ export class Salas {
   private readonly gerarToken: () => string;
   private readonly maxSalas: number;
   private readonly semente: (() => number) | undefined;
+  private readonly semBots: boolean;
 
   constructor(opcoes: Partial<OpcoesSalas> = {}) {
     this.maxSalas = opcoes.maxSalas ?? SERVIDOR.maxSalasPadrao;
     this.semente = opcoes.semente;
+    this.semBots = opcoes.semBots ?? false;
     this.agora = opcoes.agora ?? Date.now;
     this.sortear = opcoes.sortear ?? ((max) => randomInt(max));
     this.gerarToken = opcoes.gerarToken ?? (() => randomBytes(16).toString("hex"));
@@ -45,7 +49,7 @@ export class Salas {
     for (;;) {
       const codigo = this.novoCodigo();
       if (this.mapa.has(codigo)) continue;
-      const sala = new Sala(codigo, this.agora, this.gerarToken, this.semente ? { semente: this.semente } : {});
+      const sala = new Sala(codigo, this.agora, this.gerarToken, { ...(this.semente ? { semente: this.semente } : {}), semBots: this.semBots });
       this.mapa.set(codigo, sala);
       return sala;
     }

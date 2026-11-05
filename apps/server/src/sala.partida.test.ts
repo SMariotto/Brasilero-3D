@@ -24,7 +24,7 @@ let sala: Sala;
 beforeEach(() => {
   tempo = 5_000_000;
   let n = 0;
-  sala = new Sala("ABCD", agora, () => `tk${n++}`, { semente: () => 42 });
+  sala = new Sala("ABCD", agora, () => `tk${n++}`, { semente: () => 42, semBots: true }); // 1 contra 1 puro; os bots têm o describe de baixo
 });
 
 function entrar(apelido: string, lado?: "casa" | "visitante" | "tanto"): { canal: CanalFalso; j: Jogador } {
@@ -74,7 +74,7 @@ describe("começar a partida", () => {
     const p = t.ultimas("partida")[0] as PartidaMsg;
     expect(p.tickHz).toBe(60);
     expect(p.snapHz).toBe(30);
-    expect(p.campo).toMatchObject({ comp: 60, larg: 38, golLarg: 6, golAlt: 2.2, areaComp: 8, areaLarg: 12, paredes: true });
+    expect(p.campo).toMatchObject({ comp: 60, larg: 38, golLarg: 6, golAlt: 2.2, areaComp: 8, areaLarg: 12, paredes: false });
     expect(p.cores).toEqual(["#C8102E", "#006437"]); // Flamengo x Palmeiras
     expect(p.elenco.map((v) => [v.slot, v.time, v.nome, v.humano, v.idControle])).toEqual([
       [1, 0, "Ana", true, 0],
@@ -87,15 +87,19 @@ describe("começar a partida", () => {
     expect((b.canal.ultimas("voce")[0] as Voce).slot).toBe(7);
   });
 
-  it("na F2 o modo é sempre Arena, mesmo que o Dono tenha escolhido Campo", () => {
+  it("o modo que o Dono escolheu vale (Campo ou Arena)", () => {
     const t = tela();
     const a = entrar("Ana", "casa");
     entrar("Beto", "visitante");
-    sala.tratarControle(a.j, { t: "config", modo: "campo" });
-    expect(sala.config.modo).toBe("campo");
+    sala.tratarControle(a.j, { t: "config", modo: "arena" });
     sala.tratarControle(a.j, { t: "comecar" });
     expect((t.ultimas("partida")[0] as PartidaMsg).config.modo).toBe("arena");
     expect(sala.partida!.campo.paredes).toBe(true);
+    sala.tratarControle(a.j, { t: "lobby" });
+    sala.tratarControle(a.j, { t: "config", modo: "campo" });
+    sala.tratarControle(a.j, { t: "comecar" });
+    expect(sala.partida!.config.modo).toBe("campo");
+    expect(sala.partida!.campo.paredes).toBe(false);
   });
 
   it("'tanto faz' equilibra os lados", () => {
@@ -428,5 +432,148 @@ describe("fim, revanche e lobby", () => {
     sala.tratarControle(a.j, { t: "lobby" });
     expect(sala.partida).toBeNull();
     passarTempo(100);
+  });
+});
+
+describe("com bots", () => {
+  let comBots: Sala;
+
+  beforeEach(() => {
+    let n = 0;
+    comBots = new Sala("BOTS", agora, () => `bt${n++}`, { semente: () => 7 });
+  });
+
+  function entrarB(apelido: string, lado?: "casa" | "visitante" | "tanto"): { canal: CanalFalso; j: Jogador } {
+    const canal = new CanalFalso();
+    const r = comBots.entrarControle(canal, apelido);
+    if (!r.ok) throw new Error(r.codigo);
+    if (lado) comBots.tratarControle(r.valor, { t: "lado", lado });
+    return { canal, j: r.valor };
+  }
+
+  function telaB(): CanalFalso {
+    const canal = new CanalFalso();
+    const r = comBots.entrarTela(canal);
+    if (!r.ok) throw new Error(r.codigo);
+    return canal;
+  }
+
+  function passarB(ms: number): void {
+    for (let i = 0; i < ms; i += 8) {
+      tempo += 8;
+      comBots.avancar();
+    }
+  }
+
+  it("a partida vem com 12 jogadores: os 2 humanos e os bots completando, com goleiros", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "comecar" });
+    const p = t.ultimas("partida")[0] as PartidaMsg;
+    expect(p.elenco).toHaveLength(12);
+    expect(p.elenco.filter((v) => v.humano).map((v) => v.nome)).toEqual(["Ana", "Beto"]);
+    expect(p.elenco.filter((v) => v.goleiro).map((v) => v.slot)).toEqual([0, 6]);
+    expect(p.elenco.filter((v) => !v.humano && !v.goleiro)).toHaveLength(8);
+    passarB(500);
+    const s = decodificarSnapshot(t.binarias[t.binarias.length - 1]!)!;
+    expect(s.jogadores).toHaveLength(12);
+    expect(s.jogadores.filter((j) => j.humano)).toHaveLength(2);
+  });
+
+  it("quem entra com a partida rolando assume o lugar de um bot do time com menos humanos, e todos recebem o elenco novo", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "comecar" });
+    const antes = t.ultimas("partida")[0] as PartidaMsg;
+
+    const c = entrarB("Caio");
+    expect(c.j.slot).not.toBeNull();
+    const depois = t.ultimas("partida");
+    expect(depois).toHaveLength(2);
+    const nova = depois[1] as PartidaMsg;
+    expect(nova.id).toBe(antes.id); // mesma partida, só o elenco mudou
+    expect(nova.elenco.filter((v) => v.humano).map((v) => v.nome).sort()).toEqual(["Ana", "Beto", "Caio"]);
+    expect(nova.elenco).toHaveLength(12);
+    expect(c.canal.ultimas("voce").at(-1)).toMatchObject({ slot: c.j.slot, situacao: "normal" });
+    // O comando dele mexe no jogador dele
+    passarB(7000);
+    const z = comBots.partida!.jogador(c.j.slot!)!.corpo.z;
+    comBots.comandoControle(c.j, cmd({ dirRad: Math.PI / 2, forca01: 1 }));
+    passarB(600);
+    expect(comBots.partida!.jogador(c.j.slot!)!.corpo.z).toBeLessThan(z - 1);
+  });
+
+  it("quem cai fica com um bot jogando por ele; ao voltar com o token, retoma o controle", () => {
+    const a = entrarB("Ana", "casa");
+    const b = entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "comecar" });
+    passarB(7000);
+    const jogador = comBots.partida!.jogador(b.j.slot!)!;
+    comBots.desconectarControle(b.j, b.canal);
+    expect(jogador.ausente).toBe(true);
+    let andou = 0;
+    let ux = jogador.corpo.x;
+    let uz = jogador.corpo.z;
+    for (let i = 0; i < 6000; i += 16) {
+      tempo += 16;
+      comBots.avancar();
+      andou += Math.hypot(jogador.corpo.x - ux, jogador.corpo.z - uz);
+      ux = jogador.corpo.x;
+      uz = jogador.corpo.z;
+    }
+    expect(andou).toBeGreaterThan(3);
+
+    const novo = new CanalFalso();
+    expect(comBots.entrarControle(novo, "Beto", b.j.token).ok).toBe(true);
+    expect(jogador.ausente).toBe(false);
+    expect(novo.ultimas("partida")).toHaveLength(1);
+  });
+
+  it("vaga que venceu (30 s fora) vira bot de vez e o elenco é reenviado", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    const b = entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "comecar" });
+    const slot = b.j.slot!;
+    comBots.desconectarControle(b.j, b.canal);
+    tempo += 31_000;
+    comBots.varrer();
+    const ultimo = t.ultimas("partida").at(-1) as PartidaMsg;
+    expect(ultimo.elenco.find((v) => v.slot === slot)).toMatchObject({ humano: false });
+    expect(ultimo.elenco.filter((v) => v.humano).map((v) => v.nome)).toEqual(["Ana"]);
+    expect(comBots.partida!.jogador(slot)!.vaga.humano).toBe(false);
+  });
+
+  it("Revanche começa uma partida nova com id novo e pega quem entrou no meio", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "config", duracao: 2 });
+    comBots.tratarControle(a.j, { t: "comecar" });
+    const primeiro = (t.ultimas("partida")[0] as PartidaMsg).id;
+    for (let i = 0; i < 700_000 / 16 && !comBots.partida!.terminou; i++) {
+      tempo += 16;
+      comBots.avancar();
+    }
+    expect(comBots.partida!.terminou).toBe(true);
+    comBots.tratarControle(a.j, { t: "revanche" });
+    const ultimo = t.ultimas("partida").at(-1) as PartidaMsg;
+    expect(ultimo.id).toBe(primeiro + 1);
+  });
+
+  it("o gol da partida com bots chega com tudo: placar, evento e fim", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    comBots.tratarControle(a.j, { t: "config", duracao: 2 });
+    comBots.tratarControle(a.j, { t: "comecar" });
+    for (let i = 0; i < 700_000 / 16 && !comBots.partida!.terminou; i++) {
+      tempo += 16;
+      comBots.avancar();
+    }
+    expect(t.ultimas("fim")).toHaveLength(1);
+    const fim = t.ultimas("fim")[0] as Fim;
+    expect(fim.placar[0] + fim.placar[1]).toBe((t.ultimas("evento") as Evento[]).filter((e) => e.tipo === "gol").length);
   });
 });

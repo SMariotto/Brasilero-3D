@@ -68,8 +68,8 @@ class Aparelho {
 let servidor: ServidorB3D | undefined;
 const abertos: Aparelho[] = [];
 
-async function subir(maxSalas?: number): Promise<ServidorB3D> {
-  servidor = await criarServidor({ porta: 0, ...(maxSalas === undefined ? {} : { maxSalas }) });
+async function subir(maxSalas?: number, semBots = true): Promise<ServidorB3D> {
+  servidor = await criarServidor({ porta: 0, semBots, ...(maxSalas === undefined ? {} : { maxSalas }) });
   return servidor;
 }
 

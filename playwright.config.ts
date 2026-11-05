@@ -21,7 +21,8 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run start -w @b3d/server",
-      env: { PORT: String(PORTA_SERVIDOR), NODE_ENV: "test" },
+      // SEM_BOTS: o teste é de 1 contra 1 sem goleiro, para o gol ser certo; os bots têm testes próprios.
+      env: { PORT: String(PORTA_SERVIDOR), NODE_ENV: "test", SEM_BOTS: "1" },
       url: `http://localhost:${PORTA_SERVIDOR}/saude`,
       reuseExistingServer: false,
       timeout: 60_000,

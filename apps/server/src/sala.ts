@@ -59,6 +59,8 @@ const PASSO_MS = 1000 / TEMPO.tickHz;
 export interface OpcoesSala {
   /** Sorteia a semente de cada partida. Os testes trocam por algo fixo. */
   semente?: () => number;
+  /** Só testes: não completa o elenco com bots e goleiros (1 contra 1 puro). */
+  semBots?: boolean;
 }
 
 /**
@@ -74,10 +76,12 @@ export class Sala {
   private vazioDesde: number | null;
   private cores: [string, string] = ["#C8102E", "#006437"];
   private mensagemPartida: PartidaMsg | null = null;
+  private partidaId = 0;
   private fimEnviado = false;
   private relogioAnterior: number | null = null;
   private acumulado = 0;
   private readonly semente: () => number;
+  private readonly semBots: boolean;
 
   constructor(
     readonly codigo: string,
@@ -87,6 +91,7 @@ export class Sala {
   ) {
     this.vazioDesde = agora();
     this.semente = opcoes.semente ?? (() => Math.floor(Math.random() * 2 ** 32));
+    this.semBots = opcoes.semBots ?? false;
   }
 
   // --- consulta -----------------------------------------------------------
@@ -160,6 +165,7 @@ export class Sala {
    */
   entrarControle(canal: Canal, apelido: unknown, token?: string): Resultado<Jogador> {
     let jogador: Jogador | undefined;
+    let assumiuVaga = false;
 
     if (token !== undefined) {
       jogador = this.jogadores.find((j) => j.token === token);
@@ -169,6 +175,7 @@ export class Sala {
       jogador.canal = canal;
       jogador.venceEm = null;
       jogador.ultimoVoce = "";
+      if (jogador.slot !== null) this.partida?.definirAusente(jogador.slot, false);
     } else {
       const limpo = validarApelido(apelido);
       if (limpo === null) return falha("APELIDO_INVALIDO", `Escolha um apelido de 1 a 12 letras.`);
@@ -187,6 +194,7 @@ export class Sala {
         ultimoVoceEm: 0,
       };
       this.jogadores.push(jogador);
+      assumiuVaga = this.assumirVagaNoMeio(jogador);
     }
 
     this.atualizarVazio();
@@ -199,7 +207,14 @@ export class Sala {
       dono: this.jogadores[0] === jogador,
     });
     this.transmitirLobby();
-    this.reenviarPartida(canal, jogador);
+    if (assumiuVaga) {
+      // Entrou no lugar de um bot: todo mundo recebe o elenco novo (a mesma partida, com o `id` de antes).
+      this.elencoMudou();
+      jogador.ultimoVoce = "";
+      this.enviarVoz(jogador, true);
+    } else {
+      this.reenviarPartida(canal, jogador);
+    }
     return { ok: true, valor: jogador };
   }
 
@@ -208,6 +223,7 @@ export class Sala {
     if (jogador.canal !== canal) return; // já foi substituído por uma conexão nova
     jogador.canal = null;
     jogador.venceEm = this.agora() + PARTIDA.vagaGuardadaS * 1000;
+    if (jogador.slot !== null) this.partida?.definirAusente(jogador.slot, true);
     this.atualizarVazio();
     this.transmitirLobby();
   }
@@ -315,20 +331,35 @@ export class Sala {
     return { elenco, n };
   }
 
-  /** Começa uma partida (ou a revanche). F2: o modo é sempre Arena, mesmo que o Dono tenha escolhido Campo. */
+  /** Começa uma partida (ou a revanche) com o modo que o Dono escolheu. Os bots completam as vagas. */
   private comecar(): void {
     const { elenco, n } = this.montarElenco();
-    const config: Config = { ...this.config, n, modo: "arena" };
+    const config: Config = { ...this.config, n };
     this.cores = coresDaPartida(config.casa, config.visitante);
-    this.partida = new Partida({ config, elenco, semente: this.semente() });
+    this.partida = new Partida({ config, elenco, semente: this.semente(), semBots: this.semBots });
+    this.partidaId++;
     this.fimEnviado = false;
     this.relogioAnterior = null;
     this.acumulado = 0;
 
-    const p = this.partida;
-    this.mensagemPartida = {
+    this.mensagemPartida = this.montarMensagemPartida();
+
+    for (const j of this.jogadores) {
+      j.pronto = false;
+      j.ultimoVoce = "";
+    }
+    this.transmitir(this.mensagemPartida);
+    this.transmitirLobby();
+    this.enviarVoces(true);
+  }
+
+  /** A mensagem `partida` com o elenco de agora (humanos e bots). */
+  private montarMensagemPartida(): PartidaMsg {
+    const p = this.partida!;
+    return {
       t: "partida",
-      config,
+      id: this.partidaId,
+      config: p.config,
       campo: {
         comp: p.campo.comp,
         larg: p.campo.larg,
@@ -338,20 +369,33 @@ export class Sala {
         areaLarg: p.campo.areaLarg,
         paredes: p.campo.paredes,
       },
-      elenco,
+      elenco: p.elenco.map((v) => ({ ...v })),
       cores: this.cores,
       tickHz: TEMPO.tickHz,
       snapHz: TEMPO.snapHz,
       tick0: 0,
     };
+  }
 
-    for (const j of this.jogadores) {
-      j.pronto = false;
-      j.ultimoVoce = "";
-    }
+  /** O elenco mudou no meio do jogo (humano assumiu vaga de bot, ou a vaga dele venceu): manda a lista nova a todos. */
+  private elencoMudou(): void {
+    if (!this.partida) return;
+    this.mensagemPartida = this.montarMensagemPartida();
     this.transmitir(this.mensagemPartida);
-    this.transmitirLobby();
-    this.enviarVoces(true);
+  }
+
+  /** Quem entra com a partida rolando assume o lugar de um bot do time com menos humanos (SPEC 4.1). */
+  private assumirVagaNoMeio(jogador: Jogador): boolean {
+    const p = this.partida;
+    if (!p || p.terminou) return false;
+    const humanos: [number, number] = [0, 0];
+    for (const v of p.elenco) if (v.humano) humanos[v.time]++;
+    const preferido: 0 | 1 = humanos[0] <= humanos[1] ? 0 : 1;
+    const vaga = p.promoverHumano(preferido, jogador.apelido, jogador.id) ?? p.promoverHumano(preferido === 0 ? 1 : 0, jogador.apelido, jogador.id);
+    if (!vaga) return false; // só humanos nos dois times: fica em espera até a próxima partida
+    jogador.slot = vaga.slot;
+    jogador.time = vaga.time;
+    return true;
   }
 
   private voltarAoLobby(): void {
@@ -461,7 +505,7 @@ export class Sala {
         cor: this.cores[j.time],
         comBola: estado.comBola,
         energia: estado.energia,
-        situacao: "normal",
+        situacao: estado.situacao,
       };
     }
 
@@ -485,8 +529,14 @@ export class Sala {
   varrer(): boolean {
     const t = this.agora();
     const antes = this.jogadores.length;
+    const vencidos = this.jogadores.filter((j) => j.venceEm !== null && t >= j.venceEm);
     this.jogadores = this.jogadores.filter((j) => j.venceEm === null || t < j.venceEm);
-    if (this.jogadores.length !== antes) this.transmitirLobby();
+    if (this.jogadores.length !== antes) {
+      // A vaga venceu de vez: na partida, o bot que jogava por ele passa a ser o dono do lugar.
+      for (const j of vencidos) if (j.slot !== null) this.partida?.liberarSlot(j.slot);
+      if (vencidos.some((j) => j.slot !== null)) this.elencoMudou();
+      this.transmitirLobby();
+    }
     return this.vazioDesde !== null && t - this.vazioDesde >= SERVIDOR.salaVaziaApagaAposS * 1000;
   }
 
