@@ -11,4 +11,8 @@ Futebol 3D para jogar com os amigos: a TV (ou o PC) mostra o jogo e cada pessoa 
 7. `npm run festa`: joga com amigos de outras casas (túnel da Cloudflare; precisa do cloudflared: `winget install --id Cloudflare.cloudflared`).
 8. `npm run carga`: teste de carga com clientes falsos (sobe um servidor próprio; 10 controles e 8 telões por 30 s). Opções: `npm run carga -- --controles 10 --telas 8 --seg 30 --url ws://localhost:8787/ws`.
 
+8. `npm run boneco-teste`: grava um boneco de caixas para testar o carregador do modelo 3D (`tela.html?modelo=boneco-teste`). O jogador de verdade vem do Mixamo + Blender: veja `ferramentas/blender/LEIA-ME.md`.
+
+No telão: tecla **C** troca a câmera, **L** liga o modo leve (sem sombras, torcida e brilho); `?debug=1` mostra fps e draw calls; `?capsula=1` usa cápsulas no lugar do modelo; `?vitrine=1` mostra as camisas.
+
 As regras do jogo, a arquitetura e as fases estão em `../guia-claude-code/`. O estado do trabalho está em `PROGRESSO.md`.

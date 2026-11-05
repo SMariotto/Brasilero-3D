@@ -11,14 +11,16 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F2 Primeiro jogo | pronta (falta o Samuel conferir) | 702e32f | Física, partida, protocolo binário, laço 60 Hz, telão 3D, controle com joystick, 243 testes + 2 Playwright |
 | F3 Futebol de verdade | pronta (falta o Samuel conferir) | ver registro | Reinícios, passe com mira, bote, carrinho, faltas, goleiro, bots, vagas; 323 testes; 8 min de bots simulam em ~0,6 s |
 | F4 No ar | pronta (falta o Samuel conferir) | ver registro | ORIGENS, servidor serve o site, npm run festa, vercel.json, Dockerfile, fly.toml, render.yaml, telões extras, aviso de ping; 358 testes + 4 Playwright |
-| F5 Times e uniformes | não começou | | |
-| F6 Visual 3D realista | não começou | | |
+| F5 Times e uniformes | pronta (falta o Samuel conferir) | b5a730f | Clubes sem conflito de cor (ΔE), "Aleatório", distintivo (PNG opcional ou neutro), uniforme por shader (7 padrões), vitrine, placar de TV |
+| F6 Visual 3D realista | pronta (falta o Samuel conferir) | 69da5c0 | Estádio noturno, torcida, sombras, bloom, replay do gol, modo leve, `?debug=1`, jogador 3D (GLB) com reserva em cápsula, script do Blender. **O modelo do Mixamo ainda não existe**: precisa do Samuel (passo 7 do guia manual) |
 | F7 Som e acabamento | não começou | | |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F3 e F4 prontas. Próximo passo: F5 (Times e uniformes), depois que o Samuel conferir e responder "sim". Nada pela metade.
+F3, F4, F5 e F6 prontas (as quatro esperando o Samuel conferir). Próximo passo: F7 (Som e acabamento), depois que o Samuel testar e responder "sim". Nada pela metade.
+
+Dois itens da F6 dependem do Samuel e **não foram feitos nem testados com o modelo de verdade**: (1) o `jogador.glb` do Mixamo (o carregador está pronto e testado com um boneco de caixas; sem o arquivo o jogo usa cápsulas); (2) o `ferramentas/blender/montar_jogador.py` foi escrito mas nunca rodado (Blender e Python não estão instalados nesta máquina). Passo a passo em `ferramentas/blender/LEIA-ME.md`.
 
 ## Dúvidas para o Samuel
 Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opção mais simples; diga se quer outra:
@@ -50,9 +52,35 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *ORIGENS:* em produção só passam os sites da lista e o mesmo site; em desenvolvimento também localhost e a rede local. Quem não manda Origin (testes, `npm run carga`) passa. `ORIGENS=*` libera tudo.
    - *Dockerfile usa tsx em produção* (o servidor roda o TypeScript direto): por isso o `tsx` passou para dependência normal do servidor. Não testei o `docker build` (Docker não está instalado aqui), mas rodei a mesma sequência (`npm ci --omit=dev` + `node node_modules/tsx/dist/cli.mjs ...`) numa pasta limpa e o servidor subiu.
    - *`fly.toml`:* a máquina nunca dorme (`auto_stop_machines = "off"`), 1 máquina de 256 MB em `gru`, checagem em `/saude`.
-12. **F5:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
+12. **F5, o que eu completei (confirme ou mande mudar):**
+   - *Conflito de cor:* se as camisas dos dois clubes ficam parecidas (diferença de cor ΔE < 25), o Visitante usa o uniforme reserva; se ainda assim parecer, usa branco ou preto. Conferi os 132 pares de clubes do `times.json`: nenhum fica abaixo de 25.
+   - *"Aleatório":* aparece como opção de clube no lobby; o servidor sorteia na hora de começar e a Revanche mantém os mesmos clubes sorteados.
+   - *Escudos:* só os PNGs que você colocar em `apps/web/public/escudos/<id-do-clube>.png` (ver o LEIA-ME.txt lá). Sem arquivo aparece um distintivo neutro com a sigla nas cores do clube. Não coloquei nenhum escudo nem camisa real.
+   - *Goleiros e bots:* goleiro em cor lisa fixa (amarelo/laranja), bot mostra o número da camisa, humano mostra o apelido e a seta.
+13. **F6, o que eu completei (confirme ou mande mudar):**
+   - *Comemoração do gol subiu de 3 s para 6 s* (`PARTIDA.golComemoracaoS`): 1,4 s de "GOOOL" e depois o replay de ~4 s em câmera lenta (0,8x) atrás do gol. O relógio continua parado nesse tempo.
+   - *Estilo:* noite com refletores, céu com estrelas, bloom leve (brilho nos refletores), sombras de um "sol" de transmissão, torcida de 3 silhuetas nas cores dos dois clubes que pula no gol. Tudo opcional: o modo leve desliga sombras, torcida 3D e bloom.
+   - *Modo leve automático:* abaixo de 45 fps por 3 s seguidos liga sozinho (e só liga, não desliga sozinho). Na mão: tecla **L** ou o botão no canto do telão. `?debug=1` mostra fps, draw calls, triângulos e o atraso de interpolação.
+   - *Medidas (telão no Edge, sem placa de vídeo, só software):* 64 draw calls (limite 300), 9 mil triângulos, site compilado com 0,8 MB (limite 15 MB; o `jogador.glb` ainda vai somar o tamanho dele, comprimido).
+   - *Modelo 3D:* se existir `apps/web/public/modelos/jogador.glb` o telão usa; senão, cápsulas (como na F2 a F5). `?capsula=1` força as cápsulas, `?modelo=nome` testa outro arquivo de `modelos/`. A camisa do modelo recebe o padrão do clube pelo mesmo shader da F5 (o material precisa se chamar `Camisa`); calção e meião só trocam de cor.
+   - *O que NÃO foi feito:* conferir o visual com o personagem real e com as animações do Mixamo (não tenho o arquivo), e rodar o script do Blender.
+   - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+F6 (visual; no PC, `npm run dev`, telão em `http://localhost:5173/tela.html`, 1 celular entrando e começando):
+1. Olhe o campo: noite, refletores brilhando, placas "BRASILERO 3D" em volta, torcida vermelha e verde (cores dos clubes) nas arquibancadas, sombra dos jogadores e da bola no gramado. A tecla **C** troca entre câmera de TV e aérea.
+2. Faça um gol (ou deixe o bot fazer): aparece "GOOOL", a torcida pula, a rede balança e depois entra o **REPLAY** em câmera lenta, atrás do gol, com a etiqueta vermelha. Depois de uns 6 s o jogo volta sozinho.
+3. Abra `http://localhost:5173/tela.html?debug=1`: no canto aparecem fps, draw calls (tem que ficar abaixo de 300), triângulos e o atraso de interpolação. Aperte **L** (ou o botão "Modo leve"): sem sombras, torcida e brilho. Num PC fraco o modo leve liga sozinho depois de 3 s abaixo de 45 fps e aparece a etiqueta amarela "Modo leve".
+4. **Conferir no seu notebook:** o jogo roda liso? Os jogadores "patinam"? (Só dá para avaliar com o modelo de verdade, passo 6.) Se travar, me diga o fps do `?debug=1`.
+5. Para ver o jogador 3D animado sem o Mixamo: `npm run boneco-teste` e abra `tela.html?modelo=boneco-teste` (um boneco de caixas: corre, chuta, cai).
+6. **Para ter o jogador de verdade (passo 7 do guia manual):** instale o Blender, baixe do Mixamo o personagem e as animações e siga `ferramentas/blender/LEIA-ME.md`. Se der erro, copie a mensagem para mim. Sem isso o jogo continua com cápsulas.
+
+F5 (times e uniformes):
+1. No lobby do celular do Dono, escolha clubes diferentes para Casa e Visitante: a prévia mostra o distintivo (sigla nas cores) e dois pontinhos de cor. Escolha dois clubes de camisa parecida (por exemplo Flamengo e Internacional): o Visitante tem que sair com o uniforme reserva.
+2. Teste "🎲 Aleatório" nos dois lados: ao começar, o placar mostra os clubes sorteados; na Revanche, os mesmos.
+3. Abra `tela.html?vitrine=1`: mostra os 7 padrões de camisa e os clubes numa grade (serve para conferir as cores).
+4. Para escudos, ponha arquivos PNG em `apps/web/public/escudos/` com o nome do clube (ver `LEIA-ME.txt` lá, ex.: `flamengo.png`). Só os que você quiser; sem arquivo vale o distintivo neutro.
+
 F4 (jogar com amigos de outras casas):
 1. Instale o túnel uma vez: `winget install --id Cloudflare.cloudflared` (feche e abra o PowerShell depois).
 2. Na pasta do projeto: `npm run festa`. Ele compila o site, sobe o servidor e imprime um link do TELÃO (https://....trycloudflare.com/tela.html?srv=...) e um QR no terminal. O link muda a cada vez e o PC tem que ficar ligado.
@@ -106,4 +134,6 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 04/11/2026 | F1 | Protocolo do lobby, salas e reconexão com token, telas de lobby do telão e do controle, ferramenta de carga | e610a10, 860b1f1, d0b6073 |
 | 05/11/2026 | F4 | ORIGENS e servidor que serve o site, telão lembra o ?srv=, aviso de conexão lenta, npm run festa, vercel.json, Dockerfile, fly.toml, render.yaml, testes de telão extra | ver git log |
 | 05/11/2026 | F3 | Reinícios do modo Campo, passe com mira e lançamento, voleio, bote, carrinho, faltas, goleiro bot, bots de linha, vagas e substituição por bot, estatísticas, telão e controle da F3 | a3042d7, 7628599, 519dffc, e commits de interface (ver git log) |
+| 05/11/2026 | F5 | Cores sem conflito (ΔE76), clube "Aleatório", distintivos com PNG opcional, uniforme por shader com 7 padrões, vitrine, placar de TV | 9db9ba9, 379e69a, b5a730f |
+| 05/11/2026 | F6 | Estádio noturno e torcida, sombras e bloom, rede que balança, replay do gol, medidor de fps com modo leve e `?debug=1`, carregador do `jogador.glb` com animações e reserva em cápsula, script do Blender (não rodado), boneco de teste | 19e1942, 4d0dc36, ae08100, 8ec76d1, 1b968aa, 69da5c0 |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
