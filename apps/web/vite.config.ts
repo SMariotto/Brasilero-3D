@@ -5,6 +5,8 @@ import { defineConfig } from "vite";
 export default defineConfig({
   server: { host: true, port: 5173 },
   build: {
+    // O Three.js (~560 KB) vai num pedaço à parte que só o telão baixa, quando a partida começa.
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       input: {
         index: "index.html",

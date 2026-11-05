@@ -24,6 +24,8 @@ export interface OpcoesCliente {
   /** Chamado a cada (re)conexão, para o `ola` sempre sair com o token e a sala mais novos. */
   gerarOla(): OlaSemVersao;
   aoMensagem(msg: MensagemServidor): void;
+  /** Mensagem binária (snapshot do jogo). Só o telão recebe. */
+  aoBinario?(dados: Uint8Array): void;
   aoEstado(estado: EstadoCliente): void;
   /** Ping médio (ms) das últimas medidas. */
   aoPing?(ms: number): void;
@@ -33,6 +35,8 @@ export interface OpcoesCliente {
 
 export interface Cliente {
   enviar(msg: Exclude<MensagemCliente, { t: "ola" }>): void;
+  /** Comando do controle (7 bytes, PROTOCOLO 4). */
+  enviarBinario(dados: Uint8Array): void;
   /** Manda um `ola` novo na conexão aberta (usado depois de `TOKEN_EXPIRADO`). */
   reolar(): void;
   fechar(): void;
@@ -61,12 +65,17 @@ export function criarCliente(op: OpcoesCliente): Cliente {
     entrou = false;
     const socket = new WebSocket(urlServidor());
     ws = socket;
+    socket.binaryType = "arraybuffer";
 
     socket.addEventListener("open", () => {
       socket.send(JSON.stringify({ ...op.gerarOla(), versao: VERSAO_PROTOCOLO }));
     });
 
     socket.addEventListener("message", (e: MessageEvent) => {
+      if (e.data instanceof ArrayBuffer) {
+        op.aoBinario?.(new Uint8Array(e.data));
+        return;
+      }
       if (typeof e.data !== "string") return;
       let msg: MensagemServidor;
       try {
@@ -128,6 +137,10 @@ export function criarCliente(op: OpcoesCliente): Cliente {
   return {
     enviar(msg) {
       if (ws?.readyState === WebSocket.OPEN && entrou) ws.send(JSON.stringify(msg));
+    },
+    enviarBinario(dados) {
+      // Os comandos saem de `new Uint8Array(7)`, que é sempre um ArrayBuffer normal (nunca SharedArrayBuffer).
+      if (ws?.readyState === WebSocket.OPEN && entrou) ws.send(dados as Uint8Array<ArrayBuffer>);
     },
     reolar() {
       if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ ...op.gerarOla(), versao: VERSAO_PROTOCOLO }));

@@ -307,3 +307,164 @@ button:hover {
   font-size: 0.8em;
   opacity: 0.6;
 }
+
+/* Jogo */
+#jogo {
+  display: block;
+}
+
+#canvas-host {
+  position: absolute;
+  inset: 0;
+  background: #0b1b2d;
+}
+
+#canvas-host canvas {
+  display: block;
+}
+
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.placar {
+  position: absolute;
+  left: 1.5vw;
+  top: 2vh;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.35em 0.6em;
+  border-radius: 0.6em;
+  background: rgba(8, 20, 12, 0.82);
+  font-size: 1.5em;
+  font-weight: 800;
+}
+
+.placar .chip {
+  padding: 0.15em 0.55em;
+  border-radius: 0.35em;
+  letter-spacing: 0.05em;
+}
+
+.placar .gols {
+  min-width: 1.2em;
+  text-align: center;
+  font-size: 1.5em;
+}
+
+.placar .x {
+  opacity: 0.6;
+}
+
+.placar .relogio {
+  margin-left: 0.5em;
+  padding-left: 0.7em;
+  border-left: 2px solid rgba(255, 255, 255, 0.3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mensagem {
+  position: absolute;
+  left: 50%;
+  bottom: 9vh;
+  transform: translateX(-50%);
+  padding: 0.2em 1em;
+  border-radius: 2em;
+  background: rgba(8, 20, 12, 0.8);
+  font-size: 1.8em;
+  font-weight: 800;
+}
+
+.mensagem:empty {
+  display: none;
+}
+
+.faixa-gol {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 22vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+  padding: 1.2vh 0;
+  background: var(--cor-gol, #1fa34a);
+  color: var(--cor-texto-gol, #fff);
+  text-align: center;
+  box-shadow: 0 0.4em 2em rgba(0, 0, 0, 0.5);
+}
+
+.faixa-gol strong {
+  font-size: 6em;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.faixa-gol .gol-time {
+  font-size: 2em;
+  font-weight: 800;
+}
+
+.faixa-gol .gol-quem {
+  font-size: 1.8em;
+}
+
+.faixa-gol .gol-assist {
+  font-size: 1.2em;
+  opacity: 0.85;
+}
+
+.painel-fim {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 40vw;
+  padding: 4vh 4vw;
+  border-radius: 1em;
+  background: rgba(8, 20, 12, 0.92);
+  border: 0.2em solid #ffd54a;
+  text-align: center;
+}
+
+.painel-fim strong {
+  font-size: 3.2em;
+}
+
+.painel-fim .resultado {
+  font-size: 1.8em;
+  color: #ffd54a;
+  font-weight: 800;
+}
+
+.painel-fim .espera {
+  margin-top: 1em;
+  opacity: 0.75;
+}
+
+.botao-camera {
+  position: absolute;
+  right: 1.5vw;
+  bottom: 2vh;
+  padding: 0.4em 0.9em;
+  border: 0;
+  border-radius: 0.5em;
+  background: rgba(8, 20, 12, 0.75);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#ping {
+  z-index: 5;
+}

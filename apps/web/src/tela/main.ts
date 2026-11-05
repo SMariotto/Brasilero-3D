@@ -1,14 +1,16 @@
 import { toDataURL } from "qrcode";
-import { normalizarSala, type Lobby, type MensagemServidor } from "@b3d/core";
+import { decodificarSnapshot, normalizarSala, type Lobby, type MensagemServidor } from "@b3d/core";
 import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./tela.css";
+import type { CenaJogo } from "./cena";
 import { criarLobby } from "./lobby";
 import { enderecoParaCelular } from "./rede";
 
 const inicio = porId("inicio");
 const lobbyEl = porId("lobby");
+const jogoEl = porId("jogo");
 const carregando = porId("carregando");
 const reconectando = porId("reconectando");
 const pingEl = porId("ping");
@@ -22,11 +24,27 @@ let sala: string | null = normalizarSala(new URLSearchParams(location.search).ge
 let cliente: Cliente | null = null;
 let entradaMontadaPara: string | null = null;
 
-type Cena = "inicio" | "carregando" | "lobby";
+// O 3D (Three.js) só é baixado quando a primeira partida começa, para o lobby abrir rápido.
+// Tudo que mexe na cena passa por `naCena`, que mantém a ordem das mensagens mesmo antes de o módulo chegar.
+let cenaPronta: Promise<CenaJogo> | null = null;
+let emJogo = false;
+
+function naCena(fn: (c: CenaJogo) => void): void {
+  if (!cenaPronta) {
+    cenaPronta = import("./cena").then(({ CenaJogo }) => new CenaJogo(porId("canvas-host"), porId("hud")));
+  }
+  cenaPronta = cenaPronta.then((c) => {
+    fn(c);
+    return c;
+  });
+}
+
+type Cena = "inicio" | "carregando" | "lobby" | "jogo";
 
 function mostrar(cena: Cena): void {
   inicio.hidden = cena !== "inicio";
   lobbyEl.hidden = cena !== "lobby";
+  jogoEl.hidden = cena !== "jogo";
   carregando.hidden = cena !== "carregando";
   pingEl.hidden = cena === "inicio";
 }
@@ -36,6 +54,10 @@ function voltarAoInicio(aviso: string): void {
   cliente = null;
   sala = null;
   entradaMontadaPara = null;
+  if (emJogo) {
+    emJogo = false;
+    naCena((c) => c.parar());
+  }
   reconectando.hidden = true;
   history.replaceState(null, "", location.pathname + srvNaUrl());
   avisoInicio.textContent = aviso;
@@ -76,10 +98,26 @@ function aoMensagem(msg: MensagemServidor): void {
       lembrarSala(msg.sala);
       lobby.definirPrincipal(msg.principal === true);
       void montarEntrada(msg.sala);
-      mostrar("lobby");
+      mostrar(emJogo ? "jogo" : "lobby");
       return;
     case "lobby":
       lobby.atualizar(msg as Lobby);
+      if (emJogo && !msg.emPartida) {
+        emJogo = false;
+        naCena((c) => c.parar());
+        mostrar("lobby");
+      }
+      return;
+    case "partida":
+      emJogo = true;
+      mostrar("jogo");
+      naCena((c) => c.iniciar(msg));
+      return;
+    case "evento":
+      naCena((c) => c.evento(msg));
+      return;
+    case "fim":
+      naCena((c) => c.fim(msg));
       return;
     case "principal":
       lobby.definirPrincipal(msg.valor);
@@ -111,6 +149,10 @@ function iniciar(): void {
   cliente = criarCliente({
     gerarOla: () => (sala ? { t: "ola", acao: "assistir", sala } : { t: "ola", acao: "criar" }),
     aoMensagem,
+    aoBinario: (dados) => {
+      const s = decodificarSnapshot(dados);
+      if (s && emJogo) naCena((c) => c.receberSnapshot(s));
+    },
     aoEstado,
     aoPing,
     aoFechar,
