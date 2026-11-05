@@ -1,6 +1,186 @@
+import { normalizarSala, validarApelido, type MensagemServidor } from "@b3d/core";
+import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
+import { porId } from "../comum/dom";
 import "../comum/estilo.css";
-import { mostrarConexao } from "../comum/pagina";
+import "./controle.css";
+import { criarLobbyControle } from "./lobby";
 
-// F0: só prova que o controle fala com o servidor. Joystick e botões entram na F2.
 // Este arquivo nunca importa Three.js nem nada de src/tela/ (o build confere o tamanho).
-mostrarConexao({ t: "ola", sala: "TESTE", apelido: "F0" });
+
+const entrarEl = porId("entrar");
+const lobbyEl = porId("lobby");
+const reconectando = porId("reconectando");
+const toast = porId("toast");
+const aviso = porId("aviso-entrar");
+const campoCodigo = porId<HTMLInputElement>("codigo");
+const campoApelido = porId<HTMLInputElement>("apelido");
+
+let sala = "";
+let apelido = "";
+let meuId = -1;
+let cliente: Cliente | null = null;
+let timerToast: ReturnType<typeof setTimeout> | undefined;
+
+// --- armazenamento (pode falhar em aba privada: sempre com try/catch) -----
+
+const chaveToken = (s: string): string => `b3d.token.${s}`;
+
+function lerTexto(storage: "local" | "sessao", chave: string): string {
+  try {
+    return (storage === "local" ? localStorage : sessionStorage).getItem(chave) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function guardarTexto(storage: "local" | "sessao", chave: string, valor: string | null): void {
+  try {
+    const s = storage === "local" ? localStorage : sessionStorage;
+    if (valor === null) s.removeItem(chave);
+    else s.setItem(chave, valor);
+  } catch {
+    // sem armazenamento: o jogo funciona, só não lembra
+  }
+}
+
+// --- telas -----------------------------------------------------------------
+
+function mostrar(cena: "entrar" | "lobby"): void {
+  entrarEl.hidden = cena !== "entrar";
+  lobbyEl.hidden = cena !== "lobby";
+}
+
+function avisar(texto: string): void {
+  toast.textContent = texto;
+  toast.hidden = false;
+  clearTimeout(timerToast);
+  timerToast = setTimeout(() => (toast.hidden = true), 3000);
+}
+
+function voltarAEntrar(mensagem: string): void {
+  cliente?.fechar();
+  cliente = null;
+  reconectando.hidden = true;
+  aviso.textContent = mensagem;
+  mostrar("entrar");
+}
+
+const lobbyUI = criarLobbyControle(lobbyEl, {
+  lado: (lado) => cliente?.enviar({ t: "lado", lado }),
+  pronto: (valor) => cliente?.enviar({ t: "pronto", valor }),
+  config: (mudanca) => cliente?.enviar({ t: "config", ...mudanca }),
+  comecar: () => avisar("O jogo chega na próxima fase. Por enquanto isto é só o lobby."),
+});
+
+// --- rede ------------------------------------------------------------------
+
+function aoMensagem(msg: MensagemServidor): void {
+  switch (msg.t) {
+    case "bemvindo":
+      sala = msg.sala;
+      meuId = msg.id ?? -1;
+      guardarTexto("sessao", chaveToken(sala), msg.token ?? null);
+      history.replaceState(null, "", `${location.pathname}?${paramsDaUrl(sala)}`);
+      mostrar("lobby");
+      return;
+    case "lobby":
+      lobbyUI.atualizar(msg, meuId);
+      return;
+    case "erro":
+      tratarErro(msg.codigo, msg.msg);
+      return;
+    default:
+      return;
+  }
+}
+
+/** Mantém `?srv=` (se houver) e põe `?sala=` na URL, para recarregar a página voltar para a mesma sala. */
+function paramsDaUrl(codigo: string): string {
+  const p = new URLSearchParams(location.search);
+  p.set("sala", codigo);
+  return p.toString();
+}
+
+function tratarErro(codigo: string, texto: string): void {
+  switch (codigo) {
+    case "TOKEN_EXPIRADO":
+      // A vaga venceu: esquece o token e entra de novo como jogador novo, na mesma conexão.
+      guardarTexto("sessao", chaveToken(sala), null);
+      cliente?.reolar();
+      return;
+    case "SALA_NAO_EXISTE":
+      guardarTexto("sessao", chaveToken(sala), null);
+      voltarAEntrar(texto);
+      return;
+    case "VERSAO":
+    case "SALA_CHEIA":
+    case "SERVIDOR_CHEIO":
+    case "APELIDO_INVALIDO":
+      voltarAEntrar(texto);
+      return;
+    default:
+      avisar(texto); // LADO_CHEIO, SEM_PERMISSAO, MENSAGEM_INVALIDA
+  }
+}
+
+function aoEstado(estado: EstadoCliente): void {
+  reconectando.hidden = estado !== "reconectando";
+}
+
+function aoFechar(codigo: number): void {
+  if (codigo === 4002) voltarAEntrar("Você entrou nessa sala por outro aparelho.");
+  else if (codigo === 4004) voltarAEntrar("A sala foi encerrada.");
+}
+
+function entrar(): void {
+  aviso.textContent = "";
+  cliente = criarCliente({
+    gerarOla: () => {
+      const token = lerTexto("sessao", chaveToken(sala));
+      return { t: "ola", sala, apelido, ...(token ? { token } : {}) };
+    },
+    aoMensagem,
+    aoEstado,
+    aoPing: (ms) => lobbyUI.definirPing(ms),
+    aoFechar,
+  });
+}
+
+// --- formulário --------------------------------------------------------------
+
+campoCodigo.addEventListener("input", () => {
+  campoCodigo.value = campoCodigo.value.toUpperCase().replace(/[^A-Z]/g, "");
+});
+
+porId("form-entrar").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const codigo = normalizarSala(campoCodigo.value);
+  const limpo = validarApelido(campoApelido.value);
+  if (codigo.length !== 4) {
+    aviso.textContent = "O código da sala tem 4 letras.";
+    return;
+  }
+  if (limpo === null) {
+    aviso.textContent = "Escolha um apelido de 1 a 12 letras.";
+    return;
+  }
+  sala = codigo;
+  apelido = limpo;
+  guardarTexto("local", "b3d.apelido", limpo);
+  cliente?.fechar();
+  entrar();
+});
+
+// Chegou pelo QR (?sala=ABCD) ou recarregou a página: preenche o que dá e, se ainda tem a vaga, volta sozinho.
+const salaDaUrl = normalizarSala(new URLSearchParams(location.search).get("sala") ?? "");
+campoCodigo.value = salaDaUrl;
+campoApelido.value = lerTexto("local", "b3d.apelido");
+mostrar("entrar");
+
+if (salaDaUrl.length === 4 && validarApelido(campoApelido.value) !== null && lerTexto("sessao", chaveToken(salaDaUrl))) {
+  sala = salaDaUrl;
+  apelido = validarApelido(campoApelido.value) ?? "";
+  entrar();
+} else if (salaDaUrl.length === 4) {
+  campoApelido.focus();
+}

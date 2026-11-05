@@ -1,0 +1,293 @@
+/* Controle: celular. Sem zoom, sem seleção de texto, sem rolagem elástica. O joystick e os botões do jogo entram na F2. */
+
+body.controle {
+  font-size: 18px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+body.controle input,
+body.controle select {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.cena {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.cena[hidden],
+.faixa[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+/* Entrar */
+#entrar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.logo {
+  margin: 0;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.logo span {
+  color: #ffd54a;
+}
+
+#form-entrar {
+  width: min(100%, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+#form-entrar label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+input,
+select {
+  padding: 14px;
+  border: 2px solid #2b4a37;
+  border-radius: 10px;
+  background: #08170e;
+  color: #fff;
+  font: inherit;
+  font-size: 1.15rem;
+}
+
+#codigo {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-weight: 800;
+  text-align: center;
+}
+
+button {
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+}
+
+#botao-entrar {
+  padding: 16px;
+  font-size: 1.3rem;
+  background: #1fa34a;
+}
+
+.aviso {
+  min-height: 1.4em;
+  color: #ff9e80;
+  font-size: 1rem;
+}
+
+/* Lobby */
+#lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 40px;
+}
+
+.topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.sala {
+  color: #ffd54a;
+  letter-spacing: 0.15em;
+  font-size: 1.3rem;
+}
+
+.ping-c {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.quem {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+#lobby h2 {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.lados {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.lado {
+  min-height: 56px;
+  padding: 8px;
+  background: #1c3a27;
+  border: 3px solid transparent;
+}
+
+.lado.ativo {
+  border-color: #ffd54a;
+  background: #2d6a43;
+}
+
+.pronto {
+  min-height: 64px;
+  font-size: 1.4rem;
+  background: #3a4a40;
+}
+
+.pronto.ativo {
+  background: #1fa34a;
+}
+
+.painel-dono {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #0f2c19;
+}
+
+.painel-dono[hidden] {
+  display: none;
+}
+
+.painel-dono h2 {
+  margin: 0 0 4px;
+  color: #ffd54a;
+  opacity: 1;
+}
+
+.linha {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  opacity: 0.95;
+}
+
+.comecar {
+  margin-top: 6px;
+  min-height: 64px;
+  font-size: 1.5rem;
+  background: #1fa34a;
+}
+
+.espera {
+  margin: 0;
+  opacity: 0.7;
+}
+
+.lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lista li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #163b23;
+}
+
+.lista li.eu {
+  outline: 2px solid #ffd54a;
+}
+
+.lista li.sem-sinal {
+  opacity: 0.55;
+}
+
+.lista .nome {
+  font-weight: 800;
+}
+
+.lista .lado-txt {
+  margin-left: auto;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.etiqueta {
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #ffd54a;
+  color: #111;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.etiqueta.alerta {
+  background: #ff8a65;
+  color: #111;
+}
+
+.visto {
+  color: #5ee08a;
+  font-weight: 800;
+}
+
+/* Avisos soltos */
+.faixa {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 10px;
+  background: #ffd54a;
+  color: #111;
+  text-align: center;
+  font-weight: 800;
+  z-index: 10;
+}
+
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 20px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #222;
+  border: 2px solid #ffd54a;
+  text-align: center;
+  z-index: 10;
+}

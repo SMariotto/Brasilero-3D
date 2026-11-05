@@ -9,9 +9,11 @@
     "preview": "vite preview --host"
   },
   "dependencies": {
-    "@b3d/core": "*"
+    "@b3d/core": "*",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "vite": "^8.3.5"
   }
 }

@@ -1,0 +1,309 @@
+/* Telão: feito para ler a 3 metros da TV. Tudo em unidades de tela (vw/vh), nada de pixel fixo. */
+
+body.tela {
+  font-size: clamp(16px, 1.7vw, 40px);
+  overflow: hidden;
+}
+
+.cena {
+  position: fixed;
+  inset: 0;
+  display: flex;
+}
+
+.cena[hidden],
+.faixa[hidden],
+.ping[hidden] {
+  display: none;
+}
+
+/* Início */
+#inicio {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.2vh;
+  text-align: center;
+}
+
+.logo {
+  margin: 0;
+  font-size: 7em;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.logo span {
+  color: #ffd54a;
+}
+
+.sub {
+  margin: 0 0 2vh;
+  font-size: 1.3em;
+  opacity: 0.85;
+}
+
+button.grande,
+button.medio {
+  border: 0;
+  border-radius: 0.5em;
+  background: #1fa34a;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button.grande {
+  padding: 0.5em 1.6em;
+  font-size: 2.4em;
+}
+
+button.medio {
+  padding: 0.5em 1em;
+  font-size: 1.1em;
+  background: #2b4a37;
+}
+
+button:hover {
+  filter: brightness(1.15);
+}
+
+.assistir {
+  display: flex;
+  gap: 0.6em;
+  align-items: center;
+}
+
+.assistir input {
+  width: 5em;
+  padding: 0.45em;
+  border-radius: 0.4em;
+  border: 2px solid #2b4a37;
+  background: #08170e;
+  color: #fff;
+  font: inherit;
+  font-size: 1.2em;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.aviso {
+  min-height: 1.6em;
+  color: #ff9e80;
+  font-size: 1.1em;
+}
+
+/* Lobby */
+#lobby {
+  gap: 2vw;
+  padding: 3vh 3vw;
+}
+
+.entrada {
+  flex: 0 0 26vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2vh;
+  padding: 2vh 1.5vw;
+  border-radius: 1em;
+  background: #0f2c19;
+  text-align: center;
+}
+
+.entrada small {
+  font-size: 1em;
+  opacity: 0.8;
+}
+
+.codigo {
+  font-size: 5.2em;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: #ffd54a;
+}
+
+.qr {
+  width: 100%;
+  max-width: 20vw;
+  aspect-ratio: 1;
+  border-radius: 0.5em;
+  background: #fff;
+  image-rendering: pixelated;
+}
+
+.dica {
+  margin: 0;
+  font-size: 1em;
+}
+
+.endereco {
+  margin: 0;
+  font-size: 0.9em;
+  opacity: 0.75;
+  word-break: break-all;
+}
+
+.jogo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2vh;
+  min-width: 0;
+  position: relative;
+}
+
+.resumo {
+  margin: 0;
+  font-size: 1.15em;
+  opacity: 0.9;
+}
+
+.times {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2vw;
+  min-height: 0;
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5vh;
+  padding: 2vh 1.5vw;
+  border-radius: 1em;
+  background: #0f2c19;
+  border-top: 0.45em solid #ffffff;
+}
+
+.time .cabeca {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+}
+
+.time .cabeca small {
+  display: block;
+  opacity: 0.7;
+}
+
+.time .cabeca strong {
+  font-size: 1.7em;
+}
+
+.distintivo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3em;
+  height: 3em;
+  border: 0.18em solid;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: 1em;
+}
+
+.vagas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vh;
+}
+
+.vagas li {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.35em 0.7em;
+  border-radius: 0.4em;
+  background: #163b23;
+  font-size: 1.3em;
+}
+
+.vagas li.bot {
+  background: transparent;
+  border: 1px dashed #2f5a3f;
+  opacity: 0.55;
+  font-size: 1.05em;
+}
+
+.vagas li.sem-sinal {
+  opacity: 0.55;
+}
+
+.jogador .nome {
+  font-weight: 800;
+}
+
+.etiqueta {
+  padding: 0.05em 0.5em;
+  border-radius: 1em;
+  background: #ffd54a;
+  color: #111;
+  font-size: 0.65em;
+  font-weight: 800;
+}
+
+.etiqueta.alerta {
+  background: #ff8a65;
+}
+
+.jogador .visto {
+  margin-left: auto;
+  color: #5ee08a;
+  font-size: 0.8em;
+  font-weight: 800;
+}
+
+.sem-lado small {
+  opacity: 0.8;
+}
+
+.sem-lado .vagas.solto {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.rodape {
+  margin: 0;
+  font-size: 1.2em;
+  opacity: 0.9;
+}
+
+.principal {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 0.8em;
+  opacity: 0.55;
+}
+
+/* Avisos soltos */
+.faixa {
+  position: fixed;
+  left: 50%;
+  top: 2vh;
+  transform: translateX(-50%);
+  padding: 0.5em 1.5em;
+  border-radius: 2em;
+  background: #ffd54a;
+  color: #111;
+  font-size: 1.4em;
+  font-weight: 800;
+  z-index: 10;
+}
+
+.ping {
+  position: fixed;
+  right: 1vw;
+  top: 1vh;
+  font-size: 0.8em;
+  opacity: 0.6;
+}

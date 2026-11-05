@@ -6,10 +6,22 @@
     <title>Brasilero 3D: telão</title>
     <script type="module" src="/src/tela/main.ts"></script>
   </head>
-  <body>
-    <main>
-      <h1>Telão</h1>
-      <p id="estado" class="conectando">conectando...</p>
-    </main>
+  <body class="tela">
+    <section id="inicio" class="cena">
+      <h1 class="logo">Brasilero <span>3D</span></h1>
+      <p class="sub">Futebol para jogar com os amigos. O celular é o controle.</p>
+      <button id="criar" class="grande" type="button">Criar sala</button>
+      <form id="form-assistir" class="assistir" autocomplete="off">
+        <input id="codigo" maxlength="4" placeholder="ABCD" aria-label="Código da sala" spellcheck="false" autocapitalize="characters" />
+        <button class="medio" type="submit">Assistir uma sala</button>
+      </form>
+      <p id="aviso-inicio" class="aviso" role="alert"></p>
+    </section>
+
+    <section id="lobby" class="cena" hidden></section>
+
+    <div id="carregando" class="faixa" hidden>Conectando...</div>
+    <div id="reconectando" class="faixa" hidden>Reconectando...</div>
+    <div id="ping" class="ping" hidden></div>
   </body>
 </html>

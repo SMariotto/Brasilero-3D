@@ -58,3 +58,8 @@ p {
 #estado.erro {
   color: #ff8a80;
 }
+
+/* O atributo hidden tem que ganhar de qualquer display definido por id ou classe. */
+[hidden] {
+  display: none !important;
+}

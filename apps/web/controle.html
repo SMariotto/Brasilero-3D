@@ -6,10 +6,26 @@
     <title>Brasilero 3D: controle</title>
     <script type="module" src="/src/controle/main.ts"></script>
   </head>
-  <body>
-    <main>
-      <h1>Controle</h1>
-      <p id="estado" class="conectando">conectando...</p>
-    </main>
+  <body class="controle">
+    <section id="entrar" class="cena">
+      <h1 class="logo">Brasilero <span>3D</span></h1>
+      <form id="form-entrar" autocomplete="off">
+        <label>
+          Código da sala
+          <input id="codigo" maxlength="4" placeholder="ABCD" spellcheck="false" autocapitalize="characters" autocorrect="off" />
+        </label>
+        <label>
+          Seu apelido
+          <input id="apelido" maxlength="12" placeholder="Seu nome" spellcheck="false" />
+        </label>
+        <button id="botao-entrar" type="submit">Entrar</button>
+      </form>
+      <p id="aviso-entrar" class="aviso" role="alert"></p>
+    </section>
+
+    <section id="lobby" class="cena" hidden></section>
+
+    <div id="reconectando" class="faixa" hidden>Reconectando...</div>
+    <div id="toast" class="toast" hidden></div>
   </body>
 </html>
