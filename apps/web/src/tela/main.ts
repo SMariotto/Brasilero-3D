@@ -30,12 +30,12 @@ let entradaMontadaPara: string | null = null;
 let cenaPronta: Promise<CenaJogo> | null = null;
 let emJogo = false;
 
-function naCena(fn: (c: CenaJogo) => void): void {
+function naCena(fn: (c: CenaJogo) => void | Promise<void>): void {
   if (!cenaPronta) {
     cenaPronta = import("./cena").then(({ CenaJogo }) => new CenaJogo(porId("canvas-host"), porId("hud")));
   }
-  cenaPronta = cenaPronta.then((c) => {
-    fn(c);
+  cenaPronta = cenaPronta.then(async (c) => {
+    await fn(c);
     return c;
   });
 }

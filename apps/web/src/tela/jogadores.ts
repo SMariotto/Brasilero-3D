@@ -81,6 +81,7 @@ export class Jogadores {
         criarMaterialUniforme(uniforme),
       );
       corpo.position.y = JOGADOR.alturaCorpo / 2;
+      corpo.castShadow = true;
       grupo.add(corpo);
 
       // "Nariz": mostra para onde o corpo olha
@@ -137,7 +138,7 @@ export class Jogadores {
     }
   }
 
-  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number): void {
+  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, _dtS = 0): void {
     this.anel.visible = false;
     for (const j of jogadores) {
       const f = this.figuras.get(j.slot);

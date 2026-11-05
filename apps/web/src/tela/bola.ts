@@ -33,6 +33,7 @@ export function criarBola3D(): Bola3D {
   const raio = BOLA.raio * ESCALA_VISUAL;
 
   const esfera = new THREE.Mesh(new THREE.SphereGeometry(raio, 20, 14), new THREE.MeshStandardMaterial({ map: texturaDaBola(), roughness: 0.6 }));
+  esfera.castShadow = true;
   grupo.add(esfera);
 
   const sombraMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false });

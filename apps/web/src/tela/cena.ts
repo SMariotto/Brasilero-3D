@@ -1,42 +1,71 @@
 import * as THREE from "three";
-import { SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot } from "@b3d/core";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { FASE, SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot } from "@b3d/core";
 import { criarBola3D, type Bola3D } from "./bola";
 import { CameraJogo } from "./camera";
-import { criarCampo3D } from "./campo";
+import { criarCampo3D, type Campo3D } from "./campo";
+import { MedidorFps, PainelDebug } from "./desempenho";
+import { criarEstadio, type Estadio } from "./estadio";
 import { Hud } from "./hud";
-import { Interpolador } from "./interpolacao";
+import { Interpolador, type Amostra } from "./interpolacao";
 import { Jogadores } from "./jogadores";
+import { GravadorDeReplay, Reproducao } from "./replay";
+
+/** Quanto o GOOOL fica sozinho na tela antes de o replay começar. */
+const ESPERA_REPLAY_MS = 1400;
 
 /**
- * A cena do jogo no telão: Three.js, a câmera, os jogadores, a bola e o placar em HTML.
- * Recebe os snapshots, interpola e desenha a cada quadro (ARQUITETURA 6).
+ * A cena do jogo no telão: Three.js, a câmera, os jogadores, a bola, o estádio e o placar em HTML.
+ * Recebe os snapshots, interpola e desenha a cada quadro (ARQUITETURA 6). Faz também o replay do gol, o medidor de fps
+ * e o modo leve (SPEC 7.3 e 7.4).
  */
 export class CenaJogo {
   private readonly hud: Hud;
   private readonly interp = new Interpolador();
+  private readonly gravador = new GravadorDeReplay();
+  private readonly medidor = new MedidorFps(
+    () => this.aplicarModoLeve(true),
+    () => this.aplicarModoLeve(false),
+  );
+  private readonly debug: PainelDebug | null;
+
   private renderer: THREE.WebGLRenderer | null = null;
+  private composer: EffectComposer | null = null;
   private scene: THREE.Scene | null = null;
   private camera: CameraJogo | null = null;
+  private campo: Campo3D | null = null;
+  private estadio: Estadio | null = null;
   private jogadores: Jogadores | null = null;
   private bola: Bola3D | null = null;
+  private sol: THREE.DirectionalLight | null = null;
+
   private partidaId = -1;
   private quadro = 0;
+  private quadros = 0;
   private ultimo = 0;
   private primeiroQuadro = true;
+  private reproducao: Reproducao | null = null;
+  private golPendente: { tick: number; lado: 1 | -1; quandoMs: number } | null = null;
+
   private readonly aoRedimensionar = (): void => this.ajustarTamanho();
   private readonly aoTeclar = (e: KeyboardEvent): void => {
     if (e.key === "c" || e.key === "C") this.alternarCamera();
+    else if (e.key === "l" || e.key === "L") this.medidor.alternar();
   };
 
   constructor(
     private readonly host: HTMLElement,
-    hudRaiz: HTMLElement,
+    private readonly hudRaiz: HTMLElement,
   ) {
     this.hud = new Hud(hudRaiz);
+    this.debug = new URLSearchParams(location.search).get("debug") === "1" ? new PainelDebug() : null;
   }
 
-  /** Monta o campo, os jogadores e a bola para uma partida nova (ou revanche). */
-  iniciar(p: PartidaMsg): void {
+  /** Monta o campo, o estádio, os jogadores e a bola para uma partida nova (ou revanche). */
+  async iniciar(p: PartidaMsg): Promise<void> {
     // Mesmo `id`: é a mesma partida com o elenco mudado (humano entrou, saiu ou assumiu vaga de bot). Só refaz os jogadores.
     if (p.id === this.partidaId && this.scene && this.jogadores) {
       this.scene.remove(this.jogadores.grupo);
@@ -47,15 +76,27 @@ export class CenaJogo {
     }
     this.partidaId = p.id;
     this.interp.reiniciar();
+    this.gravador.reiniciar();
+    this.reproducao = null;
+    this.golPendente = null;
     this.primeiroQuadro = true;
     this.hud.iniciar(p);
     this.hud.botaoCamera.onclick = () => this.alternarCamera();
+    this.hud.botaoLeve.onclick = () => this.medidor.alternar();
+    this.hud.modoLeve(this.medidor.leve);
+    if (this.debug) this.hudRaiz.append(this.debug.elemento);
 
     if (!this.renderer) {
       try {
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.host.replaceChildren(this.renderer.domElement);
+        const r = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        r.shadowMap.enabled = !this.medidor.leve;
+        r.shadowMap.type = THREE.PCFShadowMap;
+        r.toneMapping = THREE.ACESFilmicToneMapping;
+        r.toneMappingExposure = 1.05;
+        r.info.autoReset = false; // contamos os desenhos do quadro inteiro, inclusive o pós-processamento
+        this.renderer = r;
+        this.host.replaceChildren(r.domElement);
       } catch {
         this.host.textContent = "Este navegador não conseguiu abrir o 3D. O placar continua funcionando.";
       }
@@ -63,20 +104,38 @@ export class CenaJogo {
 
     this.liberar();
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b1b2d);
-    scene.add(new THREE.HemisphereLight(0xdfeeff, 0x2f6b3a, 1.15));
-    const sol = new THREE.DirectionalLight(0xffffff, 1.6);
-    sol.position.set(-20, 40, 25);
-    scene.add(sol);
+    const uniformes = uniformesDaPartida(p.config.casa, p.config.visitante);
 
-    scene.add(criarCampo3D(p.campo));
-    this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante));
+    // Luz de transmissão: céu e chão suaves e um "sol" forte de refletor que faz as sombras
+    scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x2a5a33, 0.95));
+    const sol = new THREE.DirectionalLight(0xfff4e0, 2.3);
+    sol.position.set(-25, 55, 32);
+    const mx = p.campo.comp / 2 + 12;
+    const mz = p.campo.larg / 2 + 12;
+    Object.assign(sol.shadow.camera, { left: -mx, right: mx, top: mz, bottom: -mz, near: 10, far: 140 });
+    sol.shadow.mapSize.set(2048, 2048);
+    sol.shadow.bias = -0.0004;
+    sol.shadow.normalBias = 0.03;
+    sol.castShadow = !this.medidor.leve;
+    scene.add(sol);
+    this.sol = sol;
+
+    this.campo = criarCampo3D(p.campo);
+    scene.add(this.campo.grupo);
+    this.estadio = criarEstadio(p.campo, [uniformes[0].cor1, uniformes[1].cor1]);
+    this.estadio.torcida.definirVisivel(!this.medidor.leve);
+    scene.add(this.estadio.grupo);
+    scene.background = this.estadio.ceu;
+    scene.fog = new THREE.Fog(0x0d1a33, 95, 280);
+
+    this.jogadores = new Jogadores(p.elenco, uniformes);
     scene.add(this.jogadores.grupo);
     this.bola = criarBola3D();
     scene.add(this.bola.grupo);
 
     this.scene = scene;
     this.camera = new CameraJogo(p.campo);
+    this.montarPosProcessamento();
 
     window.addEventListener("resize", this.aoRedimensionar);
     window.addEventListener("keydown", this.aoTeclar);
@@ -89,17 +148,27 @@ export class CenaJogo {
 
   receberSnapshot(s: Snapshot): void {
     this.interp.adicionar(s, performance.now());
+    this.gravador.capturar(s);
   }
 
   evento(e: Evento): void {
     this.hud.evento(e);
+    if (e.tipo === "gol") {
+      const lado: 1 | -1 = e.dados.time === 0 ? 1 : -1; // a Casa marca no gol de X positivo
+      this.campo?.balancarRede(lado);
+      this.estadio?.torcida.pular(4);
+      this.golPendente = { tick: e.tick, lado, quandoMs: performance.now() + ESPERA_REPLAY_MS };
+    }
   }
 
   fim(f: Fim): void {
+    this.terminarReplay();
+    this.golPendente = null;
     this.hud.mostrarFim(f);
   }
 
   alternarCamera(): void {
+    if (this.reproducao) return; // no replay a câmera é a de trás do gol
     this.camera?.alternar();
   }
 
@@ -114,15 +183,77 @@ export class CenaJogo {
     this.partidaId = -1;
     this.scene = null;
     this.camera = null;
+    this.campo = null;
+    this.estadio = null;
     this.jogadores = null;
     this.bola = null;
+    this.reproducao = null;
+    this.golPendente = null;
   }
+
+  // --- pós-processamento e modo leve ------------------------------------------------------------
+
+  /** Brilho leve nos refletores (Bloom). Se der erro, o jogo segue sem. */
+  private montarPosProcessamento(): void {
+    this.composer?.dispose();
+    this.composer = null;
+    if (!this.renderer || !this.scene || !this.camera) return;
+    try {
+      const c = new EffectComposer(this.renderer);
+      c.addPass(new RenderPass(this.scene, this.camera.camera));
+      c.addPass(new UnrealBloomPass(new THREE.Vector2(512, 512), 0.32, 0.55, 0.92));
+      c.addPass(new OutputPass());
+      this.composer = c;
+    } catch {
+      this.composer = null;
+    }
+  }
+
+  /** Modo leve (SPEC 7.3): sem sombras, sem torcida 3D e sem pós-processamento. */
+  private aplicarModoLeve(leve: boolean): void {
+    this.hud.modoLeve(leve);
+    if (this.renderer) {
+      this.renderer.shadowMap.enabled = !leve;
+      this.renderer.setPixelRatio(leve ? 1 : Math.min(window.devicePixelRatio, 2));
+    }
+    if (this.sol) this.sol.castShadow = !leve;
+    this.estadio?.torcida.definirVisivel(!leve);
+    // Trocar sombras liga e desliga trechos do shader: os materiais precisam recompilar
+    this.scene?.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!m) return;
+      for (const mat of Array.isArray(m) ? m : [m]) mat.needsUpdate = true;
+    });
+    this.ajustarTamanho();
+  }
+
+  // --- replay -------------------------------------------------------------------------------------
+
+  private iniciarReplay(agora: number): void {
+    const gol = this.golPendente;
+    this.golPendente = null;
+    if (!gol || !this.camera) return;
+    const r = new Reproducao(this.gravador.trecho(gol.tick), agora, gol.lado);
+    if (r.vazia) return;
+    this.reproducao = r;
+    this.camera.iniciarReplay(gol.lado);
+    this.hud.replay(true);
+  }
+
+  private terminarReplay(): void {
+    if (!this.reproducao) return;
+    this.reproducao = null;
+    this.camera?.terminarReplay();
+    this.hud.replay(false);
+  }
+
+  // --- quadro ---------------------------------------------------------------------------------------
 
   /** Solta da memória da placa de vídeo o que a cena anterior usava. */
   private liberar(): void {
     this.scene?.traverse((o) => {
-      if (o instanceof THREE.Mesh || o instanceof THREE.Sprite) {
-        if (o instanceof THREE.Mesh) o.geometry.dispose();
+      if (o instanceof THREE.Mesh || o instanceof THREE.Sprite || o instanceof THREE.Points) {
+        if (!(o instanceof THREE.Sprite)) o.geometry.dispose();
         const m = o.material as THREE.Material | THREE.Material[];
         for (const mat of Array.isArray(m) ? m : [m]) {
           (mat as THREE.MeshBasicMaterial).map?.dispose();
@@ -136,6 +267,7 @@ export class CenaJogo {
     const w = this.host.clientWidth || window.innerWidth;
     const h = this.host.clientHeight || window.innerHeight;
     this.renderer?.setSize(w, h, false);
+    this.composer?.setSize(w, h);
     if (this.renderer) {
       this.renderer.domElement.style.width = "100%";
       this.renderer.domElement.style.height = "100%";
@@ -145,17 +277,46 @@ export class CenaJogo {
 
   private readonly desenhar = (agora: number): void => {
     this.quadro = requestAnimationFrame(this.desenhar);
-    const dt = Math.min(0.1, (agora - this.ultimo) / 1000);
+    const dtMs = agora - this.ultimo;
     this.ultimo = agora;
+    const dt = Math.min(0.1, dtMs / 1000);
+    const estado = this.medidor.quadro(dtMs);
+    this.renderer?.info.reset();
 
-    const a = this.interp.amostrar(agora);
+    this.campo?.atualizar(dt);
+    this.estadio?.torcida.atualizar(dt);
+
+    // O jogo ao vivo continua sendo medido mesmo durante o replay (placar, relógio, fim do replay)
+    const vivo = this.interp.amostrar(agora);
+    if (this.golPendente && agora >= this.golPendente.quandoMs && !this.reproducao) this.iniciarReplay(agora);
+    if (this.reproducao && (this.reproducao.terminou(agora) || (vivo && vivo.fase !== FASE.gol))) this.terminarReplay();
+
+    const a: Amostra | null = this.reproducao ? this.reproducao.amostrar(agora) : vivo;
+    if (vivo) this.hud.atualizar(vivo);
     if (a) {
-      this.hud.atualizar(a);
       this.bola?.atualizar(a.bola);
-      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante);
+      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt);
       this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro);
       this.primeiroQuadro = false;
     }
-    if (this.renderer && this.scene && this.camera) this.renderer.render(this.scene, this.camera.camera);
+
+    if (this.renderer && this.scene && this.camera) {
+      if (this.composer && !estado.leve) this.composer.render(dt);
+      else this.renderer.render(this.scene, this.camera.camera);
+    }
+
+    if (this.debug && this.renderer && ++this.quadros % 10 === 0) {
+      const i = this.renderer.info;
+      this.debug.atualizar({
+        fps: estado.fps,
+        leve: estado.leve,
+        motivo: this.medidor.motivo,
+        chamadas: i.render.calls,
+        triangulos: i.render.triangles,
+        geometrias: i.memory.geometries,
+        texturas: i.memory.textures,
+        atrasoMs: this.interp.atrasoMs,
+      });
+    }
   };
 }
