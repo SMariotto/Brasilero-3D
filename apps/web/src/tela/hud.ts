@@ -17,6 +17,9 @@ export class Hud {
   private mensagem = el("div", { id: "mensagem", class: "mensagem" });
   private faixaGol = el("div", { id: "faixa-gol", class: "faixa-gol" });
   private painelFim = el("div", { id: "painel-fim", class: "painel-fim" });
+  private replayTag = el("div", { id: "replay-tag", class: "replay-tag" }, "REPLAY");
+  private modoLeveTag = el("div", { id: "modo-leve-tag", class: "modo-leve-tag" }, "Modo leve");
+  readonly botaoLeve = el("button", { id: "botao-leve", class: "botao-camera botao-leve", type: "button", title: "Modo leve: tira sombras, torcida e brilho (tecla L)" }, "Modo leve");
   readonly botaoCamera = el("button", { id: "botao-camera", class: "botao-camera", type: "button", title: "Trocar a câmera (tecla C)" }, "Câmera");
 
   private p: PartidaMsg | null = null;
@@ -58,12 +61,26 @@ export class Hud {
     this.faixaGol.hidden = true;
     this.painelFim.replaceChildren();
     this.painelFim.hidden = true;
-    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.botaoCamera);
+    this.replayTag.hidden = true;
+    this.modoLeveTag.hidden = true;
+    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
   }
 
   /** Mesma partida, elenco mudou (humano entrou ou saiu): só atualiza os nomes. */
   atualizarElenco(p: PartidaMsg): void {
     this.p = p;
+  }
+
+  /** O replay do gol está passando: mostra a etiqueta REPLAY e esconde a faixa de GOOOL. */
+  replay(ativo: boolean): void {
+    this.replayTag.hidden = !ativo;
+    if (ativo) this.faixaGol.hidden = true;
+  }
+
+  /** Avisa que o modo leve está ligado (o jogo roda sem sombras, torcida e brilho). */
+  modoLeve(ligado: boolean): void {
+    this.modoLeveTag.hidden = !ligado;
+    this.botaoLeve.textContent = ligado ? "Modo normal" : "Modo leve";
   }
 
   limpar(): void {
@@ -82,7 +99,10 @@ export class Hud {
     this.golsVisitante.textContent = String(a.golsVisitante);
     this.relogio.textContent = mmss(a.relogio);
 
-    if (a.fase !== FASE.gol) this.faixaGol.hidden = true;
+    if (a.fase !== FASE.gol) {
+      this.faixaGol.hidden = true;
+      this.replayTag.hidden = true;
+    }
 
     if (this.fim || a.fase === FASE.fim) this.mensagem.textContent = "";
     else if (a.fase === FASE.preJogo) this.mensagem.textContent = "Começando...";
