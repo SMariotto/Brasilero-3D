@@ -1,0 +1,94 @@
+/* Identidade visual do Brasilero 3D: noite de jogo, gramado em faixas, amarelo e verde. Vale para o telão e para o controle.
+   Fica por último de propósito: refina o que tela.css e controle.css definem, sem mudar a estrutura deles. */
+
+:root {
+  --verde-noite: #0a2113;
+  --verde-faixa: #0e2c19;
+  --verde-botao: #21b04f;
+  --verde-botao-fundo: #0d6a2c;
+  --amarelo: #ffd54a;
+  --amarelo-fundo: #c79a00;
+  --linha: rgba(255, 255, 255, 0.1);
+}
+
+body.tela,
+body.controle {
+  background:
+    radial-gradient(ellipse 80% 45% at 50% -8%, rgba(255, 240, 200, 0.2), transparent 70%),
+    repeating-linear-gradient(90deg, var(--verde-noite) 0 7vmax, var(--verde-faixa) 7vmax 14vmax);
+  background-attachment: fixed;
+}
+
+/* Logo: itálico pesado, "3D" num selo amarelo e uma bola ao lado */
+.logo {
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.45), 0 0.12em 0.3em rgba(0, 0, 0, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18em;
+  white-space: nowrap;
+}
+
+.logo::before {
+  content: "";
+  flex: none;
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 46%, #1b1b1b 0 12%, transparent 13%),
+    radial-gradient(circle at 22% 62%, #1b1b1b 0 8%, transparent 9%),
+    radial-gradient(circle at 78% 60%, #1b1b1b 0 8%, transparent 9%),
+    radial-gradient(circle at 50% 12%, #1b1b1b 0 8%, transparent 9%),
+    radial-gradient(circle at 34% 28%, #ffffff 0 40%, #d9dfdb 68%, #8f9994 100%);
+  box-shadow: 0 0.06em 0.12em rgba(0, 0, 0, 0.5);
+}
+
+.logo span {
+  display: inline-block;
+  padding: 0 0.16em;
+  border-radius: 0.14em;
+  background: var(--amarelo);
+  color: var(--verde-noite);
+  text-shadow: none;
+  transform: skewX(-8deg);
+}
+
+/* Botões principais: chave grossa, sobem ao apertar */
+button.grande,
+#botao-entrar,
+.cena button.principal-acao {
+  background: linear-gradient(#2cc25d, var(--verde-botao));
+  box-shadow: 0 0.14em 0 var(--verde-botao-fundo), 0 0.3em 0.6em rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  letter-spacing: 0.02em;
+}
+
+button.grande:active,
+#botao-entrar:active {
+  transform: translateY(0.1em);
+  box-shadow: 0 0.04em 0 var(--verde-botao-fundo);
+}
+
+/* Cartões: borda fina de "linha do campo" */
+.entrada,
+.time,
+.painel-fim,
+.faixa-gol {
+  border: 1px solid var(--linha);
+}
+
+/* Campos de texto */
+input,
+select {
+  border-color: #2f5a41;
+}
+
+input:focus,
+select:focus {
+  outline: 3px solid var(--amarelo);
+  outline-offset: 1px;
+}

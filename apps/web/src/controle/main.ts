@@ -3,6 +3,7 @@ import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./controle.css";
+import "../comum/marca.css";
 import { JogoControle } from "./jogo";
 import { criarLobbyControle } from "./lobby";
 
