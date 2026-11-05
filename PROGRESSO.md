@@ -4,7 +4,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 
 ## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodada G1, G2, G3)
 - **G1 (controle estilo FIFA): FEITA**, tag `g1-ok`. Máx. 3 humanos por time, 6 controles por sala; cada humano controla um jogador de cada vez; o controle passa para quem recebe o passe; CHUTE sem a bola troca de jogador; carrinho agora é segurar PASSE por 0,3 s.
-- **G2 (bots: desarme, pressão, dificuldade): NÃO COMEÇOU.**
+- **G2 (bots: desarme, pressão, dificuldade): FEITA**, tag `g2-ok`. Simulador `npm run simular`; Fácil, Médio e Difícil agora são bem diferentes (velocidade, alcance e mira do bote, antecipação). Tabela antes e depois em "Testes que o Samuel precisa fazer", G2.
 - **G3 (jogador 3D feito por código): NÃO COMEÇOU.**
 - **Não testado por mim:** nada disso no Render nem com celulares de verdade (só testes automáticos e Edge sem placa de vídeo). O "sentimento" da troca de jogador precisa de você.
 - **Perguntas abertas para você** (seção "Dúvidas para o Samuel", itens 16 em diante): o carrinho no PASSE segurado; o número de 6 controles por sala; o `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" (não mexi, é seu).
@@ -27,7 +27,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F8a Campeonato da sala | pronta (falta o Samuel conferir) | 4ba83b8 | Tabela de pontos corridos dos clubes e estatísticas dos jogadores na memória da sala; tecla T no telão; o Dono zera pelo celular |
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 | G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
-| G2 Bots (desarme, pressão, dificuldade) | não começou | | |
+| G2 Bots (desarme, pressão, dificuldade) | pronta (falta o Samuel conferir) | tag `g2-ok` | Simulador de bots, diagnóstico, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, qualquer bot defensor dá o bote ao alcance |
 | G3 Jogador 3D por código | não começou | | |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
@@ -80,6 +80,13 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Estatísticas e campeonato são do humano* (pelo apelido), não do jogador que ele controlava: gol, assistência e desarme vão para quem tocou na bola, mesmo que o humano já tenha trocado de jogador.
    - *Câmera que segue (tecla N / `?segue=Apelido`)* agora segue o humano, esteja ele em qual jogador estiver.
    - *Modo antigo nos testes:* `Partida` tem a opção `controleFifa` (o servidor liga; desligada, cada humano fica na vaga fixa, que é o que os testes das fases F2 a F8 esperam). Só os testes usam o modo antigo.
+17. **G2, o que eu completei (confirme ou mande mudar):**
+   - *Diagnóstico:* a dificuldade já chegava à partida (conferi lobby → config → partida), mas quase não se sentia: os bots corriam todos à mesma velocidade; só um bot pressionava; o bote só disparava a 1,6 m do portador e **mirava onde a bola estava** (o portador anda, o bote errava); o bot que perseguia a bola mirava 0,25 s à frente sem calcular interceptação; e os outros defensores (os que "fecham" e os de apoio) **nunca** davam bote, mesmo com o portador passando em cima deles. Reação (0,22 s contra 0,12 s) e chance de bote (30% contra 50%) quase não se percebem.
+   - *Números que escolhi* (todos em `BOT` no `constantes.ts`; Fácil / Médio / Difícil): velocidade 88% / 96% / 100%; alcance do bote 1,2 / 1,5 / 1,7 m; chance de bote por decisão 14% / 22% / 32%; antecipação 0,2 / 0,4 / 0,6 s; mira do bote 0 / 0,06 / 0,12 s. Reação e erro de passe ficaram como estavam.
+   - *O que tentei e tirei:* Difícil com **2 bots pressionando** deixava o jogo injusto (a bola trocava de time 500 vezes por partida e o driblador perdia a bola a cada 0,6 s). Deixei 1 pressionando nos três (o código aceita mais, é só mudar `BOT.pressionam`).
+   - *Não dei carrinho aos bots* (só bote): carrinho de bot gera falta e fica injusto para o humano. Posso liberar só no Difícil se você quiser.
+   - *Não mexi no bote do humano* (alcance 0,8 m, avanço de 0,25 s), só na mira dos bots.
+   - *Dificuldade por time* (`Partida.dificuldades`) existe só para o simulador e os testes; no jogo a dificuldade continua sendo uma só, a do Dono.
 12. **F5, o que eu completei (confirme ou mande mudar):**
    - *Conflito de cor:* se as camisas dos dois clubes ficam parecidas (diferença de cor ΔE < 25), o Visitante usa o uniforme reserva; se ainda assim parecer, usa branco ou preto. Conferi os 132 pares de clubes do `times.json`: nenhum fica abaixo de 25.
    - *"Aleatório":* aparece como opção de clube no lobby; o servidor sorteia na hora de começar e a Revanche mantém os mesmos clubes sorteados.
@@ -106,6 +113,24 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *PCF de sombras:* usei o tipo `PCFShadowMap` (o "Soft" está marcado como obsoleto no Three.js 0.187).
 
 ## Testes que o Samuel precisa fazer
+G2 (bots; no site do Render, 1 ou 2 celulares, o resto é bot):
+1. Escolha **Bots: Fácil**, jogue 2 minutos: os bots têm que ser **visivelmente mais lentos** que você, quase não dão bote, passam e chutam mal. Dá para driblar e fazer gol com facilidade.
+2. Troque para **Médio** (Revanche com o Dono mudando a opção no lobby): eles correm quase tanto quanto você e dão bote se você passar a menos de ~1,5 m. Você perde a bola de vez em quando.
+3. Troque para **Difícil**: correm tanto quanto você, antecipam para onde a bola vai, dão bote de mais longe (~1,7 m) e mais vezes. Para ficar com a bola é preciso passar e proteger. **Se achar demais (ou de menos), me diga qual nível e eu mexo em `BOT` no `constantes.ts`.**
+4. Confira se os **companheiros bots** também roubam a bola dos adversários (eles agora dão bote ao alcance mesmo quando não são o que está indo na bola).
+
+Números do simulador (`npm run simular -- --partidas 6`; média por partida de 8 min, modo Campo, 5 de linha, semente fixa; "perdas/min" = quantas vezes um bot toma a bola de um driblador humano de mentira por minuto com a bola):
+
+| Dificuldade | Antes: botes tentados (C+V) | Antes: desarmes (C+V) | Antes: perdas/min do driblador | Depois: botes (C+V) | Depois: desarmes (C+V) | Depois: perdas/min do driblador |
+|---|---|---|---|---|---|---|
+| Fácil | 63 | 34 | 5,0 | 41 | 24 | 3,7 |
+| Médio | 149 | 67 | 12,3 | 155 | 94 | 17,2 |
+| Difícil | 236 | 80 | 24,8 | 233 | 128 | 36,3 |
+
+Bots de dificuldades diferentes (Casa:Visitante, gols por partida). Antes: Difícil:Fácil 16,3 x 4,5; Difícil:Médio 12,0 x 5,8; Médio:Fácil 11,5 x 4,8. Depois: **Difícil:Fácil 14,2 x 0,8; Difícil:Médio 13,7 x 3,2; Médio:Fácil 10,3 x 3,3.** O Difícil agora ganha de forma clara e o Fácil quase não marca.
+
+Qual parece mais divertido: o driblador de mentira é burro (corre em zigue-zague sem passar nem proteger a bola), então o humano de verdade perde menos que esse número. Mesmo assim, no Difícil ele perde a bola a cada ~1,7 s, o que é duro de propósito; no Médio, a cada ~3,5 s; no Fácil, a cada ~16 s. Minha recomendação: **Médio como padrão**, Fácil para quem nunca jogou. Se o Difícil estiver frustrante, baixe `BOT.chanceBote.dificil` (0,32) para 0,25.
+
 G1 (controle estilo FIFA; no site do Render, com 2 celulares no mínimo; o ideal é 3 + 3):
 1. Entre com 2 celulares no mesmo time (os dois escolhem "Casa") e comece. Cada celular tem a faixa de cima com o número do **jogador que ele controla agora**; no telão, só esses dois jogadores têm **seta, anel no chão e apelido** na cor do time. Os outros têm só o número.
 2. **Com a bola:** quem estiver com a bola é controlado por um de vocês (o primeiro que entrou, se nenhum controlar o portador). Passe (toque em PASSE): na hora em que a bola sai, **o controle e a seta vão para quem recebeu**, e a faixa do celular **pisca** com o número novo. Com 2 humanos, o outro celular não troca (a menos que o passe vá para o jogador dele).
@@ -214,5 +239,6 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
+| 05/11/2026 | G2 | Simulador de bots (`npm run simular`, laço no núcleo em `simulacao.ts`), dificuldade por time para medir, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, defensores oportunistas, testes de dificuldade | ver git log (tag `g2-ok`) |
 | 05/11/2026 | G1 | Controle estilo FIFA: gestor de controle no núcleo (`controle.ts`), 3 humanos por time e 6 por sala, troca por passe/sozinha/à mão, carrinho no PASSE segurado, mensagem `donos`, créditos por humano, seta/anel/apelido no telão, faixa que pisca no celular, SPEC/PROTOCOLO atualizados | ver git log (tag `g1-ok`) |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
