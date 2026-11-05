@@ -1,0 +1,36 @@
+# Servidor da partida no Fly.io, região gru (São Paulo). Passo a passo no PROGRESSO.md.
+# Troque `app` por um nome livre (o Fly recusa nomes já usados) ou deixe o `fly launch` perguntar.
+app = "brasilero3d-servidor"
+primary_region = "gru"
+
+[build]
+  dockerfile = "apps/server/Dockerfile"
+
+[env]
+  PORT = "8787"
+  NODE_ENV = "production"
+  # ORIGENS = "https://brasilero3d.vercel.app"   # ponha o endereço do SEU site na Vercel (ou use: fly secrets set ORIGENS=...)
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Uma partida é uma conexão longa na memória do processo: a máquina não pode dormir nem ser trocada no meio do jogo.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/saude"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

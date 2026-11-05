@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@b3d/core": "*",
-    "ws": "^8.22.1"
+    "ws": "^8.22.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@types/ws": "^8.18.2",
-    "tsx": "^4.23.15"
+    "@types/ws": "^8.18.2"
   }
 }

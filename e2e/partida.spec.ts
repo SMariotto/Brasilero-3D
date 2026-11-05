@@ -103,3 +103,48 @@ test("o joystick do celular move o jogador e o telão mostra", async ({ browser,
   const saude = (await (await request.get(`${API}/saude`)).json()) as { piorPassoMs: number };
   expect(saude.piorPassoMs).toBeLessThan(50);
 });
+
+test("telão extra: um amigo abre 'Assistir uma sala' no meio da partida e vê o jogo, com a própria câmera", async ({ browser }) => {
+  const telao = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+  await telao.goto("/tela.html");
+  await telao.locator("#criar").click();
+  await expect(telao.locator(".codigo")).toHaveText(/^[A-Z]{4}$/);
+  const sala = (await telao.locator(".codigo").textContent())!;
+
+  const ana = await entrarComoCelular(browser, sala, "Ana", "casa");
+  await ana.page.locator(".comecar").click();
+  await expect(telao.locator("#jogo")).toBeVisible();
+
+  // O amigo (outra casa) abre o telão, digita o código e assiste
+  const amigo = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+  await amigo.goto("/tela.html");
+  await amigo.locator("#codigo").fill(sala.toLowerCase());
+  await amigo.getByRole("button", { name: "Assistir uma sala" }).click();
+  await expect(amigo.locator("#jogo")).toBeVisible();
+  await expect(amigo.locator("#canvas-host canvas")).toBeVisible();
+  await expect(amigo.locator("#placar")).toContainText("FLA");
+
+  // Os dois telões veem o mesmo jogo, mas só um é o principal; cada um escolhe a própria câmera
+  await amigo.locator("#botao-camera").click();
+  await amigo.keyboard.press("c");
+  await expect(amigo.locator("#placar")).toBeVisible();
+  await expect(telao.locator("#placar")).toBeVisible();
+
+  // Sala que não existe: volta ao início com o aviso
+  const perdido = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+  await perdido.goto("/tela.html");
+  await perdido.locator("#codigo").fill("ZZZZ");
+  await perdido.getByRole("button", { name: "Assistir uma sala" }).click();
+  await expect(perdido.locator("#aviso-inicio")).toContainText("Não achei essa sala");
+});
+
+test("servidor lembrado: o ?srv= fica guardado e dá para voltar ao padrão", async ({ browser }) => {
+  const pagina = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
+  await pagina.goto("/tela.html?srv=" + encodeURIComponent("ws://localhost:8788/ws"));
+  await expect(pagina.locator("#servidor-lembrado")).toBeVisible();
+  await expect(pagina.locator("#servidor-texto")).toHaveText("ws://localhost:8788/ws");
+  await pagina.reload();
+  await expect(pagina.locator("#servidor-lembrado")).toBeVisible();
+  await pagina.getByRole("button", { name: "Voltar ao padrão" }).click();
+  await expect(pagina.locator("#servidor-lembrado")).toBeHidden();
+});

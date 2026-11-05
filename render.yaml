@@ -1,0 +1,17 @@
+# Servidor da partida no Render (plano grátis). Região só nos EUA/Europa/Singapura: mais atraso que o Fly em São Paulo,
+# e o serviço dorme depois de 15 min sem tráfego (acordar leva ~1 min). Passo a passo no PROGRESSO.md.
+services:
+  - type: web
+    name: brasilero3d-servidor
+    runtime: docker
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /saude
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8787"
+      - key: ORIGENS
+        sync: false # você digita no painel do Render: https://brasilero3d.vercel.app

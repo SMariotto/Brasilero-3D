@@ -10,7 +10,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F1 Sala e conexão | pronta (falta o Samuel conferir) | d0b6073 | Salas, lobby, reconexão, ping, QR, carga 18 conexões sem erro, 95 testes |
 | F2 Primeiro jogo | pronta (falta o Samuel conferir) | 702e32f | Física, partida, protocolo binário, laço 60 Hz, telão 3D, controle com joystick, 243 testes + 2 Playwright |
 | F3 Futebol de verdade | pronta (falta o Samuel conferir) | ver registro | Reinícios, passe com mira, bote, carrinho, faltas, goleiro, bots, vagas; 323 testes; 8 min de bots simulam em ~0,6 s |
-| F4 No ar | não começou | | |
+| F4 No ar | pronta (falta o Samuel conferir) | ver registro | ORIGENS, servidor serve o site, npm run festa, vercel.json, Dockerfile, fly.toml, render.yaml, telões extras, aviso de ping; 358 testes + 4 Playwright |
 | F5 Times e uniformes | não começou | | |
 | F6 Visual 3D realista | não começou | | |
 | F7 Som e acabamento | não começou | | |
@@ -18,7 +18,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F3 pronta. A F4 vem logo em seguida (o Samuel pediu F3 e F4 prontas antes de perguntar). Nada pela metade.
+F3 e F4 prontas. Próximo passo: F5 (Times e uniformes), depois que o Samuel conferir e responder "sim". Nada pela metade.
 
 ## Dúvidas para o Samuel
 Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opção mais simples; diga se quer outra:
@@ -45,9 +45,29 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Lateral:* cobra o humano do time se estiver a até 12 m da bola; senão o bot mais perto. *Falta com as faltas desligadas:* o carrinho no adversário não faz nada (ninguém cai, sem tiro livre).
    - *Bots não dão carrinho* (só humanos). Bot dá bote conforme a dificuldade (15%, 30% ou 50% por decisão com o adversário perto).
    - *Constantes novas provisórias* (a SPEC não define): falha do goleiro por dificuldade (25%, 12%, 5%), mergulho de 0,45 s a 9 m/s, alcance em pé 0,85 m e mergulhando 1,25 m, rebote da bola espalmada, cone de 140° e erro angular dos bots (8°, 4°, 1,5°).
-11. **F4:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
+11. **F4, o que eu completei (confirme ou mande mudar):**
+   - *O servidor serve o site* (sugestão que eu tinha deixado aqui): com `SITE_DIR` (o `npm run festa` já liga) o telão, o controle e o WebSocket ficam na mesma origem pelo túnel, sem depender da Vercel. A Vercel continua funcionando com `VITE_SERVIDOR_PADRAO`.
+   - *ORIGENS:* em produção só passam os sites da lista e o mesmo site; em desenvolvimento também localhost e a rede local. Quem não manda Origin (testes, `npm run carga`) passa. `ORIGENS=*` libera tudo.
+   - *Dockerfile usa tsx em produção* (o servidor roda o TypeScript direto): por isso o `tsx` passou para dependência normal do servidor. Não testei o `docker build` (Docker não está instalado aqui), mas rodei a mesma sequência (`npm ci --omit=dev` + `node node_modules/tsx/dist/cli.mjs ...`) numa pasta limpa e o servidor subiu.
+   - *`fly.toml`:* a máquina nunca dorme (`auto_stop_machines = "off"`), 1 máquina de 256 MB em `gru`, checagem em `/saude`.
+12. **F5:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
 
 ## Testes que o Samuel precisa fazer
+F4 (jogar com amigos de outras casas):
+1. Instale o túnel uma vez: `winget install --id Cloudflare.cloudflared` (feche e abra o PowerShell depois).
+2. Na pasta do projeto: `npm run festa`. Ele compila o site, sobe o servidor e imprime um link do TELÃO (https://....trycloudflare.com/tela.html?srv=...) e um QR no terminal. O link muda a cada vez e o PC tem que ficar ligado.
+3. Abra o link do telão no PC, "Criar sala". Os celulares de quem está com você entram pelo QR.
+4. O amigo da outra casa abre o MESMO link do telão no PC dele, escolhe "Assistir uma sala" e digita o código. Ele vê o jogo na tela dele (cada telão escolhe a própria câmera) e joga pelo celular (entra no link do controle que você mandar, ou pelo QR).
+5. Se o ping passar de 150 ms aparece "Conexão lenta" no telão e no celular.
+6. Para parar: Ctrl+C no PowerShell.
+**Eu não consegui testar o túnel real aqui** (o ambiente bloqueou abrir um túnel público). O que testei: o servidor em produção servindo o site, o site compilado em outro servidor de arquivos falando com um servidor remoto, as origens, e o caminho "sem cloudflared". Se o `npm run festa` der erro, me mande a mensagem.
+
+F4 (publicar de verdade, só quando você quiser; eu não criei conta nem fiz deploy nenhum):
+- **Site na Vercel:** suba o código (`git push`), na Vercel "Add New > Project", escolha o repositório. Não mexa em Root Directory (é a raiz do repositório) nem nos comandos: o `vercel.json` já tem tudo. Em Settings > Environment Variables crie `VITE_SERVIDOR_PADRAO` = `wss://ENDERECO-DO-SERVIDOR/ws` (o endereço do Fly ou do Render, abaixo) e faça um novo deploy. Sem essa variável o site da Vercel não acha servidor (ele procuraria o servidor no próprio site).
+- **Servidor no Fly.io (região São Paulo, ~US$ 2/mês, precisa de cartão de um adulto):** instale o flyctl (guia em fly.io/docs/flyctl/install), `fly auth login`, depois na pasta do projeto: `fly launch --no-deploy --copy-config` (aceite usar o fly.toml; se o nome `brasilero3d-servidor` estiver ocupado, escolha outro), `fly secrets set ORIGENS=https://SEU-SITE.vercel.app`, `fly deploy`. Confira `https://SEU-APP.fly.dev/saude`. O endereço do WebSocket é `wss://SEU-APP.fly.dev/ws`.
+- **Servidor no Render (grátis, mais atraso, dorme após 15 min):** "New > Blueprint", escolha o repositório (usa o render.yaml). No painel ponha `ORIGENS` = `https://SEU-SITE.vercel.app`. O endereço fica `wss://SEU-SERVICO.onrender.com/ws`.
+- Quer testar o site da Vercel com o servidor do `npm run festa`? Rode `$env:SITE_URL="https://SEU-SITE.vercel.app"; npm run festa`: ele imprime também o link do telão por lá (já com o `?srv=` do túnel) e libera o site em ORIGENS.
+
 F3 (1 humano com bots completando 5 contra 5; depois 2 celulares):
 1. `npm run dev`, crie a sala e entre com 1 celular. No lobby o Dono escolhe **Campo** (linhas de verdade) ou Arena. Toque em "Começar": os outros 9 jogadores e os 2 goleiros (amarelo e laranja) são bots.
 2. Jogue um pouco: os bots não podem ficar parados nem amontoados, e têm que passar, chutar e dar bote. Na dificuldade Fácil eles reagem mais devagar e erram mais; no Difícil o contrário.
@@ -84,5 +104,6 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 04/11/2026 | R0 | Revisão do guia, 10 correções pequenas nos arquivos do guia, seção "Revisão R0" no DECISOES.md | (guia fora do git) |
 | 04/11/2026 | F0 | Monorepo, constantes, rng, vetores, dados, servidor mínimo, 3 páginas, checagem do controle | 845d52d, a4c0ccd |
 | 04/11/2026 | F1 | Protocolo do lobby, salas e reconexão com token, telas de lobby do telão e do controle, ferramenta de carga | e610a10, 860b1f1, d0b6073 |
+| 05/11/2026 | F4 | ORIGENS e servidor que serve o site, telão lembra o ?srv=, aviso de conexão lenta, npm run festa, vercel.json, Dockerfile, fly.toml, render.yaml, testes de telão extra | ver git log |
 | 05/11/2026 | F3 | Reinícios do modo Campo, passe com mira e lançamento, voleio, bote, carrinho, faltas, goleiro bot, bots de linha, vagas e substituição por bot, estatísticas, telão e controle da F3 | a3042d7, 7628599, 519dffc, e commits de interface (ver git log) |
 | 04/11/2026 | F2 | Física (bola, jogador, campo), partida (saída, domínio, chute, passe, gol, assistência, relógio, fim), protocolo binário, laço do servidor, telão 3D, controle de jogo, Playwright | 65153a3, 87c2afc, 557daff, 702e32f |
