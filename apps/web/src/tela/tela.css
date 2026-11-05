@@ -492,3 +492,131 @@ button:hover {
   padding: 0.2em 0.7em;
   margin-left: 0.5em;
 }
+
+/* Escudos opcionais no placar e na faixa de gol */
+.placar .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.escudo-placar {
+  height: 1.3em;
+  width: auto;
+  object-fit: contain;
+}
+
+.faixa-gol {
+  position: absolute;
+}
+
+.escudo-gol {
+  position: absolute;
+  left: 4vw;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 70%;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0.2em 0.4em rgba(0, 0, 0, 0.5));
+}
+
+.escudo-gol[hidden] {
+  display: none;
+}
+
+/* Vitrine dos clubes (?vitrine=1) */
+.cena.vitrine {
+  display: block;
+  position: static;
+  min-height: 100vh;
+  padding: 2vh 3vw 6vh;
+}
+
+body.tela:has(.vitrine:not([hidden])) {
+  overflow: auto;
+}
+
+.vitrine h1,
+.vitrine h2 {
+  margin: 0.4em 0;
+}
+
+.vitrine .dica-vitrine {
+  max-width: 70em;
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+.vitrine .grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22em, 1fr));
+  gap: 1.2em;
+  margin: 1em 0 2em;
+}
+
+.vitrine .cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.8em;
+  border-radius: 0.8em;
+  background: #0f2c19;
+}
+
+.vitrine .foto {
+  width: 100%;
+  height: auto;
+  border-radius: 0.5em;
+}
+
+.vitrine .cartao header {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+
+.vitrine .cartao header .distintivo {
+  --tam: 2.6em;
+}
+
+.vitrine .cartao small {
+  display: block;
+  opacity: 0.7;
+}
+
+.vitrine .id {
+  margin: 0;
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.vitrine .linha-uniforme {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.85em;
+}
+
+.vitrine .padrao-nome {
+  opacity: 0.75;
+}
+
+.vitrine .amostras {
+  display: inline-flex;
+  gap: 0.25em;
+}
+
+.vitrine .amostra {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+.vitrine .hexs {
+  opacity: 0.6;
+  font-size: 0.85em;
+}

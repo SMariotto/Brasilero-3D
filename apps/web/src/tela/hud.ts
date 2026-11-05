@@ -1,11 +1,8 @@
 import { FASE, acharTime, type Evento, type Fim, type PartidaMsg } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
+import { corDoTexto as corTexto, escudoSeExistir } from "../comum/escudo";
 
-function corDoTexto(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#111111" : "#ffffff";
-}
+const corDoTexto = corTexto;
 
 function mmss(decimos: number): string {
   const s = Math.max(0, Math.ceil(decimos / 10));
@@ -37,8 +34,8 @@ export class Hud {
     const visitante = acharTime(p.config.visitante);
     this.siglas = [casa?.sigla ?? "CAS", visitante?.sigla ?? "VIS"];
 
-    const chip = (sigla: string, cor: string): HTMLElement => {
-      const c = el("span", { class: "chip" }, sigla);
+    const chip = (sigla: string, cor: string, time: typeof casa): HTMLElement => {
+      const c = el("span", { class: "chip" }, escudoSeExistir(time, "escudo-placar"), sigla);
       c.style.background = cor;
       c.style.color = corDoTexto(cor);
       return c;
@@ -46,11 +43,11 @@ export class Hud {
     const placar = el(
       "div",
       { class: "placar", id: "placar" },
-      chip(this.siglas[0], p.cores[0]),
+      chip(this.siglas[0], p.cores[0], casa),
       this.golsCasa,
       el("span", { class: "x" }, "x"),
       this.golsVisitante,
-      chip(this.siglas[1], p.cores[1]),
+      chip(this.siglas[1], p.cores[1], visitante),
       this.relogio,
     );
     this.golsCasa.textContent = "0";
@@ -109,8 +106,10 @@ export class Hud {
     const quem = d.contra ? `${this.nome(d.slot)} (contra)` : this.nome(d.slot);
     this.faixaGol.style.setProperty("--cor-gol", cor);
     this.faixaGol.style.setProperty("--cor-texto-gol", corDoTexto(cor));
+    const clube = acharTime(d.time === 0 ? this.p.config.casa : this.p.config.visitante);
     trocar(
       this.faixaGol,
+      escudoSeExistir(clube, "escudo-gol"),
       el("strong", {}, "GOOOL!"),
       el("span", { class: "gol-time" }, `${this.siglas[d.time]}  ${d.placar[0]} x ${d.placar[1]}`),
       el("span", { class: "gol-quem" }, quem),
