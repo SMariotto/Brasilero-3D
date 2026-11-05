@@ -862,3 +862,122 @@ body.tela:has(.vitrine:not([hidden])) {
     transform: translateY(130vh) rotate(calc(var(--giro) + 540deg));
   }
 }
+
+/* Campeonato da sala (F8a) */
+.botao-tabela {
+  position: fixed;
+  right: 1vw;
+  bottom: 9vh;
+  z-index: 20;
+  border: 0;
+  border-radius: 0.5em;
+  padding: 0.35em 0.8em;
+  background: rgba(8, 23, 14, 0.78);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tabela {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 8, 4, 0.82);
+  cursor: pointer;
+}
+
+.tabela-cartao {
+  width: min(92vw, 120em);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 3vh 2.5vw;
+  border-radius: 1em;
+  background: linear-gradient(rgba(10, 33, 19, 0.98), rgba(6, 20, 11, 0.98));
+  border: 0.2em solid #ffd54a;
+  cursor: default;
+}
+
+.tabela-cartao h2 {
+  margin: 0;
+  font-size: 2.2em;
+  text-align: center;
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+.tabela-sub,
+.tabela-dica {
+  margin: 0.3em 0 1em;
+  text-align: center;
+  opacity: 0.75;
+  font-size: 0.95em;
+}
+
+.tabela-dica {
+  margin: 1em 0 0;
+  font-size: 0.8em;
+}
+
+.tabela-colunas {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 2.5vw;
+}
+
+.tabela-colunas h3 {
+  margin: 0 0 0.4em;
+  color: #ffd54a;
+  font-size: 1.2em;
+}
+
+.tab {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1em;
+}
+
+.tab th {
+  padding: 0.3em 0.4em;
+  text-align: center;
+  font-size: 0.8em;
+  opacity: 0.7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tab td {
+  padding: 0.35em 0.4em;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.tab td.pos {
+  width: 1.8em;
+  opacity: 0.6;
+}
+
+.tab td.clube {
+  text-align: left;
+}
+
+.tab td.clube span {
+  margin-left: 0.5em;
+  font-weight: 700;
+}
+
+.tab td.clube .distintivo {
+  vertical-align: middle;
+}
+
+.tab td.pts {
+  font-weight: 900;
+  color: #ffd54a;
+}
+
+.tab tr.lider td {
+  background: rgba(255, 213, 74, 0.1);
+}

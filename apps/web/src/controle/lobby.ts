@@ -7,11 +7,15 @@ export interface Acoes {
   pronto(valor: boolean): void;
   config(mudanca: Partial<Config>): void;
   comecar(): void;
+  /** Zera o campeonato da sala (só o Dono). */
+  zerar(): void;
 }
 
 export interface LobbyControle {
   atualizar(lobby: Lobby, meuId: number): void;
   definirPing(ms: number | null): void;
+  /** Quantas partidas já valem no campeonato da sala (0 esconde a linha). */
+  definirCampeonato(partidas: number): void;
 }
 
 const LADOS: [Lado, string][] = [
@@ -117,6 +121,31 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
   const comecar = el("button", { type: "button", class: "comecar" }, "Começar");
   comecar.addEventListener("click", () => acoes.comecar());
 
+  // Campeonato da sala: todo mundo vê quantas partidas valem; o Dono pode zerar (precisa de dois toques, para não zerar sem querer)
+  const campeonatoTexto = el("span", {});
+  const botaoZerar = el("button", { type: "button", class: "zerar" }, "Zerar campeonato");
+  let timerZerar: ReturnType<typeof setTimeout> | undefined;
+  botaoZerar.addEventListener("click", () => {
+    if (timerZerar === undefined) {
+      botaoZerar.textContent = "Toque de novo para zerar";
+      botaoZerar.classList.add("confirmar");
+      timerZerar = setTimeout(() => {
+        timerZerar = undefined;
+        botaoZerar.textContent = "Zerar campeonato";
+        botaoZerar.classList.remove("confirmar");
+      }, 3000);
+      return;
+    }
+    clearTimeout(timerZerar);
+    timerZerar = undefined;
+    botaoZerar.textContent = "Zerar campeonato";
+    botaoZerar.classList.remove("confirmar");
+    acoes.zerar();
+  });
+  const campeonato = el("p", { class: "campeonato" }, campeonatoTexto, botaoZerar);
+  campeonato.hidden = true;
+  let souDono = false;
+
   const painelDono = el(
     "section",
     { class: "painel-dono" },
@@ -133,12 +162,18 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
   painelDono.hidden = true;
   const esperaDono = el("p", { class: "espera" }, "Quem criou a sala escolhe os times e começa o jogo.");
 
-  trocar(raiz, topo, quem, el("h2", {}, "Seu lado"), ladoBox, botaoPronto, painelDono, esperaDono, el("h2", {}, "Na sala"), lista);
+  trocar(raiz, topo, quem, el("h2", {}, "Seu lado"), ladoBox, botaoPronto, painelDono, esperaDono, campeonato, el("h2", {}, "Na sala"), lista);
 
   return {
     definirPing(ms) {
       ping.textContent = ms === null ? "" : ms > SERVIDOR.pingAvisoMs ? `⚠ conexão lenta: ${ms} ms` : `${ms} ms`;
       ping.classList.toggle("alto", ms !== null && ms > SERVIDOR.pingAvisoMs);
+    },
+
+    definirCampeonato(partidas) {
+      campeonato.hidden = partidas === 0;
+      campeonatoTexto.textContent = `Campeonato da sala: ${partidas} ${partidas === 1 ? "partida" : "partidas"}. A tabela aparece no telão (tecla T).`;
+      botaoZerar.hidden = !souDono;
     },
 
     atualizar(lobby, meuId) {
@@ -152,6 +187,8 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
       botaoPronto.classList.toggle("ativo", eu.pronto);
       botaoPronto.textContent = eu.pronto ? "Pronto!" : "Pronto";
 
+      souDono = eu.dono;
+      botaoZerar.hidden = !eu.dono;
       painelDono.hidden = !eu.dono;
       esperaDono.hidden = eu.dono;
 

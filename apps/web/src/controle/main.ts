@@ -83,6 +83,7 @@ const lobbyUI = criarLobbyControle(lobbyEl, {
   pronto: (valor) => cliente?.enviar({ t: "pronto", valor }),
   config: (mudanca) => cliente?.enviar({ t: "config", ...mudanca }),
   comecar: () => cliente?.enviar({ t: "comecar" }),
+  zerar: () => cliente?.enviar({ t: "zerar" }),
 });
 
 const jogoUI = new JogoControle(jogoEl, {
@@ -118,6 +119,9 @@ function aoMensagem(msg: MensagemServidor): void {
       jogoUI.setNome(apelido);
       jogoUI.iniciar(msg, meuId);
       mostrar("jogo");
+      return;
+    case "campeonato":
+      lobbyUI.definirCampeonato(msg.partidas);
       return;
     case "voce":
       jogoUI.voce(msg);

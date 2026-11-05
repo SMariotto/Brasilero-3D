@@ -1,4 +1,5 @@
 import { SERVIDOR, CONTROLE } from "../constantes";
+import type { CampeonatoMsg } from "../regras/campeonato";
 import { lerConfigParcial, type Config } from "./config";
 
 // Mensagens JSON entre telão, controle e servidor (PROTOCOLO 2 e 3). Ficam aqui os tipos e a validação,
@@ -60,6 +61,7 @@ export type MensagemCliente =
   | { t: "comecar" }
   | { t: "revanche" }
   | { t: "lobby" }
+  | { t: "zerar" }
   | { t: "camera"; modo: "tv" | "aerea" }
   | { t: "ping"; c: number };
 
@@ -202,7 +204,7 @@ export interface Fim {
   destaques: { artilheiro: Destaque | null; assistencias: Destaque | null; desarmes: Destaque | null };
 }
 
-export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim;
+export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg;
 
 // ---------------------------------------------------------------------------
 // Validação
@@ -271,6 +273,7 @@ export function lerMensagemCliente(texto: string): MensagemCliente | null {
     case "comecar":
     case "revanche":
     case "lobby":
+    case "zerar":
       return { t: o["t"] };
     case "camera":
       return o["modo"] === "tv" || o["modo"] === "aerea" ? { t: "camera", modo: o["modo"] } : null;

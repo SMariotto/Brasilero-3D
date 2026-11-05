@@ -606,3 +606,28 @@ button {
   background: #ffd54a;
   color: #111;
 }
+
+/* Campeonato da sala (lobby do celular) */
+.campeonato {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 213, 74, 0.1);
+  border: 1px solid rgba(255, 213, 74, 0.35);
+  font-size: 0.9rem;
+}
+
+.campeonato .zerar {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: #3a2b2b;
+  color: #ffd2c8;
+}
+
+.campeonato .zerar.confirmar {
+  background: #b3261e;
+  color: #fff;
+}

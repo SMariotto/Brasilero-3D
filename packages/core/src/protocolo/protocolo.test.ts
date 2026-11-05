@@ -106,6 +106,7 @@ describe("lerMensagemCliente", () => {
     expect(ler({ t: "config", n: 4, modo: "arena" })).toEqual({ t: "config", n: 4, modo: "arena" });
     expect(ler({ t: "comecar" })).toEqual({ t: "comecar" });
     expect(ler({ t: "revanche" })).toEqual({ t: "revanche" });
+    expect(ler({ t: "zerar" })).toEqual({ t: "zerar" });
     expect(ler({ t: "lobby" })).toEqual({ t: "lobby" });
     expect(ler({ t: "camera", modo: "aerea" })).toEqual({ t: "camera", modo: "aerea" });
     expect(ler({ t: "ping", c: 123 })).toEqual({ t: "ping", c: 123 });

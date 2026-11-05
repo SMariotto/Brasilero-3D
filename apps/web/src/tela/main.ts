@@ -10,6 +10,7 @@ import type { CenaJogo } from "./cena";
 import { criarLobby } from "./lobby";
 import { enderecoParaCelular } from "./rede";
 import { Som } from "./som";
+import { PainelTabela } from "./tabela";
 
 const inicio = porId("inicio");
 const lobbyEl = porId("lobby");
@@ -26,6 +27,20 @@ const lobby = criarLobby(lobbyEl);
 const som = new Som();
 const botaoSom = porId("botao-som");
 let comprimentoDoCampo = 100;
+
+// Campeonato da sala (F8a): tabela que abre com a tecla T depois da primeira partida terminar
+const tabela = new PainelTabela(porId("tabela"));
+const botaoTabela = porId("botao-tabela");
+function mostrarBotaoTabela(): void {
+  botaoTabela.hidden = !tabela.temDados || cenaAtual === "inicio" || cenaAtual === "carregando";
+}
+let cenaAtual: "inicio" | "carregando" | "lobby" | "jogo" = "inicio";
+tabela.aoMudarDados(mostrarBotaoTabela);
+botaoTabela.addEventListener("click", () => tabela.alternar());
+window.addEventListener("keydown", (e) => {
+  if ((e.key === "t" || e.key === "T") && !(e.target instanceof HTMLInputElement)) tabela.alternar();
+  else if (e.key === "Escape") tabela.fechar();
+});
 
 function desenharBotaoSom(): void {
   if (som.mudo) botaoSom.textContent = "🔇 Som desligado";
@@ -82,10 +97,13 @@ function mostrar(cena: Cena): void {
   carregando.hidden = cena !== "carregando";
   pingEl.hidden = cena === "inicio";
   botaoSom.hidden = cena === "inicio" || cena === "carregando";
+  cenaAtual = cena;
+  mostrarBotaoTabela();
   if (cena !== "jogo") som.parar();
 }
 
 function voltarAoInicio(aviso: string): void {
+  tabela.atualizar({ t: "campeonato", partidas: 0, clubes: [], jogadores: [] });
   cliente?.fechar();
   cliente = null;
   sala = null;
@@ -158,6 +176,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "fim":
       som.parar();
       naCena((c) => c.fim(msg));
+      return;
+    case "campeonato":
+      tabela.atualizar(msg);
       return;
     case "principal":
       lobby.definirPrincipal(msg.valor);

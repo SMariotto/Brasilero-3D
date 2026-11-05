@@ -1,4 +1,6 @@
 import {
+  Campeonato,
+  resultadoDaPartida,
   CLUBE_ALEATORIO,
   CONFIG_PADRAO,
   PARTIDA,
@@ -82,6 +84,8 @@ export class Sala {
   private partidaId = 0;
   private clubesSorteados: { casa: string; visitante: string } | null = null;
   private fimEnviado = false;
+  /** Tabela e estatísticas das partidas desta sala (só na memória; some quando a sala fecha). */
+  readonly campeonato = new Campeonato();
   private relogioAnterior: number | null = null;
   private acumulado = 0;
   private readonly semente: () => number;
@@ -150,6 +154,7 @@ export class Sala {
     canal.enviar({ t: "bemvindo", papel: "tela", sala: this.codigo, principal: this.telas[0] === tela });
     this.transmitirLobby();
     this.reenviarPartida(canal);
+    if (this.campeonato.partidas > 0) canal.enviar(this.campeonato.mensagem());
     return { ok: true, valor: tela };
   }
 
@@ -211,6 +216,7 @@ export class Sala {
       dono: this.jogadores[0] === jogador,
     });
     this.transmitirLobby();
+    if (this.campeonato.partidas > 0) canal.enviar(this.campeonato.mensagem());
     if (assumiuVaga) {
       // Entrou no lugar de um bot: todo mundo recebe o elenco novo (a mesma partida, com o `id` de antes).
       this.elencoMudou();
@@ -280,6 +286,11 @@ export class Sala {
       case "lobby":
         if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
         this.voltarAoLobby();
+        return;
+      case "zerar":
+        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
+        this.campeonato.zerar();
+        this.transmitir(this.campeonato.mensagem());
         return;
       case "camera":
         this.erro(canal, "SEM_PERMISSAO", "Isso é coisa do telão.");
@@ -477,6 +488,8 @@ export class Sala {
     if (p.terminou && !this.fimEnviado) {
       this.fimEnviado = true;
       this.transmitir(p.resumo());
+      this.campeonato.registrar(resultadoDaPartida(p));
+      this.transmitir(this.campeonato.mensagem());
     }
   }
 

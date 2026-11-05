@@ -380,6 +380,52 @@ describe("fim, revanche e lobby", () => {
     expect(decodificarSnapshot(t.binarias[t.binarias.length - 1]!)!.fase).toBe(FASE.fim);
   });
 
+  it("o campeonato soma a partida que acabou e manda a tabela a todos, uma vez", () => {
+    const { t, a } = jogoAcabado();
+    for (const c of [t, a.canal]) {
+      const msgs = c.ultimas("campeonato");
+      expect(msgs).toHaveLength(1);
+      expect(msgs[0]).toMatchObject({ partidas: 1 });
+      // 0 x 0: cada clube ganha 1 ponto
+      expect(msgs[0]!.clubes.map((l) => l.pontos)).toEqual([1, 1]);
+      expect(msgs[0]!.jogadores.map((l) => l.apelido).sort()).toEqual(["Ana", "Beto"]);
+    }
+    expect(sala.campeonato.partidas).toBe(1);
+  });
+
+  it("a revanche soma uma segunda partida; só o Dono zera", () => {
+    const { a, b } = jogoAcabado();
+    sala.tratarControle(a.j, { t: "revanche" });
+    sala.tratarControle(a.j, { t: "config", duracao: 2 }); // (ignorado com a partida rolando; só garante que nada quebra)
+    for (let i = 0; i < 130_000 / 16 && !sala.partida!.terminou; i++) {
+      tempo += 16;
+      sala.avancar();
+    }
+    expect(sala.campeonato.partidas).toBe(2);
+
+    sala.tratarControle(b.j, { t: "zerar" });
+    expect(b.canal.ultimoErro()).toBe("SEM_PERMISSAO");
+    expect(sala.campeonato.partidas).toBe(2);
+
+    sala.tratarControle(a.j, { t: "zerar" });
+    expect(sala.campeonato.partidas).toBe(0);
+    const ultima = b.canal.ultimas("campeonato").at(-1)!;
+    expect(ultima).toMatchObject({ partidas: 0, clubes: [], jogadores: [] });
+  });
+
+  it("quem entra depois (telão ou controle) recebe a tabela se já houve partida", () => {
+    jogoAcabado();
+    expect(tela().ultimas("campeonato")).toHaveLength(1);
+    const novo = new CanalFalso();
+    sala.entrarControle(novo, "Caio");
+    expect(novo.ultimas("campeonato")).toHaveLength(1);
+  });
+
+  it("sem nenhuma partida terminada, ninguém recebe tabela", () => {
+    const t = tela();
+    expect(t.ultimas("campeonato")).toHaveLength(0);
+  });
+
   it("quem entra depois do fim recebe o resultado", () => {
     jogoAcabado();
     const tardio = tela();
