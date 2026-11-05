@@ -1,4 +1,5 @@
 import {
+  CLUBE_ALEATORIO,
   CONFIG_PADRAO,
   PARTIDA,
   SERVIDOR,
@@ -6,6 +7,8 @@ import {
   Partida,
   codificarSnapshot,
   coresDaPartida,
+  criarRng,
+  sortearClubes,
   decodificarComando,
   validarApelido,
   type CodigoErro,
@@ -77,6 +80,7 @@ export class Sala {
   private cores: [string, string] = ["#C8102E", "#006437"];
   private mensagemPartida: PartidaMsg | null = null;
   private partidaId = 0;
+  private clubesSorteados: { casa: string; visitante: string } | null = null;
   private fimEnviado = false;
   private relogioAnterior: number | null = null;
   private acumulado = 0;
@@ -267,11 +271,11 @@ export class Sala {
         return;
       case "comecar":
         if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        if (!this.partida) this.comecar();
+        if (!this.partida) this.comecar(false);
         return;
       case "revanche":
         if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        if (this.partida?.terminou) this.comecar();
+        if (this.partida?.terminou) this.comecar(true);
         return;
       case "lobby":
         if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
@@ -332,11 +336,15 @@ export class Sala {
   }
 
   /** Começa uma partida (ou a revanche) com o modo que o Dono escolheu. Os bots completam as vagas. */
-  private comecar(): void {
+  private comecar(revanche: boolean): void {
     const { elenco, n } = this.montarElenco();
-    const config: Config = { ...this.config, n };
+    const semente = this.semente();
+    // "Aleatório" vira clubes de verdade ao começar; na revanche ficam os mesmos clubes da partida anterior.
+    const sorteados = revanche && this.clubesSorteados ? { ...this.config, ...this.clubesSorteados } : sortearClubes(this.config, criarRng(semente ^ 0x9e3779b9));
+    this.clubesSorteados = { casa: sorteados.casa, visitante: sorteados.visitante };
+    const config: Config = { ...sorteados, n };
     this.cores = coresDaPartida(config.casa, config.visitante);
-    this.partida = new Partida({ config, elenco, semente: this.semente(), semBots: this.semBots });
+    this.partida = new Partida({ config, elenco, semente, semBots: this.semBots });
     this.partidaId++;
     this.fimEnviado = false;
     this.relogioAnterior = null;
@@ -557,7 +565,7 @@ export class Sala {
     const nova: Config = { ...this.config, ...mudancas };
 
     // Escolher para um lado o clube que está no outro troca os dois de lugar.
-    if (nova.casa === nova.visitante) {
+    if (nova.casa === nova.visitante && nova.casa !== CLUBE_ALEATORIO) {
       if ("casa" in mudancas && "visitante" in mudancas) {
         this.erro(canal, "MENSAGEM_INVALIDA", "Escolha dois clubes diferentes.");
         return;

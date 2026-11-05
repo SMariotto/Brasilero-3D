@@ -1,0 +1,11 @@
+Escudos dos clubes (opcional)
+
+O jogo NÃO traz nenhum escudo. Se você colocar aqui um arquivo PNG com o id do clube, ele passa a aparecer no lobby,
+no placar e na tela de gol. Sem o arquivo, o jogo desenha um distintivo neutro (círculo com a sigla nas cores do clube).
+
+Nome do arquivo: <id>.png (o id está em packages/core/src/dados/times.json), por exemplo:
+  vasco.png  flamengo.png  fluminense.png  botafogo.png  corinthians.png  palmeiras.png
+  saopaulo.png  santos.png  gremio.png  internacional.png  atleticomg.png  cruzeiro.png
+
+Tamanho recomendado: 256 x 256 px, PNG com fundo transparente.
+Depois de colocar o arquivo, recarregue a página (no navegador do telão e do celular).

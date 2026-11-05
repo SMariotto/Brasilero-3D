@@ -128,3 +128,40 @@ describe("lerMensagemCliente", () => {
     expect(lerMensagemCliente(JSON.stringify({ t: "ping", c: 1, lixo: "x".repeat(2000) }))).toBeNull();
   });
 });
+
+describe("clube aleatório (F5)", () => {
+  it("a config aceita \"aleatorio\" nos dois lados e recusa clube que não existe", async () => {
+    const { CLUBE_ALEATORIO } = await import("./config");
+    expect(lerConfigParcial({ casa: CLUBE_ALEATORIO })).toEqual({ casa: "aleatorio" });
+    expect(lerConfigParcial({ visitante: CLUBE_ALEATORIO, casa: "vasco" })).toEqual({ visitante: "aleatorio", casa: "vasco" });
+    expect(lerConfigParcial({ casa: "aleatório" })).toBeNull();
+  });
+
+  it("sortearClubes troca só o aleatório, sempre por dois clubes diferentes, e sem sorteio devolve igual", async () => {
+    const { CLUBE_ALEATORIO, sortearClubes } = await import("./config");
+    const { criarRng } = await import("../util/rng");
+    const sem = { ...CONFIG_PADRAO };
+    expect(sortearClubes(sem, criarRng(1))).toBe(sem);
+
+    for (let semente = 1; semente <= 200; semente++) {
+      const dois = sortearClubes({ ...CONFIG_PADRAO, casa: CLUBE_ALEATORIO, visitante: CLUBE_ALEATORIO }, criarRng(semente));
+      expect(acharTime(dois.casa)).toBeDefined();
+      expect(acharTime(dois.visitante)).toBeDefined();
+      expect(dois.casa).not.toBe(dois.visitante);
+
+      const umLado = sortearClubes({ ...CONFIG_PADRAO, casa: "vasco", visitante: CLUBE_ALEATORIO }, criarRng(semente));
+      expect(umLado.casa).toBe("vasco");
+      expect(umLado.visitante).not.toBe("vasco");
+    }
+  });
+
+  it("a mesma semente sorteia os mesmos clubes e sementes diferentes variam", async () => {
+    const { CLUBE_ALEATORIO, sortearClubes } = await import("./config");
+    const { criarRng } = await import("../util/rng");
+    const c = { ...CONFIG_PADRAO, casa: CLUBE_ALEATORIO, visitante: CLUBE_ALEATORIO };
+    expect(sortearClubes(c, criarRng(5))).toEqual(sortearClubes(c, criarRng(5)));
+    const vistos = new Set<string>();
+    for (let s = 1; s <= 50; s++) vistos.add(sortearClubes(c, criarRng(s)).casa);
+    expect(vistos.size).toBeGreaterThan(6);
+  });
+});

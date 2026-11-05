@@ -1,5 +1,6 @@
 import { PARTIDA, type Dificuldade } from "../constantes";
-import { acharTime } from "../dados/index";
+import { TIMES, acharTime } from "../dados/index";
+import type { Rng } from "../util/rng";
 
 // Configuração da partida que o Dono escolhe no lobby (PROTOCOLO 2, mensagem `config`).
 
@@ -16,6 +17,11 @@ export interface Config {
   dificuldade: Dificuldade;
   faltas: boolean;
 }
+
+/** Valor de `casa` ou `visitante` que pede um clube sorteado quando a partida começa (F5). */
+export const CLUBE_ALEATORIO = "aleatorio";
+
+const clubeValido = (v: unknown): v is string => typeof v === "string" && (v === CLUBE_ALEATORIO || acharTime(v) !== undefined);
 
 export const CONFIG_PADRAO: Config = {
   casa: "flamengo",
@@ -39,11 +45,11 @@ export function lerConfigParcial(o: Record<string, unknown>): Partial<Config> | 
   const r: Partial<Config> = {};
 
   if ("casa" in o) {
-    if (typeof o["casa"] !== "string" || !acharTime(o["casa"])) return null;
+    if (!clubeValido(o["casa"])) return null;
     r.casa = o["casa"];
   }
   if ("visitante" in o) {
-    if (typeof o["visitante"] !== "string" || !acharTime(o["visitante"])) return null;
+    if (!clubeValido(o["visitante"])) return null;
     r.visitante = o["visitante"];
   }
   if ("modo" in o) {
@@ -67,4 +73,20 @@ export function lerConfigParcial(o: Record<string, unknown>): Partial<Config> | 
     r.faltas = o["faltas"];
   }
   return r;
+}
+
+/**
+ * Troca os "aleatorio" por clubes de verdade, sempre dois clubes diferentes (e respeitando o lado que já foi escolhido).
+ * Sem nenhum "aleatorio" devolve a config como veio.
+ */
+export function sortearClubes(config: Config, rng: Rng): Config {
+  if (config.casa !== CLUBE_ALEATORIO && config.visitante !== CLUBE_ALEATORIO) return config;
+  const ids = TIMES.map((t) => t.id);
+  const escolher = (proibido: string | null): string => {
+    const livres = ids.filter((id) => id !== proibido);
+    return rng.escolher(livres);
+  };
+  const casa = config.casa === CLUBE_ALEATORIO ? escolher(config.visitante === CLUBE_ALEATORIO ? null : config.visitante) : config.casa;
+  const visitante = config.visitante === CLUBE_ALEATORIO ? escolher(casa) : config.visitante;
+  return { ...config, casa, visitante };
 }

@@ -577,3 +577,38 @@ describe("com bots", () => {
     expect(fim.placar[0] + fim.placar[1]).toBe((t.ultimas("evento") as Evento[]).filter((e) => e.tipo === "gol").length);
   });
 });
+
+describe("clube aleatório", () => {
+  it("o aleatório vira clubes de verdade ao começar, diferentes, e a revanche mantém os mesmos", () => {
+    const t = tela();
+    const a = entrar("Ana", "casa");
+    entrar("Beto", "visitante");
+    sala.tratarControle(a.j, { t: "config", casa: "aleatorio", visitante: "aleatorio", duracao: 2 });
+    expect(sala.config).toMatchObject({ casa: "aleatorio", visitante: "aleatorio" });
+
+    sala.tratarControle(a.j, { t: "comecar" });
+    const p = t.ultimas("partida")[0] as PartidaMsg;
+    expect(p.config.casa).not.toBe("aleatorio");
+    expect(p.config.visitante).not.toBe("aleatorio");
+    expect(p.config.casa).not.toBe(p.config.visitante);
+    // O lobby continua dizendo "aleatório" (a escolha do Dono não muda)
+    expect(sala.config.casa).toBe("aleatorio");
+
+    for (let i = 0; i < 700_000 / 16 && !sala.partida!.terminou; i++) {
+      tempo += 16;
+      sala.avancar();
+    }
+    sala.tratarControle(a.j, { t: "revanche" });
+    const r = t.ultimas("partida").at(-1) as PartidaMsg;
+    expect(r.id).toBe(p.id + 1);
+    expect([r.config.casa, r.config.visitante]).toEqual([p.config.casa, p.config.visitante]);
+  });
+
+  it("escolher o mesmo clube nos dois lados continua trocando de lugar, mas aleatório nos dois é permitido", () => {
+    const a = entrar("Ana", "casa");
+    sala.tratarControle(a.j, { t: "config", casa: "aleatorio" });
+    sala.tratarControle(a.j, { t: "config", visitante: "aleatorio" });
+    expect(sala.config).toMatchObject({ casa: "aleatorio", visitante: "aleatorio" });
+    expect(a.canal.ultimoErro()).toBeUndefined();
+  });
+});

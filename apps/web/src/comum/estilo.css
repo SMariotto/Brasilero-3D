@@ -63,3 +63,43 @@ p {
 [hidden] {
   display: none !important;
 }
+
+/* Distintivo do clube (escudo do PNG ou círculo neutro com a sigla). O tamanho vem de --tam. */
+.distintivo {
+  --tam: 3em;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--tam);
+  height: var(--tam);
+  box-sizing: border-box;
+  border: calc(var(--tam) * 0.06) solid;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: calc(var(--tam) * 0.3);
+  line-height: 1;
+  overflow: hidden;
+}
+
+.distintivo .escudo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.distintivo.com-escudo {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: transparent !important;
+  overflow: visible;
+}
+
+.escudo-solto {
+  height: 1.6em;
+  width: auto;
+  object-fit: contain;
+}

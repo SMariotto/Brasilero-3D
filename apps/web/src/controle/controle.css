@@ -554,3 +554,34 @@ button {
 .ping-jogo:empty {
   display: none;
 }
+
+/* Escolha de clube */
+.linha.clube .previa-clube {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.previa-clube .distintivo {
+  --tam: 2.4rem;
+}
+
+.previa-clube .nome-clube {
+  flex: 1;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.pontos-cor {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.ponto-cor {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}

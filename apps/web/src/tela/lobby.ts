@@ -1,25 +1,9 @@
-import { acharTime, type Config, type JogadorLobby, type Lobby, type Time } from "@b3d/core";
+import { CLUBE_ALEATORIO, acharTime, type Config, type JogadorLobby, type Lobby, type Time } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
+import { distintivo } from "../comum/escudo";
 
 const MODOS = { campo: "Campo", arena: "Arena" } as const;
 const DIFICULDADES = { facil: "Fácil", medio: "Médio", dificil: "Difícil" } as const;
-
-/** Preto ou branco, o que ler melhor sobre a cor do clube. */
-function corDoTexto(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#111111" : "#ffffff";
-}
-
-/** Distintivo neutro: círculo com a sigla nas cores do clube (os escudos de verdade só entram na F5). */
-function distintivo(time: Time | undefined): HTMLElement {
-  const fundo = time?.cores.primaria ?? "#444444";
-  const d = el("span", { class: "distintivo" }, time?.sigla ?? "???");
-  d.style.background = fundo;
-  d.style.color = corDoTexto(fundo);
-  d.style.borderColor = time?.cores.secundaria ?? "#ffffff";
-  return d;
-}
 
 function resumoConfig(c: Config): string {
   return [
@@ -42,7 +26,10 @@ function linhaJogador(j: JogadorLobby): HTMLElement {
   );
 }
 
-function colunaTime(classe: "casa" | "visitante", titulo: string, time: Time | undefined, humanos: JogadorLobby[], n: number): HTMLElement {
+const nomeDoClube = (id: string, time: Time | undefined): string => (id === CLUBE_ALEATORIO ? "Aleatório" : (time?.nome ?? "?"));
+
+function colunaTime(classe: "casa" | "visitante", titulo: string, id: string, humanos: JogadorLobby[], n: number): HTMLElement {
+  const time = acharTime(id);
   const vagas = Math.max(n, humanos.length);
   const lista = el("ul", { class: "vagas" });
   for (const j of humanos) lista.append(linhaJogador(j));
@@ -52,7 +39,7 @@ function colunaTime(classe: "casa" | "visitante", titulo: string, time: Time | u
   return el(
     "div",
     { class: `time ${classe}` },
-    el("div", { class: "cabeca" }, distintivo(time), el("div", {}, el("small", {}, titulo), el("strong", {}, time?.nome ?? "?"))),
+    el("div", { class: "cabeca" }, distintivo(time), el("div", {}, el("small", {}, titulo), el("strong", {}, nomeDoClube(id, time)))),
     lista,
   );
 }
@@ -110,8 +97,8 @@ export function criarLobby(raiz: HTMLElement): LobbyTela {
 
       trocar(
         times,
-        colunaTime("casa", "Casa", acharTime(config.casa), casa, config.n),
-        colunaTime("visitante", "Visitante", acharTime(config.visitante), visitante, config.n),
+        colunaTime("casa", "Casa", config.casa, casa, config.n),
+        colunaTime("visitante", "Visitante", config.visitante, visitante, config.n),
       );
 
       trocar(

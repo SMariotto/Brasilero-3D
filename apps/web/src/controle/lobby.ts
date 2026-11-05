@@ -1,5 +1,6 @@
-import { SERVIDOR, TIMES, type Config, type Lado, type Lobby } from "@b3d/core";
+import { CLUBE_ALEATORIO, SERVIDOR, TIMES, acharTime, type Config, type Lado, type Lobby } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
+import { distintivo } from "../comum/escudo";
 
 export interface Acoes {
   lado(lado: Lado): void;
@@ -38,6 +39,45 @@ function selecao(rotulo: string, opcoes: [string, string][], aoMudar: (valor: st
   };
 }
 
+/**
+ * Escolha de clube (F5): lista com sigla e nome, "Aleatório" como primeira opção, e ao lado o distintivo do clube escolhido
+ * com as duas cores da camisa. O escudo aparece se existir o PNG em public/escudos/ (o jogo não traz nenhum).
+ */
+function selecaoClube(rotulo: string, aoMudar: (id: string) => void): Selecao {
+  const s = el("select", {});
+  s.append(el("option", { value: CLUBE_ALEATORIO }, "🎲 Aleatório"));
+  for (const t of TIMES) s.append(el("option", { value: t.id }, `${t.sigla} — ${t.nome}`));
+
+  const previa = el("div", { class: "previa-clube" });
+  const mostrar = (id: string): void => {
+    const time = acharTime(id);
+    const cor = (hex: string | undefined): HTMLElement => {
+      const p = el("i", { class: "ponto-cor" });
+      p.style.background = hex ?? "#4b5563";
+      return p;
+    };
+    trocar(
+      previa,
+      distintivo(time),
+      el("span", { class: "nome-clube" }, time ? time.nome : "Sorteia na hora de começar"),
+      el("span", { class: "pontos-cor" }, cor(time?.cores.primaria), cor(time?.cores.secundaria), time?.cores.terciaria ? cor(time.cores.terciaria) : null),
+    );
+  };
+  mostrar(CLUBE_ALEATORIO);
+
+  s.addEventListener("change", () => {
+    mostrar(s.value);
+    aoMudar(s.value);
+  });
+  return {
+    linha: el("label", { class: "linha clube" }, el("span", {}, rotulo), previa, s),
+    definir(valor) {
+      mostrar(valor);
+      if (document.activeElement !== s) s.value = valor;
+    },
+  };
+}
+
 /** Lobby do celular (SPEC 3.2, item 2): lado, pronto e, para o Dono, a configuração da partida. */
 export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyControle {
   const sala = el("strong", { class: "sala" });
@@ -60,9 +100,8 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
 
   const lista = el("ul", { class: "lista" });
 
-  const opcoesTimes: [string, string][] = TIMES.map((t) => [t.id, `${t.sigla} — ${t.nome}`]);
-  const casa = selecao("Casa", opcoesTimes, (v) => acoes.config({ casa: v }));
-  const visitante = selecao("Visitante", opcoesTimes, (v) => acoes.config({ visitante: v }));
+  const casa = selecaoClube("Casa", (v) => acoes.config({ casa: v }));
+  const visitante = selecaoClube("Visitante", (v) => acoes.config({ visitante: v }));
   const modo = selecao("Modo", [["campo", "Campo"], ["arena", "Arena"]], (v) => acoes.config({ modo: v as Config["modo"] }));
   const n = selecao("Jogadores de linha", [["3", "3 contra 3"], ["4", "4 contra 4"], ["5", "5 contra 5"]], (v) =>
     acoes.config({ n: Number(v) as Config["n"] }),
