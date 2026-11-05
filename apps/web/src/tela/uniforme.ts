@@ -34,27 +34,40 @@ uniform vec3 uChuteira;
 uniform int uPadrao;
 uniform float uAltura;
 uniform float uBase;
+uniform int uSoCamisa;
 varying vec3 vPosModelo;
 
 vec3 corDoUniforme() {
-  float h = clamp((vPosModelo.y - uBase) / uAltura, 0.0, 1.0);
-  if (h > ${REGIOES.camisa.toFixed(2)}) return uPele;
-  if (h < ${REGIOES.chuteira.toFixed(2)}) return uChuteira;
-  if (h < ${REGIOES.meiao.toFixed(2)}) return uMeiao;
-  if (h < ${REGIOES.calcao.toFixed(2)}) return uCalcao;
+  // A cápsula olha para +X e tem o lado em Z; o modelo do glTF olha para +Z e tem o lado em X: troca os eixos para a camisa igual
+  vec3 q = uSoCamisa == 1 ? vec3(vPosModelo.z, vPosModelo.y, vPosModelo.x) : vPosModelo;
+  float h = clamp((q.y - uBase) / uAltura, 0.0, 1.0);
+  // Medidas em "metros de jogador" (1,8 m), mesmo que a malha do modelo esteja em centímetros
+  vec3 p = q * (1.8 / uAltura);
+  // No modelo da F6 a malha da camisa já é só a camisa (material próprio): não separa por altura
+  // (Uma saída só no fim da função: com vários "return" o compilador do Windows avisa de variável não inicializada.)
+  vec3 cor = uCor1;
+  bool tronco = true;
+  if (uSoCamisa == 0) {
+    if (h > ${REGIOES.camisa.toFixed(2)}) { cor = uPele; tronco = false; }
+    else if (h < ${REGIOES.chuteira.toFixed(2)}) { cor = uChuteira; tronco = false; }
+    else if (h < ${REGIOES.meiao.toFixed(2)}) { cor = uMeiao; tronco = false; }
+    else if (h < ${REGIOES.calcao.toFixed(2)}) { cor = uCalcao; tronco = false; }
+  }
 
-  // Camisa: t volta em torno do corpo (0 a 1), y sobe da barra ao ombro (0 a 1), z é o lado do corpo (esquerda e direita)
-  float t = atan(vPosModelo.z, vPosModelo.x) / 6.2831853 + 0.5;
-  float y = (h - ${REGIOES.calcao.toFixed(2)}) / (${REGIOES.camisa.toFixed(2)} - ${REGIOES.calcao.toFixed(2)});
-  float lado = vPosModelo.z;
+  if (tronco) {
+    // Camisa: t volta em torno do corpo (0 a 1), y sobe da barra ao ombro (0 a 1), lado é o lado do corpo (esquerda e direita)
+    float t = atan(p.z, p.x) / 6.2831853 + 0.5;
+    float y = clamp((h - ${REGIOES.calcao.toFixed(2)}) / (${REGIOES.camisa.toFixed(2)} - ${REGIOES.calcao.toFixed(2)}), 0.0, 1.0);
+    float lado = p.z;
 
-  if (uPadrao == 1) return mod(floor(t * 12.0), 2.0) < 1.0 ? uCor1 : uCor2;                  // listras verticais
-  if (uPadrao == 2) return mod(floor(y * 6.0), 2.0) < 1.0 ? uCor1 : uCor2;                   // listras horizontais
-  if (uPadrao == 3) return abs(lado * 2.2 + (y - 0.5) * 2.0) < 0.5 ? uCor2 : uCor1;          // faixa diagonal (do ombro ao quadril)
-  if (uPadrao == 4) return (y > 0.36 && y < 0.64) ? uCor2 : uCor1;                           // faixa horizontal no peito
-  if (uPadrao == 5) return lado > 0.0 ? uCor1 : uCor2;                                       // metade vertical
-  if (uPadrao == 6) return (abs(lado) > 0.2 && y > 0.5) ? uCor2 : uCor1;                     // mangas em contraste
-  return uCor1;                                                                              // liso
+    if (uPadrao == 1) cor = mod(floor(t * 12.0), 2.0) < 1.0 ? uCor1 : uCor2;                  // listras verticais
+    else if (uPadrao == 2) cor = mod(floor(y * 6.0), 2.0) < 1.0 ? uCor1 : uCor2;              // listras horizontais
+    else if (uPadrao == 3) cor = abs(lado * 2.2 + (y - 0.5) * 2.0) < 0.5 ? uCor2 : uCor1;     // faixa diagonal (do ombro ao quadril)
+    else if (uPadrao == 4) cor = (y > 0.36 && y < 0.64) ? uCor2 : uCor1;                      // faixa horizontal no peito
+    else if (uPadrao == 5) cor = lado > 0.0 ? uCor1 : uCor2;                                  // metade vertical
+    else if (uPadrao == 6) cor = (abs(lado) > 0.2 && y > 0.5) ? uCor2 : uCor1;                // mangas em contraste
+  }
+  return cor;
 }
 `;
 
@@ -62,6 +75,8 @@ export interface OpcoesMaterial {
   /** Altura do modelo e onde fica o pé, no espaço do modelo (a cápsula vai de -0,9 a 0,9). */
   altura?: number;
   base?: number;
+  /** O material cobre só a camisa (modelo 3D): pinta o padrão em toda a malha, sem dividir em meião/calção/pele. */
+  soCamisa?: boolean;
 }
 
 /**
@@ -85,6 +100,7 @@ export function criarMaterialUniforme(inicial: UniformeResolvido, opcoes: Opcoes
     shader.uniforms["uPadrao"] = { value: NUMERO_DO_PADRAO[u.padrao] };
     shader.uniforms["uAltura"] = { value: altura };
     shader.uniforms["uBase"] = { value: base };
+    shader.uniforms["uSoCamisa"] = { value: opcoes.soCamisa ? 1 : 0 };
     material.userData["shader"] = shader;
 
     shader.vertexShader = shader.vertexShader
@@ -95,7 +111,7 @@ export function criarMaterialUniforme(inicial: UniformeResolvido, opcoes: Opcoes
       .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb = corDoUniforme();");
   };
   // Padrões diferentes usam o mesmo programa; só os valores dos uniformes mudam.
-  material.customProgramCacheKey = () => "uniforme-b3d";
+  material.customProgramCacheKey = () => (opcoes.soCamisa ? "uniforme-b3d-camisa" : "uniforme-b3d");
   material.userData["uniforme"] = inicial;
   return material;
 }

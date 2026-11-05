@@ -12,6 +12,7 @@ import { criarEstadio, type Estadio } from "./estadio";
 import { Hud } from "./hud";
 import { Interpolador, type Amostra } from "./interpolacao";
 import { Jogadores } from "./jogadores";
+import { obterModelo, urlDoModelo, type ModeloBase } from "./modelo";
 import { GravadorDeReplay, Reproducao } from "./replay";
 
 /** Quanto o GOOOL fica sozinho na tela antes de o replay começar. */
@@ -39,6 +40,7 @@ export class CenaJogo {
   private campo: Campo3D | null = null;
   private estadio: Estadio | null = null;
   private jogadores: Jogadores | null = null;
+  private modelo: ModeloBase | null = null;
   private bola: Bola3D | null = null;
   private sol: THREE.DirectionalLight | null = null;
 
@@ -69,11 +71,14 @@ export class CenaJogo {
     // Mesmo `id`: é a mesma partida com o elenco mudado (humano entrou, saiu ou assumiu vaga de bot). Só refaz os jogadores.
     if (p.id === this.partidaId && this.scene && this.jogadores) {
       this.scene.remove(this.jogadores.grupo);
-      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante));
+      this.jogadores.liberar();
+      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo);
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
       return;
     }
+    // O modelo 3D (se existir) baixa uma vez; enquanto isso, ou sem ele, valem as cápsulas
+    this.modelo = await obterModelo(urlDoModelo(location.search, import.meta.env.BASE_URL));
     this.partidaId = p.id;
     this.interp.reiniciar();
     this.gravador.reiniciar();
@@ -102,6 +107,7 @@ export class CenaJogo {
       }
     }
 
+    this.jogadores?.liberar();
     this.liberar();
     const scene = new THREE.Scene();
     const uniformes = uniformesDaPartida(p.config.casa, p.config.visitante);
@@ -128,7 +134,7 @@ export class CenaJogo {
     scene.background = this.estadio.ceu;
     scene.fog = new THREE.Fog(0x0d1a33, 95, 280);
 
-    this.jogadores = new Jogadores(p.elenco, uniformes);
+    this.jogadores = new Jogadores(p.elenco, uniformes, this.modelo);
     scene.add(this.jogadores.grupo);
     this.bola = criarBola3D();
     scene.add(this.bola.grupo);

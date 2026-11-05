@@ -81,7 +81,8 @@ export class CameraJogo {
       const k = 1 - Math.exp(-dt * 4);
       this.olhaX += (bola.x - this.olhaX) * k;
       this.olhaZ += (bola.z - this.olhaZ) * k;
-      this.camera.position.set(this.replayLado * (this.campo.comp / 2 + 9), 3.4, 6);
+      // Entre a rede e as placas de publicidade (as arquibancadas de trás começam 6 m depois da linha de fundo)
+      this.camera.position.set(this.replayLado * (this.campo.comp / 2 + 4.5), 4.4, 9);
       this.camera.lookAt(this.olhaX, 0.8, this.olhaZ);
       return;
     }

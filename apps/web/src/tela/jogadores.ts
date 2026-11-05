@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
 import { criarMaterialUniforme } from "./uniforme";
+import { FiguraModelo, type ModeloBase } from "./modelo";
 
 /** Etiqueta com o apelido, desenhada num canvas e usada como sprite (sempre virada para a câmera). */
 function etiqueta(nome: string, cor: string): THREE.Sprite {
@@ -53,21 +54,24 @@ function etiquetaNumero(numero: number): THREE.Sprite {
 
 interface Figura {
   grupo: THREE.Group;
-  corpo: THREE.Mesh;
+  /** A cápsula (reserva). Fica `null` quando o modelo 3D está em uso. */
+  corpo: THREE.Mesh | null;
+  /** O modelo 3D animado, se o `jogador.glb` carregou. */
+  modelo: FiguraModelo | null;
   /** Apelido em cima do jogador (só humanos). Fica fora do grupo para não girar com o corpo. */
   rotulo: THREE.Sprite | null;
 }
 
 /**
- * Os jogadores como cápsulas na cor do time (F2 a F5; o modelo animado entra na F6), com apelido e seta em cima dos humanos
- * e um anel no chão sob quem está com a bola.
+ * Os jogadores: o modelo 3D animado do `jogador.glb` quando ele existe (F6) ou cápsulas na cor do time (reserva), com apelido
+ * e seta em cima dos humanos e um anel no chão sob quem está com a bola.
  */
 export class Jogadores {
   readonly grupo = new THREE.Group();
   private readonly figuras = new Map<number, Figura>();
   private readonly anel: THREE.Mesh;
 
-  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido]) {
+  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null) {
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
 
     for (const v of elenco) {
@@ -76,18 +80,22 @@ export class Jogadores {
       const uniforme: UniformeResolvido = v.goleiro ? { padrao: "liso", cor1: cor, cor2: cor, calcao: "#111111", meiao: cor } : uniformes[v.time];
       const grupo = new THREE.Group();
 
-      const corpo = new THREE.Mesh(
-        new THREE.CapsuleGeometry(JOGADOR.raio, alturaTronco, 4, 14),
-        criarMaterialUniforme(uniforme),
-      );
-      corpo.position.y = JOGADOR.alturaCorpo / 2;
-      corpo.castShadow = true;
-      grupo.add(corpo);
+      let corpo: THREE.Mesh | null = null;
+      let figuraModelo: FiguraModelo | null = null;
+      if (modelo) {
+        figuraModelo = new FiguraModelo(modelo, uniforme);
+        grupo.add(figuraModelo.raiz);
+      } else {
+        corpo = new THREE.Mesh(new THREE.CapsuleGeometry(JOGADOR.raio, alturaTronco, 4, 14), criarMaterialUniforme(uniforme));
+        corpo.position.y = JOGADOR.alturaCorpo / 2;
+        corpo.castShadow = true;
+        grupo.add(corpo);
 
-      // "Nariz": mostra para onde o corpo olha
-      const nariz = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.28), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-      nariz.position.set(JOGADOR.raio, JOGADOR.alturaCorpo * 0.72, 0);
-      grupo.add(nariz);
+        // "Nariz": mostra para onde o corpo olha
+        const nariz = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.28), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        nariz.position.set(JOGADOR.raio, JOGADOR.alturaCorpo * 0.72, 0);
+        grupo.add(nariz);
+      }
 
       let rotulo: THREE.Sprite | null = null;
       if (v.humano) {
@@ -104,7 +112,7 @@ export class Jogadores {
       }
 
       this.grupo.add(grupo);
-      this.figuras.set(v.slot, { grupo, corpo, rotulo });
+      this.figuras.set(v.slot, { grupo, corpo, modelo: figuraModelo, rotulo });
     }
 
     this.anel = new THREE.Mesh(
@@ -120,6 +128,7 @@ export class Jogadores {
   /** Pose da cápsula: em pé (inclinando na corrida), deitada (caído), deslizando (carrinho) ou mergulhando (goleiro). */
   private pose(f: Figura, j: Omit<JogadorSnap, "dir"> & { dir: number }): void {
     const c = f.corpo;
+    if (!c) return;
     c.rotation.set(0, 0, 0);
     c.scale.y = 1;
     c.position.y = JOGADOR.alturaCorpo / 2;
@@ -138,7 +147,12 @@ export class Jogadores {
     }
   }
 
-  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, _dtS = 0): void {
+  /** Solta o que o modelo animado prendeu (mixers). A cena chama ao trocar de partida ou de elenco. */
+  liberar(): void {
+    for (const f of this.figuras.values()) f.modelo?.liberar();
+  }
+
+  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0): void {
     this.anel.visible = false;
     for (const j of jogadores) {
       const f = this.figuras.get(j.slot);
@@ -146,6 +160,7 @@ export class Jogadores {
       f.grupo.position.set(j.x, 0, j.z);
       f.grupo.rotation.y = -j.dir; // dirX = cos, dirZ = sin: girar +X para +Z é no sentido horário visto de cima
       this.pose(f, j);
+      f.modelo?.atualizar(j.anim, j.vel, dtS);
 
       f.rotulo?.position.set(j.x, JOGADOR.alturaCorpo + (j.humano ? 1.35 : 0.75), j.z);
 
