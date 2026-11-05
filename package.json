@@ -17,7 +17,8 @@
     "typecheck": "tsc -p packages/core && tsc -p apps/server && tsc -p apps/web && tsc -p apps/web/tsconfig.node.json && tsc -p e2e",
     "build": "npm run build -w @b3d/web && node ferramentas/checar-controle.mjs",
     "carga": "npm run carga -w @b3d/server --",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "festa": "node ferramentas/festa.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
