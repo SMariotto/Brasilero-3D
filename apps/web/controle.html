@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Brasilero 3D: controle</title>
+    <meta name="theme-color" content="#0a2113" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/icones/icone-192.png" />
+    <link rel="apple-touch-icon" href="/icones/icone-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Brasilero 3D" />
     <script type="module" src="/src/controle/main.ts"></script>
   </head>
   <body class="controle">
@@ -21,6 +29,10 @@
         <button id="botao-entrar" type="submit">Entrar</button>
       </form>
       <p id="aviso-entrar" class="aviso" role="alert"></p>
+      <p id="dica-ios" class="dica-ios" hidden>
+        <span id="dica-ios-texto"></span>
+        <button id="dica-ios-ok" type="button">Entendi</button>
+      </p>
     </section>
 
     <section id="lobby" class="cena" hidden></section>

@@ -4,8 +4,10 @@ import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./controle.css";
 import "../comum/marca.css";
+import { dadosDoNavegador, deveMostrarDicaDeInstalar, dicaJaDispensada, dispensarDica, TEXTO_DICA_IPHONE } from "./dicas";
 import { JogoControle } from "./jogo";
 import { criarLobbyControle } from "./lobby";
+import { TelaAcesa } from "./tela-acesa";
 
 // Este arquivo nunca importa Three.js nem nada de src/tela/ (o build confere o tamanho).
 
@@ -25,6 +27,8 @@ let cliente: Cliente | null = null;
 let timerToast: ReturnType<typeof setTimeout> | undefined;
 let emJogo = false;
 let ultimoLobby: Lobby | null = null;
+/** Mantém a tela do celular acesa enquanto estamos numa sala (o celular é o controle: ninguém encosta nele sem querer). */
+const telaAcesa = new TelaAcesa();
 
 // --- armazenamento (pode falhar em aba privada: sempre com try/catch) -----
 
@@ -64,6 +68,7 @@ function avisar(texto: string): void {
 }
 
 function voltarAEntrar(mensagem: string): void {
+  telaAcesa.desligar();
   jogoUI.parar();
   emJogo = false;
   cliente?.fechar();
@@ -171,6 +176,7 @@ function aoFechar(codigo: number): void {
 
 function entrar(): void {
   aviso.textContent = "";
+  telaAcesa.ligar();
   cliente = criarCliente({
     gerarOla: () => {
       const token = lerTexto("sessao", chaveToken(sala));
@@ -224,3 +230,19 @@ if (salaDaUrl.length === 4 && validarApelido(campoApelido.value) !== null && ler
 } else if (salaDaUrl.length === 4) {
   campoApelido.focus();
 }
+
+// O navegador só aceita o pedido de "tela acesa" depois de um toque em alguns aparelhos: no primeiro toque, pede de novo.
+window.addEventListener("pointerdown", () => {
+  if (cliente) telaAcesa.ligar();
+}, { passive: true });
+
+// iPhone no Safari: sem "Adicionar à Tela de Início" não existe tela cheia.
+const dicaIos = porId("dica-ios");
+if (deveMostrarDicaDeInstalar(dadosDoNavegador(), dicaJaDispensada())) {
+  porId("dica-ios-texto").textContent = TEXTO_DICA_IPHONE;
+  dicaIos.hidden = false;
+}
+porId("dica-ios-ok").addEventListener("click", () => {
+  dispensarDica();
+  dicaIos.hidden = true;
+});
