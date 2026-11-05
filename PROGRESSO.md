@@ -5,7 +5,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 ## Estado das fases
 | Fase | Estado | Último commit | Observação |
 |---|---|---|---|
-| R0 Revisão do guia | não começou | | |
+| R0 Revisão do guia | pronta (falta o Samuel conferir) | (fora do git: guia) | Correções em `guia-claude-code/`; resumo em DECISOES.md, seção "Revisão R0" |
 | F0 Fundação | não começou | | |
 | F1 Sala e conexão | não começou | | |
 | F2 Primeiro jogo | não começou | | |
@@ -21,7 +21,12 @@ Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir
 Nada feito ainda. Próximo passo: Prompt R0 do `../guia-claude-code/PROMPTS.md`.
 
 ## Dúvidas para o Samuel
-(nenhuma)
+Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opção mais simples; diga se quer outra:
+1. **Limite de 5 humanos por lado.** Quem tenta entrar num lado cheio recebe `LADO_CHEIO`. (SPEC 4.1)
+2. **"Pronto" só informativo.** O Dono pode começar com qualquer número de prontos. (SPEC 3.2)
+3. **Cores dos goleiros fixas:** Casa amarelo `#E6D800`, Visitante laranja `#FF7F11`. (SPEC 9.3)
+4. **Números de física que mudei na R0:** domínio 9 → 14 m/s e passe máximo 20 → 16 m/s, porque com os valores antigos ninguém conseguia receber um passe. Confirmar no sentimento do jogo na F3.
+5. **F4:** o servidor poderia servir também o site (um túnel só, sem Vercel). Decido na F4; aviso antes de mudar a arquitetura.
 
 ## Testes que o Samuel precisa fazer
 (nenhum)
