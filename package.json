@@ -18,7 +18,8 @@
     "build": "npm run build -w @b3d/web && node ferramentas/checar-controle.mjs",
     "carga": "npm run carga -w @b3d/server --",
     "e2e": "playwright test",
-    "festa": "node ferramentas/festa.mjs"
+    "festa": "node ferramentas/festa.mjs",
+    "boneco-teste": "node ferramentas/gerar-boneco-teste.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

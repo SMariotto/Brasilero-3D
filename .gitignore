@@ -7,3 +7,4 @@ assets-fonte/
 .vercel/
 test-results/
 playwright-report/
+apps/web/public/modelos/boneco-teste.glb
