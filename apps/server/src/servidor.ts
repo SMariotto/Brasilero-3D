@@ -234,7 +234,7 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots,
 
       if (!contexto) {
         if (msg.t === "ola") entrar(msg);
-        else erro("MENSAGEM_INVALIDA", "A primeira mensagem tem que ser um ola.");
+        else erro("MENSAGEM_INVALIDA", "A primeira mensagem tem que ser a de entrada na sala.");
         return;
       }
 
