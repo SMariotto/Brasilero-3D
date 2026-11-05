@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, type JogadorSnap, type VagaElenco } from "@b3d/core";
+import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
+import { criarMaterialUniforme } from "./uniforme";
 
 /** Etiqueta com o apelido, desenhada num canvas e usada como sprite (sempre virada para a câmera). */
 function etiqueta(nome: string, cor: string): THREE.Sprite {
@@ -27,6 +28,29 @@ function etiqueta(nome: string, cor: string): THREE.Sprite {
   return s;
 }
 
+/** Número de camisa pequeno em cima dos bots (os humanos têm o apelido). */
+function etiquetaNumero(numero: number): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 64;
+  const g = canvas.getContext("2d")!;
+  g.font = "bold 46px system-ui, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.lineJoin = "round";
+  g.lineWidth = 9;
+  g.strokeStyle = "rgba(0,0,0,0.8)";
+  g.strokeText(String(numero), 64, 34);
+  g.fillStyle = "#ffffff";
+  g.fillText(String(numero), 64, 34);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  s.scale.set(1.3, 0.65, 1);
+  s.renderOrder = 9;
+  return s;
+}
+
 interface Figura {
   grupo: THREE.Group;
   corpo: THREE.Mesh;
@@ -43,17 +67,18 @@ export class Jogadores {
   private readonly figuras = new Map<number, Figura>();
   private readonly anel: THREE.Mesh;
 
-  constructor(elenco: VagaElenco[], cores: [string, string]) {
+  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido]) {
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
 
     for (const v of elenco) {
       // Goleiros usam uma cor fixa de contraste (SPEC 9.3); o resto, a cor do time
-      const cor = v.goleiro ? (v.time === 0 ? PARTIDA.corGoleiroCasa : PARTIDA.corGoleiroVisitante) : cores[v.time];
+      const cor = v.goleiro ? (v.time === 0 ? PARTIDA.corGoleiroCasa : PARTIDA.corGoleiroVisitante) : uniformes[v.time].cor1;
+      const uniforme: UniformeResolvido = v.goleiro ? { padrao: "liso", cor1: cor, cor2: cor, calcao: "#111111", meiao: cor } : uniformes[v.time];
       const grupo = new THREE.Group();
 
       const corpo = new THREE.Mesh(
         new THREE.CapsuleGeometry(JOGADOR.raio, alturaTronco, 4, 14),
-        new THREE.MeshStandardMaterial({ color: new THREE.Color(cor), roughness: 0.7 }),
+        criarMaterialUniforme(uniforme),
       );
       corpo.position.y = JOGADOR.alturaCorpo / 2;
       grupo.add(corpo);
@@ -71,6 +96,9 @@ export class Jogadores {
         seta.name = "seta";
         grupo.add(seta);
         rotulo = etiqueta(v.nome, cor);
+        this.grupo.add(rotulo);
+      } else if (!v.goleiro) {
+        rotulo = etiquetaNumero(v.numero);
         this.grupo.add(rotulo);
       }
 
@@ -118,7 +146,7 @@ export class Jogadores {
       f.grupo.rotation.y = -j.dir; // dirX = cos, dirZ = sin: girar +X para +Z é no sentido horário visto de cima
       this.pose(f, j);
 
-      f.rotulo?.position.set(j.x, JOGADOR.alturaCorpo + 1.35, j.z);
+      f.rotulo?.position.set(j.x, JOGADOR.alturaCorpo + (j.humano ? 1.35 : 0.75), j.z);
 
       if (j.slot === dominante && dominante !== SEM_DOMINANTE) {
         this.anel.visible = true;

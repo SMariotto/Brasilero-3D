@@ -197,6 +197,14 @@ porId("esquecer-servidor").addEventListener("click", () => {
   location.reload();
 });
 
-// Página recarregada com ?sala=ABCD: volta a assistir sem pedir nada.
-if (sala) iniciar();
-else mostrar("inicio");
+// `tela.html?vitrine=1`: página que mostra todos os clubes e uniformes (para ajustar o times.json).
+if (new URLSearchParams(location.search).get("vitrine") === "1") {
+  inicio.hidden = true;
+  porId("vitrine").hidden = false;
+  void import("./vitrine").then((m) => m.abrirVitrine(porId("vitrine")));
+} else if (sala) {
+  // Página recarregada com ?sala=ABCD: volta a assistir sem pedir nada.
+  iniciar();
+} else {
+  mostrar("inicio");
+}

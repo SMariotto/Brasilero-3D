@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SEM_DOMINANTE, type Evento, type Fim, type PartidaMsg, type Snapshot } from "@b3d/core";
+import { SEM_DOMINANTE, uniformesDaPartida, type Evento, type Fim, type PartidaMsg, type Snapshot } from "@b3d/core";
 import { criarBola3D, type Bola3D } from "./bola";
 import { CameraJogo } from "./camera";
 import { criarCampo3D } from "./campo";
@@ -40,7 +40,7 @@ export class CenaJogo {
     // Mesmo `id`: é a mesma partida com o elenco mudado (humano entrou, saiu ou assumiu vaga de bot). Só refaz os jogadores.
     if (p.id === this.partidaId && this.scene && this.jogadores) {
       this.scene.remove(this.jogadores.grupo);
-      this.jogadores = new Jogadores(p.elenco, p.cores);
+      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante));
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
       return;
@@ -70,7 +70,7 @@ export class CenaJogo {
     scene.add(sol);
 
     scene.add(criarCampo3D(p.campo));
-    this.jogadores = new Jogadores(p.elenco, p.cores);
+    this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante));
     scene.add(this.jogadores.grupo);
     this.bola = criarBola3D();
     scene.add(this.bola.grupo);
