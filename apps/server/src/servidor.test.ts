@@ -445,6 +445,23 @@ describe("origem do WebSocket (ORIGENS)", () => {
     expect(await tentar(servidor.porta(), `http://127.0.0.1:${servidor.porta()}`)).toBe("abriu");
   });
 
+  it("em produção com o site servido por ele (SITE_DIR) e SEM ORIGENS: o mesmo site abre o WebSocket, os outros não", async () => {
+    // É a configuração do Render/Fly com um link só: ninguém precisa preencher ORIGENS.
+    const pasta = mkdtempSync(join(tmpdir(), "b3d-site-prod-"));
+    try {
+      writeFileSync(join(pasta, "tela.html"), "<h1>tela</h1>");
+      servidor = await criarServidor({ porta: 0, producao: true, origens: [], siteDir: pasta });
+      const porta = servidor.porta();
+      expect(await tentar(porta, `http://127.0.0.1:${porta}`)).toBe("abriu"); // Origin = Host
+      expect(await tentar(porta, undefined)).toBe("abriu");
+      expect(await tentar(porta, "https://site-do-mal.com")).toBe(403);
+      expect(await tentar(porta, "http://localhost:5173")).toBe(403);
+      expect((await fetch(`http://127.0.0.1:${porta}/tela.html`)).status).toBe(200);
+    } finally {
+      rmSync(pasta, { recursive: true, force: true });
+    }
+  });
+
   it("um telão recusado por origem não entra em sala nenhuma", async () => {
     servidor = await criarServidor({ porta: 0, producao: true, origens: [] });
     await tentar(servidor.porta(), "https://site-do-mal.com");

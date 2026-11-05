@@ -1,4 +1,5 @@
-# Servidor da partida no Fly.io, região gru (São Paulo). Passo a passo no PROGRESSO.md.
+# Brasilero 3D no Fly.io, região gru (São Paulo): UM link só, com o site (telão e controle) e o servidor da partida juntos.
+# Passo a passo no PROGRESSO.md.
 # Troque `app` por um nome livre (o Fly recusa nomes já usados) ou deixe o `fly launch` perguntar.
 app = "brasilero3d-servidor"
 primary_region = "gru"
@@ -9,7 +10,8 @@ primary_region = "gru"
 [env]
   PORT = "8787"
   NODE_ENV = "production"
-  # ORIGENS = "https://brasilero3d.vercel.app"   # ponha o endereço do SEU site na Vercel (ou use: fly secrets set ORIGENS=...)
+  # ORIGENS não é necessária: o site vem deste mesmo servidor (mesma origem passa sozinha).
+  # Só se quiser deixar OUTRO site (como o da Vercel) usar este servidor: fly secrets set ORIGENS=https://SEU-SITE.vercel.app
 
 [http_service]
   internal_port = 8787

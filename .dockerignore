@@ -7,7 +7,5 @@ assets-fonte
 e2e
 test-results
 playwright-report
-apps/web/src
-apps/web/public
 *.log
 .env*

@@ -1,8 +1,9 @@
-# Servidor da partida no Render (plano grátis). Região só nos EUA/Europa/Singapura: mais atraso que o Fly em São Paulo,
-# e o serviço dorme depois de 15 min sem tráfego (acordar leva ~1 min). Passo a passo no PROGRESSO.md.
+# Brasilero 3D no Render (plano grátis): UM link só, com o site (telão e controle) e o servidor da partida juntos.
+# Região só nos EUA/Europa/Singapura: mais atraso que o Fly em São Paulo, e o serviço dorme depois de 15 min sem tráfego
+# (acordar leva ~1 min). Passo a passo no PROGRESSO.md.
 services:
   - type: web
-    name: brasilero3d-servidor
+    name: brasilero3d
     runtime: docker
     dockerfilePath: ./apps/server/Dockerfile
     dockerContext: .
@@ -13,5 +14,5 @@ services:
         value: production
       - key: PORT
         value: "8787"
-      - key: ORIGENS
-        sync: false # você digita no painel do Render: https://brasilero3d.vercel.app
+      # ORIGENS não é necessária: o site vem deste mesmo servidor (mesma origem passa sozinha).
+      # Só ponha ORIGENS (no painel) se quiser deixar outro site, como o da Vercel, usar este servidor.
