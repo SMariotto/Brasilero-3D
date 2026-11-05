@@ -15,11 +15,12 @@ import {
   type Comando,
 } from "../protocolo/binario";
 import type { Config } from "../protocolo/config";
-import type { EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
+import type { DonoDeSlot, Destaque, EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
 import { criarRng, type Rng } from "../util/rng";
 import { calcularChute, calcularPasseAssistido, type Alvo, type Ponto } from "./acoes";
 import { Bots, posicoesDeSaida } from "./bots";
-import { completarElenco } from "./elenco";
+import { GestorDeControle } from "./controle";
+import { completarElenco, nomeDeBot } from "./elenco";
 import { atualizarGoleiro } from "./goleiro";
 import {
   controladoPorBot,
@@ -40,6 +41,25 @@ export interface OpcoesPartida {
   semente: number;
   /** Só testes: não completa o elenco com bots nem goleiros (1 contra 1 puro, como na F2). */
   semBots?: boolean;
+  /**
+   * Controle estilo FIFA (G1): cada humano controla um jogador de cada vez e o controle passa para quem recebe o passe, para
+   * o portador da bola ou para o companheiro mais perto dela. O servidor liga. Desligado (padrão), cada humano fica na vaga
+   * em que começou, que é o que os testes antigos esperam.
+   */
+  controleFifa?: boolean;
+}
+
+/** O que cada jogador (humano ou bot) fez na partida, pelo NOME: o humano muda de jogador durante o jogo (G1). */
+export interface Credito {
+  chave: string;
+  nome: string;
+  /** O último jogador (slot) que ele controlou. */
+  slot: number;
+  time: 0 | 1;
+  humano: boolean;
+  gols: number;
+  assistencias: number;
+  desarmes: number;
 }
 
 /** Um evento do jogo com o tick em que aconteceu. */
@@ -49,6 +69,10 @@ interface Toque {
   slot: number;
   time: 0 | 1;
   t: number;
+  /** Quem era o jogador na hora do toque: o humano pode trocar de jogador antes do gol (G1), o crédito é de quem tocou. */
+  nome: string;
+  idControle?: number;
+  humano: boolean;
 }
 
 const DT = 1 / TEMPO.tickHz;
@@ -92,6 +116,9 @@ export class Partida {
 
   private readonly porSlot = new Map<number, JogadorPartida>();
   private readonly bots: Bots;
+  /** Quem controla qual jogador (G1). */
+  readonly controle: GestorDeControle;
+  private readonly creditos = new Map<string, Credito>();
   private eventos: EventoDoTick[] = [];
   private faseAte: number;
   /** Está na prorrogação de gol de ouro (F8b). */
@@ -131,6 +158,17 @@ export class Partida {
       cerebro: novoCerebro(),
     }));
     for (const j of this.jogadores) this.porSlot.set(j.vaga.slot, j);
+
+    // Todo jogador de linha tem um nome de bot, também as vagas em que um humano começa: o humano muda de jogador (G1) e o
+    // que ele larga volta a ter nome de bot. Sorteio à parte, para não mexer na sequência do jogo.
+    const rngNomes = criarRng(op.semente ^ 0x6e6f6d65);
+    const usados = new Set<string>(this.jogadores.map((j) => j.vaga.nome));
+    for (const j of this.jogadores) {
+      if (j.vaga.goleiro) continue;
+      j.vaga.nomeBot = j.vaga.humano ? nomeDeBot(rngNomes, usados) : j.vaga.nome;
+    }
+    this.controle = new GestorDeControle(this, op.controleFifa ?? false);
+    for (const j of this.jogadores) if (j.vaga.humano) this.controle.registrarInicial(j);
 
     this.bots = new Bots(this);
     this.faseAte = PARTIDA.preJogoS;
@@ -172,12 +210,37 @@ export class Partida {
     return j.caidoAte > this.t || j.carrinho !== null;
   }
 
-  /** Guarda o último comando de um controle. Vale a partir do próximo passo. */
+  /** Guarda o último comando de quem controla o jogador `slot` (o humano que está nele agora). Vale a partir do próximo passo. */
   definirComando(slot: number, cmd: Comando): void {
     const j = this.jogador(slot);
     if (!j) return;
+    const h = this.controle.humanoNoSlot(slot);
+    if (h) {
+      this.controle.comando(h.id, cmd);
+      return;
+    }
     j.cmd = cmd;
     if (j.acaoSeq === null) j.acaoSeq = cmd.acaoSeq; // primeiro pacote: não dispara ação antiga
+  }
+
+  /** O comando de um controle (G1): vale para o jogador que aquele humano controla agora, seja qual for. */
+  definirComandoDoHumano(idControle: number, cmd: Comando): void {
+    this.controle.comando(idControle, cmd);
+  }
+
+  /** O jogador que o controle `idControle` controla agora, ou `null` (sem jogador: caiu da conexão, ou não entrou). */
+  slotDoHumano(idControle: number): number | null {
+    return this.controle.slotDe(idControle);
+  }
+
+  /** Quem controla qual jogador agora (mensagem `donos`). */
+  donos(): DonoDeSlot[] {
+    return this.controle.donos();
+  }
+
+  /** Sobe toda vez que o controle muda de mãos. */
+  get versaoControle(): number {
+    return this.controle.versao;
   }
 
   /** Esvazia e devolve os eventos acumulados desde a última chamada. */
@@ -191,38 +254,70 @@ export class Partida {
   // Vagas (SPEC 4.1)
   // ---------------------------------------------------------------------------
 
-  /** Um humano que entrou com a partida rolando assume o lugar de um bot do time. Devolve a vaga, ou `null` se não há bot. */
+  /**
+   * Um humano que entrou com a partida rolando assume um bot do time (o mais perto da bola, no controle estilo FIFA). Devolve a
+   * vaga, ou `null` se o time não tem bot livre (ou já tem 3 humanos).
+   */
   promoverHumano(time: 0 | 1, nome: string, idControle: number): VagaPartida | null {
-    const candidatos = this.jogadores.filter((j) => j.vaga.time === time && !j.vaga.goleiro && !j.vaga.humano);
-    const escolhido = candidatos[candidatos.length - 1];
-    if (!escolhido) return null;
-    escolhido.vaga.humano = true;
-    escolhido.vaga.nome = nome;
-    escolhido.vaga.idControle = idControle;
-    escolhido.ausente = false;
-    escolhido.cmd = comandoParado();
-    escolhido.acaoSeq = null;
-    return escolhido.vaga;
+    const vaga = this.controle.adicionar(time, nome, idControle);
+    if (vaga) this.registrarHumano(vaga.time, idControle, nome, vaga.slot);
+    return vaga;
   }
 
-  /** A vaga de um humano venceu (caiu de vez): vira bot. */
+  /** A vaga de um humano venceu (caiu de vez): o jogador que ele controlava vira bot. */
+  removerHumano(idControle: number): void {
+    this.controle.remover(idControle);
+  }
+
+  /** Humano sem conexão: um bot joga por ele até ele voltar (e, no controle estilo FIFA, ele sai da fila de trocas). */
+  definirAusenteHumano(idControle: number, ausente: boolean): void {
+    this.controle.definirAusente(idControle, ausente);
+  }
+
+  /** Como `removerHumano`, para quem só sabe o jogador (testes antigos). */
   liberarSlot(slot: number): void {
-    const j = this.jogador(slot);
-    if (!j) return;
-    j.vaga.humano = false;
-    delete j.vaga.idControle;
-    j.ausente = false;
+    const h = this.controle.humanoNoSlot(slot);
+    if (h) this.controle.remover(h.id);
   }
 
-  /** Humano sem conexão: um bot joga por ele até ele voltar. */
+  /** Como `definirAusenteHumano`, para quem só sabe o jogador (testes antigos). */
   definirAusente(slot: number, ausente: boolean): void {
+    const h = this.controle.humanoNoSlot(slot);
+    if (h) this.controle.definirAusente(h.id, ausente);
+  }
+
+  /** Cria (se não existir) o registro de estatísticas do humano, zerado, para ele aparecer no campeonato mesmo sem lance nenhum. */
+  private registrarHumano(time: 0 | 1, id: number, nome: string, slot: number): void {
+    const chave = `h${id}`;
+    if (!this.creditos.has(chave)) this.creditos.set(chave, { chave, nome, slot, time, humano: true, gols: 0, assistencias: 0, desarmes: 0 });
+  }
+
+  /** O registro de estatísticas de quem controla o jogador `slot` agora (o humano, ou o bot daquele jogador). */
+  private credito(slot: number): Credito | undefined {
     const j = this.jogador(slot);
-    if (!j) return;
-    j.ausente = ausente;
-    if (!ausente) {
-      j.cmd = comandoParado();
-      j.acaoSeq = null;
+    if (!j) return undefined;
+    return this.creditoDe({ slot, time: j.vaga.time, nome: j.vaga.nome, humano: j.vaga.humano, ...(j.vaga.idControle !== undefined ? { idControle: j.vaga.idControle } : {}) });
+  }
+
+  /** O registro de estatísticas de quem tocou na bola (o humano pode ter trocado de jogador desde então). */
+  private creditoDe(q: { slot: number; time: 0 | 1; nome: string; humano: boolean; idControle?: number }): Credito {
+    const chave = q.humano && q.idControle !== undefined ? `h${q.idControle}` : `s${q.slot}`;
+    let c = this.creditos.get(chave);
+    if (!c) {
+      c = { chave, nome: q.nome, slot: q.slot, time: q.time, humano: q.humano, gols: 0, assistencias: 0, desarmes: 0 };
+      this.creditos.set(chave, c);
     }
+    c.slot = q.slot;
+    c.nome = q.nome;
+    return c;
+  }
+
+  /** O que cada um fez na partida: todo humano (mesmo sem lance nenhum) e os bots que fizeram algo. Para o campeonato e o fim. */
+  get estatisticas(): Credito[] {
+    for (const j of this.jogadores) {
+      if (j.vaga.humano && j.vaga.idControle !== undefined) this.registrarHumano(j.vaga.time, j.vaga.idControle, j.vaga.nome, j.vaga.slot);
+    }
+    return [...this.creditos.values()];
   }
 
   // ---------------------------------------------------------------------------
@@ -233,6 +328,7 @@ export class Partida {
     this.tick++;
     const jogando = this.fase === FASE.jogo || this.fase === FASE.reinicio;
 
+    this.controle.atualizar();
     if (jogando) {
       this.bots.atualizar();
       for (const j of this.jogadores) if (j.vaga.goleiro) atualizarGoleiro(this, j);
@@ -279,27 +375,36 @@ export class Partida {
     const passe = (c.seguros & BOTAO.passe) !== 0;
     const podeAgir = !this.noChao(j) && j.desliza === null && j.bote === null && j.mergulho === null;
 
-    // Aperto de CHUTE: voleio (prioridade), carrinho (sem a bola) ou começa a carregar o chute (com a bola)
+    // Aperto de CHUTE: voleio (prioridade), troca de jogador (sem a bola, G1) ou começa a carregar o chute (com a bola)
     if (chute && !j.chute.apertado) {
       j.chute = { apertado: true, comBola: this.temBola(j), desde: this.t };
-      if (podeAgir && !this.temBola(j)) {
-        if (this.bolaNoAlcanceDoVoleio(j)) {
+      if (!this.temBola(j)) {
+        if (podeAgir && this.bolaNoAlcanceDoVoleio(j)) {
           const [dx, dz] = this.direcaoDe(j);
           this.chutarComo(j, CHUTE.voleioForca, dx, dz);
           j.chute.comBola = false;
-        } else if (this.fase === FASE.jogo) {
-          this.iniciarCarrinho(j);
+        } else if (this.reinicio?.cobrador !== j.vaga.slot) {
+          this.controle.trocarManual(j.vaga.slot); // quem vai cobrar o reinício não troca
         }
       }
     }
     if (!chute) j.chute.apertado = false;
 
-    // Aperto de PASSE sem a bola: bote
+    // Aperto de PASSE sem a bola: bote. Se continuar segurando por 0,3 s sem a bola, vira carrinho (G1, provisório)
     if (passe && !j.passe.apertado) {
       j.passe = { apertado: true, comBola: this.temBola(j), desde: this.t };
       if (podeAgir && !this.temBola(j) && this.fase === FASE.jogo) this.iniciarBote(j);
     }
-    if (!passe) j.passe.apertado = false;
+    if (!passe) {
+      j.passe.apertado = false;
+    } else if (!j.passe.comBola && !j.passe.longoFeito && this.t - j.passe.desde >= DEFESA.carrinho.segurarPasseS) {
+      if (this.temBola(j)) {
+        j.passe.longoFeito = true; // roubou a bola no bote: segurar agora é outra coisa (lançamento)
+      } else if (podeAgir && this.fase === FASE.jogo) {
+        j.passe.longoFeito = true;
+        this.iniciarCarrinho(j);
+      }
+    }
 
     if (j.acaoSeq !== null && c.acaoSeq !== j.acaoSeq) {
       j.acaoSeq = c.acaoSeq;
@@ -377,6 +482,7 @@ export class Partida {
     });
     this.soltarBola(j, v.vx, v.vy, v.vz, ANIMACAO.passeS, ANIM.passe);
     this.evento({ tipo: "passe", dados: { de: j.vaga.slot, ...(v.para !== undefined ? { para: v.para } : {}), alto: v.alto } });
+    this.controle.aoPassar(j.vaga.slot, v.para); // o controle vai para quem recebe (G1)
   }
 
   private soltarBola(j: JogadorPartida, vx: number, vy: number, vz: number, animS: number, anim: number): void {
@@ -448,6 +554,8 @@ export class Partida {
     j.bloqueioAte = 0;
     this.registrarToque(j);
     this.desarmesPorSlot.set(j.vaga.slot, (this.desarmesPorSlot.get(j.vaga.slot) ?? 0) + 1);
+    const cb = this.credito(j.vaga.slot);
+    if (cb) cb.desarmes++;
     this.evento({ tipo: "roubo", dados: { slot: j.vaga.slot, de: dono.vaga.slot, jeito: "bote" } });
   }
 
@@ -462,6 +570,8 @@ export class Partida {
       if (dono && dono.vaga.time !== j.vaga.time) {
         dono.bloqueioAte = this.t + DOMINIO.bloqueioAposChuteS;
         this.desarmesPorSlot.set(j.vaga.slot, (this.desarmesPorSlot.get(j.vaga.slot) ?? 0) + 1);
+        const cc = this.credito(j.vaga.slot);
+        if (cc) cc.desarmes++;
         this.evento({ tipo: "roubo", dados: { slot: j.vaga.slot, de: dono.vaga.slot, jeito: "carrinho" } });
       }
       b.vx = c.dx * DEFESA.carrinho.velocidadeBola;
@@ -789,7 +899,14 @@ export class Partida {
   // ---------------------------------------------------------------------------
 
   private registrarToque(j: JogadorPartida): void {
-    const novo: Toque = { slot: j.vaga.slot, time: j.vaga.time, t: this.t };
+    const novo: Toque = {
+      slot: j.vaga.slot,
+      time: j.vaga.time,
+      t: this.t,
+      nome: j.vaga.nome,
+      humano: j.vaga.humano,
+      ...(j.vaga.idControle !== undefined ? { idControle: j.vaga.idControle } : {}),
+    };
     if (this.ultimoToque && this.ultimoToque.slot !== novo.slot) this.penultimoToque = this.ultimoToque;
     this.ultimoToque = novo;
   }
@@ -800,16 +917,32 @@ export class Partida {
     this.placar[time]++;
     this.bola.naRede = lado;
 
-    const quem = this.ultimoToque ?? { slot: this.jogadores.find((j) => j.vaga.time === time)?.vaga.slot ?? 0, time, t: this.t };
+    const primeiro = this.jogadores.find((j) => j.vaga.time === time);
+    const quem: Toque = this.ultimoToque ?? {
+      slot: primeiro?.vaga.slot ?? 0,
+      time,
+      t: this.t,
+      nome: primeiro?.vaga.nome ?? "?",
+      humano: primeiro?.vaga.humano ?? false,
+      ...(primeiro?.vaga.idControle !== undefined ? { idControle: primeiro.vaga.idControle } : {}),
+    };
     const contra = quem.time !== time;
     let assistencia: number | undefined;
+    let nomeAssistencia: string | undefined;
     const p = this.penultimoToque;
     if (!contra && p && p.time === time && p.slot !== quem.slot && this.t - p.t <= PARTIDA.assistenciaJanelaS) {
       assistencia = p.slot;
       this.assistenciasPorSlot.set(p.slot, (this.assistenciasPorSlot.get(p.slot) ?? 0) + 1);
+      const ca = this.creditoDe(p);
+      ca.assistencias++;
+      nomeAssistencia = ca.nome;
     }
+    // Quem fez, pelo nome de agora: o humano pode já ter trocado de jogador desde o chute (G1)
+    const cg = this.creditoDe(quem);
+    if (!contra) cg.gols++;
+    const nomeGol = cg.nome;
 
-    this.gols.push({ slot: quem.slot, tick: this.tick, contra });
+    this.gols.push({ slot: quem.slot, tick: this.tick, contra, nome: nomeGol });
     this.dominante = null;
     this.reinicio = null;
     this.fase = FASE.gol;
@@ -824,6 +957,8 @@ export class Partida {
         ...(assistencia !== undefined ? { assistencia } : {}),
         contra,
         placar: [this.placar[0], this.placar[1]],
+        nome: nomeGol,
+        ...(nomeAssistencia !== undefined ? { nomeAssistencia } : {}),
       },
     });
   }
@@ -1169,28 +1304,18 @@ export class Partida {
 
   /** Resumo do fim da partida (mensagem `fim`). */
   resumo(): Fim {
-    const contar = (itens: number[]): { slot: number; quantidade: number } | null => {
-      const por = new Map<number, number>();
-      for (const s of itens) por.set(s, (por.get(s) ?? 0) + 1);
-      let melhor: { slot: number; quantidade: number } | null = null;
-      for (const [slot, quantidade] of por) if (!melhor || quantidade > melhor.quantidade) melhor = { slot, quantidade };
-      return melhor;
-    };
-    const repetir = (m: Map<number, number>): number[] => {
-      const l: number[] = [];
-      for (const [slot, n] of m) for (let i = 0; i < n; i++) l.push(slot);
-      return l;
+    // Pelo nome de quem fez (o humano muda de jogador durante o jogo, G1). Empate: fica com quem fez primeiro.
+    const melhor = (campo: "gols" | "assistencias" | "desarmes"): Destaque | null => {
+      let m: Credito | null = null;
+      for (const c of this.estatisticas) if (c[campo] > (m ? m[campo] : 0)) m = c;
+      return m ? { slot: m.slot, quantidade: m[campo], nome: m.nome } : null;
     };
     return {
       t: "fim",
       placar: [this.placar[0], this.placar[1]],
       gols: this.gols.map((g) => ({ ...g })),
       ...(this.emProrrogacao ? { prorrogacao: true } : {}),
-      destaques: {
-        artilheiro: contar(this.gols.filter((g) => !g.contra).map((g) => g.slot)),
-        assistencias: contar(repetir(this.assistenciasPorSlot)),
-        desarmes: contar(repetir(this.desarmesPorSlot)),
-      },
+      destaques: { artilheiro: melhor("gols"), assistencias: melhor("assistencias"), desarmes: melhor("desarmes") },
     };
   }
 

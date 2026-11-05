@@ -236,10 +236,10 @@ describe("erros de entrada", () => {
     expect(await t.esperar("erro")).toMatchObject({ codigo: "SERVIDOR_CHEIO" });
   });
 
-  it("sala com 10 controles: o 11º recebe SALA_CHEIA", async () => {
+  it("sala com 6 controles: o 7º recebe SALA_CHEIA", async () => {
     await subir();
     const { sala } = await criarSala();
-    for (let i = 0; i < 10; i++) await entrarControle(sala, `J${i}`);
+    for (let i = 0; i < 6; i++) await entrarControle(sala, `J${i}`);
     const c = await novo();
     c.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Extra" });
     expect(await c.esperar("erro")).toMatchObject({ codigo: "SALA_CHEIA" });

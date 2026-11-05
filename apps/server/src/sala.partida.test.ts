@@ -126,14 +126,15 @@ describe("começar a partida", () => {
     expect(vis.map((c) => c.j.slot)).toEqual([7, 8]);
   });
 
-  it("se um time tem mais humanos que N, N sobe (até 5)", () => {
+  it("com 3 humanos num time e N = 3, todos cabem: N é o que o Dono escolheu (G1: máximo de 3 por time)", () => {
     const a = entrar("A", "casa");
     sala.tratarControle(a.j, { t: "config", n: 3 });
-    for (const n of ["B", "C", "D"]) entrar(n, "casa");
+    for (const n of ["B", "C"]) entrar(n, "casa");
     entrar("E", "visitante");
     sala.tratarControle(a.j, { t: "comecar" });
-    expect(sala.partida!.config.n).toBe(4);
-    expect(sala.partida!.campo.comp).toBe(52);
+    expect(sala.partida!.config.n).toBe(3);
+    expect(sala.partida!.campo.comp).toBe(44);
+    expect(sala.partida!.jogadores.filter((j) => j.vaga.time === 0 && j.vaga.humano)).toHaveLength(3);
   });
 
   it("durante a partida, mudar config, lado e pronto é recusado", () => {
@@ -558,7 +559,10 @@ describe("com bots", () => {
     passarB(7000);
     const jogador = comBots.partida!.jogador(b.j.slot!)!;
     comBots.desconectarControle(b.j, b.canal);
-    expect(jogador.ausente).toBe(true);
+    // G1: o jogador dele vira bot e ele sai da fila de trocas até voltar
+    expect(jogador.vaga.humano).toBe(false);
+    expect(comBots.partida!.slotDoHumano(b.j.id)).toBeNull();
+    expect(comBots.partida!.controle.fila(1)).toEqual([]);
     let andou = 0;
     let ux = jogador.corpo.x;
     let uz = jogador.corpo.z;
@@ -573,8 +577,12 @@ describe("com bots", () => {
 
     const novo = new CanalFalso();
     expect(comBots.entrarControle(novo, "Beto", b.j.token).ok).toBe(true);
-    expect(jogador.ausente).toBe(false);
     expect(novo.ultimas("partida")).toHaveLength(1);
+    // Volta com um jogador do time dele (o companheiro livre mais perto da bola) e no fim da fila
+    expect(b.j.slot).not.toBeNull();
+    expect(comBots.partida!.jogador(b.j.slot!)!.vaga).toMatchObject({ time: 1, humano: true, idControle: b.j.id });
+    expect(comBots.partida!.controle.fila(1)).toEqual([b.j.id]);
+    expect(novo.ultimas("voce").at(-1)).toMatchObject({ slot: b.j.slot, situacao: "normal" });
   });
 
   it("vaga que venceu (30 s fora) vira bot de vez e o elenco é reenviado", () => {

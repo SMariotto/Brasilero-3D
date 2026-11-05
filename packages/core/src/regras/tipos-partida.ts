@@ -9,6 +9,8 @@ export interface BotaoEstado {
   /** O jogador tinha a bola quando apertou? Só assim a ação ao soltar vale (PROTOCOLO 4). */
   comBola: boolean;
   desde: number;
+  /** PASSE segurado sem a bola: o carrinho (segurar por `DEFESA.carrinho.segurarPasseS`) já foi tentado neste aperto (G1). */
+  longoFeito?: boolean;
 }
 
 /** Deslize do carrinho (SPEC 6.6): começa a 9 m/s e freia até parar em 1 s. */

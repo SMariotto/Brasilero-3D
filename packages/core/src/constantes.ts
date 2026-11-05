@@ -44,8 +44,8 @@ export const PARTIDA = {
   duracaoPadraoMin: 4,
   nLinhaPadrao: 5,
   nLinhaMax: 5,
-  /** Máximo de humanos por lado (provisório, ver PROGRESSO). */
-  maxHumanosPorLado: 5,
+  /** Máximo de humanos por time (G1, decisão do Samuel). Também decide o máximo de controles por sala (2 times). */
+  maxHumanosPorTime: 3,
   /** A saída de bola solta sozinha depois disso, se ninguém tocar. (SPEC 4.4) */
   saidaSoltaAposS: 3,
   /** Duração do pré-jogo, com os times entrando. (SPEC 3.1) */
@@ -241,7 +241,21 @@ export const DEFESA = {
     /** Quanto tempo quem deu o carrinho fica no chão depois do deslize. */
     chaoAposS: 0.8,
     recargaS: 1.5,
+    /** G1 (provisório): sem a bola, segurar PASSE por este tempo (depois do bote) vira carrinho. Era o CHUTE sem a bola. */
+    segurarPasseS: 0.3,
   },
+} as const;
+
+// ---------------------------------------------------------------------------
+// Troca de jogador estilo FIFA (G1, provisório)
+// ---------------------------------------------------------------------------
+export const TROCA = {
+  /** Sem a bola, o humano só passa para outro companheiro se ele estiver pelo menos isto (m) mais perto da bola (histerese). */
+  histereseM: 2.5,
+  /** Depois de qualquer troca sozinha, o humano fica este tempo (s) sem trocar sozinho de novo. */
+  travaAposTrocaS: 0.6,
+  /** Depois de trocar à mão (CHUTE sem a bola), fica este tempo (s) sem trocar sozinho, para o controle não "voltar". */
+  travaAposManualS: 1.5,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -321,7 +335,8 @@ export const CONTROLE = {
 // ---------------------------------------------------------------------------
 export const SERVIDOR = {
   portaPadrao: 8787,
-  maxControlesPorSala: 10,
+  /** 2 times × `PARTIDA.maxHumanosPorTime` (G1). Mais gente que isso assiste por um telão. */
+  maxControlesPorSala: PARTIDA.maxHumanosPorTime * 2,
   maxTelasPorSala: 8,
   maxSalasPadrao: 50,
   /** Mensagem maior que isto derruba a conexão. */

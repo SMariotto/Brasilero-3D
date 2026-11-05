@@ -39,8 +39,11 @@ describe("constantes", () => {
     expect(SERVIDOR.alfabetoSala.length).toBe(24);
   });
 
-  it("a partida aceita 5 humanos por lado e as durações da SPEC", () => {
-    expect(PARTIDA.maxHumanosPorLado).toBe(5);
+  it("a partida aceita 3 humanos por time (6 controles por sala) e as durações da SPEC", () => {
+    expect(PARTIDA.maxHumanosPorTime).toBe(3);
+    expect(SERVIDOR.maxControlesPorSala).toBe(6);
+    // Os 3 humanos de um time sempre cabem, mesmo com o menor número de jogadores de linha
+    expect(PARTIDA.maxHumanosPorTime).toBeLessThanOrEqual(Math.min(...[3, 4, 5]));
     expect([...PARTIDA.duracoesMin]).toEqual([2, 4, 6, 8]);
   });
 });

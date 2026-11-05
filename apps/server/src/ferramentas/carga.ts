@@ -1,7 +1,7 @@
 // Teste de carga: N controles e M telões falsos entram numa sala, mexem no lobby e ficam por alguns segundos.
 //
-//   npm run carga                                    (sobe um servidor próprio: 10 controles, 8 telões, 30 s)
-//   npm run carga -- --controles 10 --telas 8 --seg 30
+//   npm run carga                                    (sobe um servidor próprio: 6 controles, 8 telões, 30 s)
+//   npm run carga -- --controles 6 --telas 8 --seg 30
 //   npm run carga -- --url ws://localhost:8787/ws    (usa um servidor que já está rodando)
 //
 // Imprime as mensagens recebidas, o ping medido e o pior tempo de passo do servidor (/saude). Sai com código 1 se algo deu errado.
@@ -58,7 +58,7 @@ function conectar(url: string, nome: string, ola: Record<string, unknown>): Prom
   });
 }
 
-const nControles = numero("controles", 10);
+const nControles = numero("controles", 6);
 const nTelas = numero("telas", 8);
 const segundos = numero("seg", 30);
 const urlExterna = texto("url");

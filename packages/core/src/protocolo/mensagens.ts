@@ -134,10 +134,30 @@ export interface VagaElenco {
   slot: number;
   time: 0 | 1;
   numero: number;
+  /** Quem joga agora: o apelido do humano que controla este jogador, ou o nome do bot. Muda com a mensagem `donos` (G1). */
   nome: string;
+  /** Um humano controla este jogador agora? Muda com a mensagem `donos` (G1). */
   humano: boolean;
   idControle?: number;
   goleiro: boolean;
+  /** O nome do jogador quando é o bot que joga (para voltar a ele quando o humano sai deste jogador). */
+  nomeBot?: string;
+}
+
+/** Quem controla um jogador agora (G1): o humano `id` (`idControle`) com este `nome` (apelido). */
+export interface DonoDeSlot {
+  slot: number;
+  id: number;
+  nome: string;
+}
+
+/**
+ * Servidor para todos (G1): quais jogadores têm um humano no controle agora. Lista COMPLETA (o que não está nela é bot).
+ * Sai toda vez que o controle muda de mãos (passe, troca sozinha, troca à mão, humano que cai ou volta).
+ */
+export interface DonosMsg {
+  t: "donos";
+  donos: DonoDeSlot[];
 }
 
 /** Começo da partida. Reenviada a quem entra no meio e sempre que o elenco muda. */
@@ -181,7 +201,19 @@ export type EventoJogo =
   | { tipo: "lateral" | "escanteio" | "tiroDeMeta"; dados: { time: 0 | 1; x: number; z: number } }
   | { tipo: "defesa"; dados: { slot: number; encaixou: boolean } }
   | { tipo: "trave"; dados: { x: number; y: number; z: number } }
-  | { tipo: "gol"; dados: { time: 0 | 1; slot: number; assistencia?: number; contra: boolean; placar: [number, number] } }
+  | {
+      tipo: "gol";
+      dados: {
+        time: 0 | 1;
+        slot: number;
+        assistencia?: number;
+        contra: boolean;
+        placar: [number, number];
+        /** Quem fez e quem deu a assistência, pelo nome na hora do gol (o humano já pode ter trocado de jogador). */
+        nome?: string;
+        nomeAssistencia?: string;
+      };
+    }
   | { tipo: "prorrogacao"; dados: { segundos: number } }
   | { tipo: "fim"; dados: { placar: [number, number] } };
 
@@ -191,11 +223,15 @@ export interface GolFeito {
   slot: number;
   tick: number;
   contra: boolean;
+  /** Nome de quem fez, na hora do gol (G1: o humano muda de jogador durante o jogo). */
+  nome?: string;
 }
 
 export interface Destaque {
   slot: number;
   quantidade: number;
+  /** Nome de quem tem o destaque (o humano, mesmo que ele tenha trocado de jogador). */
+  nome?: string;
 }
 
 export interface Fim {
@@ -207,7 +243,7 @@ export interface Fim {
   prorrogacao?: boolean;
 }
 
-export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg;
+export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg | DonosMsg;
 
 // ---------------------------------------------------------------------------
 // Validação

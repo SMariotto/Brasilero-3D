@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { CONFIG_PADRAO } from "../protocolo/config";
-import type { VagaElenco } from "../protocolo/mensagens";
 import { Campeonato, PONTOS, resultadoDaPartida, type ResultadoDaPartida } from "./campeonato";
 
 const jogo = (casa: string, visitante: string, placar: [number, number], jogadores: ResultadoDaPartida["jogadores"] = []): ResultadoDaPartida => ({ casa, visitante, placar, jogadores });
@@ -77,25 +76,23 @@ describe("Campeonato: jogadores", () => {
 });
 
 describe("resultadoDaPartida", () => {
-  const vaga = (slot: number, time: 0 | 1, nome: string, humano: boolean): VagaElenco => ({ slot, time, nome, numero: slot, humano, goleiro: false });
+  const c = (nome: string, time: 0 | 1, humano: boolean, gols: number, assistencias: number, desarmes: number) => ({ nome, time, humano, gols, assistencias, desarmes });
 
-  it("conta só humanos e não conta gol contra como gol do jogador", () => {
+  it("conta só humanos (pelo nome de quem fez, mesmo que ele tenha trocado de jogador)", () => {
     const r = resultadoDaPartida({
       config: { ...CONFIG_PADRAO, casa: "flamengo", visitante: "palmeiras" },
-      elenco: [vaga(0, 0, "Samuel", true), vaga(1, 0, "Bot Um", false), vaga(11, 1, "Duda", true)],
       placar: [1, 1],
-      gols: [
-        { slot: 0, contra: false },
-        { slot: 11, contra: true }, // Duda fez contra: o gol é do time da Casa
-        { slot: 1, contra: false },
-      ],
-      assistenciasPorSlot: new Map([[0, 2]]),
-      desarmesPorSlot: new Map([[11, 3]]),
+      estatisticas: [c("Samuel", 0, true, 1, 2, 0), c("Bot Um", 0, false, 1, 0, 0), c("Duda", 1, true, 0, 0, 3)],
     });
     expect(r.casa).toBe("flamengo");
     expect(r.jogadores).toEqual([
       { apelido: "Samuel", time: 0, gols: 1, assistencias: 2, desarmes: 0 },
       { apelido: "Duda", time: 1, gols: 0, assistencias: 0, desarmes: 3 },
     ]);
+  });
+
+  it("humano sem lance nenhum também entra (conta como partida jogada)", () => {
+    const r = resultadoDaPartida({ config: { ...CONFIG_PADRAO }, placar: [0, 0], estatisticas: [c("Quieto", 1, true, 0, 0, 0)] });
+    expect(r.jogadores).toEqual([{ apelido: "Quieto", time: 1, gols: 0, assistencias: 0, desarmes: 0 }]);
   });
 });

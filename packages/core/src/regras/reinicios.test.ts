@@ -44,6 +44,13 @@ function emJogo(p: Partida): void {
 }
 
 let seq = 0;
+/** Carrinho na direção do joystick (o gatilho novo, PASSE segurado, é testado à parte). */
+function darCarrinho(p: Partida, slot: number, dirRad: number): void {
+  p.definirComando(slot, cmd({ dirRad, forca01: 1 }));
+  p.iniciarCarrinho(p.jogador(slot)!);
+  p.passo();
+}
+
 function passeToque(p: Partida, slot: number, dirRad?: number): void {
   const joy = dirRad === undefined ? {} : { dirRad, forca01: 1 };
   p.definirComando(slot, cmd({ ...joy, seguros: BOTAO.passe }));
@@ -249,7 +256,7 @@ describe("carrinho e falta", () => {
     const p = criar();
     emJogo(p);
     p.posicionarParaTeste(CASA, 0, 0, 10, 10);
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     p.passo();
     const j = p.jogador(CASA)!;
     expect(j.carrinho).not.toBeNull();
@@ -265,16 +272,9 @@ describe("carrinho e falta", () => {
     rodar(p, 0.9);
     expect(p.noChao(j)).toBe(false);
     // Recarga: depois de 1,5 s do fim do deslize pode de novo
-    p.definirComando(CASA, cmd({ seguros: 0 }));
-    p.passo();
-    p.definirComando(CASA, cmd({ seguros: BOTAO.chute }));
-    p.passo();
-    expect(j.carrinho).toBeNull(); // 1,5 s de recarga ainda não passaram
+    expect(p.iniciarCarrinho(j)).toBe(false); // 1,5 s de recarga ainda não passaram
     rodar(p, 1.2);
-    p.definirComando(CASA, cmd({ seguros: 0 }));
-    p.passo();
-    p.definirComando(CASA, cmd({ seguros: BOTAO.chute }));
-    p.passo();
+    expect(p.iniciarCarrinho(j)).toBe(true);
     expect(j.carrinho).not.toBeNull();
   });
 
@@ -284,7 +284,7 @@ describe("carrinho e falta", () => {
     p.posicionarParaTeste(CASA, 0, 0, 1.4, 0);
     p.jogador(VIS)!.corpo.x = 3.6; // fica no caminho do deslize, DEPOIS da bola
     p.jogador(VIS)!.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.2);
     expect(p.bola.vx).toBeGreaterThan(5);
     rodar(p, 1.2);
@@ -299,7 +299,7 @@ describe("carrinho e falta", () => {
     const vit = p.jogador(VIS)!;
     vit.corpo.x = 2.5;
     vit.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.5);
     const ev = p.eventosPendentes();
     expect(ev.find((e) => e.tipo === "falta")).toMatchObject({ dados: { de: CASA, em: VIS } });
@@ -318,7 +318,7 @@ describe("carrinho e falta", () => {
     p.posicionarParaTeste(CASA, 0, 0, 12, 12);
     p.jogador(VIS)!.corpo.x = 2.5;
     p.jogador(VIS)!.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.5);
     expect(p.reinicio!.cobrador).toBe(VIS_2);
     p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1 }));
@@ -336,7 +336,7 @@ describe("carrinho e falta", () => {
     const vit = p.jogador(VIS)!;
     vit.corpo.x = 2.5;
     vit.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.5);
     const x = vit.corpo.x;
     p.definirComando(VIS, cmd({ dirRad: Math.PI, forca01: 1 }));
@@ -352,7 +352,7 @@ describe("carrinho e falta", () => {
     p.posicionarParaTeste(CASA, -27, 0, -20, 12);
     const vit = p.jogador(VIS)!;
     vit.corpo.x = -25, vit.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.5);
     expect(p.reinicio).toMatchObject({ tipo: "falta", time: 1 });
     expect(p.bola.x).toBeCloseTo(-p.campo.metadeComp + p.campo.areaProf, 5);
@@ -365,7 +365,7 @@ describe("carrinho e falta", () => {
     const vit = p.jogador(VIS)!;
     vit.corpo.x = 2.5;
     vit.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     rodar(p, 0.6);
     expect(p.eventosPendentes().some((e) => e.tipo === "falta")).toBe(false);
     expect(p.fase).toBe(FASE.jogo);
@@ -379,12 +379,67 @@ describe("carrinho e falta", () => {
     const c = p.jogador(CASA)!;
     c.corpo.x = -0.2;
     c.corpo.z = 0;
-    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
+    darCarrinho(p, CASA, 0);
     p.eventosPendentes();
     rodar(p, 0.5);
     const ev = p.eventosPendentes();
     expect(ev.find((e) => e.tipo === "roubo")).toMatchObject({ dados: { slot: CASA, de: VIS, jeito: "carrinho" } });
-    expect(p.resumo().destaques.desarmes).toEqual({ slot: CASA, quantidade: 1 });
+    expect(p.resumo().destaques.desarmes).toEqual({ slot: CASA, quantidade: 1, nome: `J${CASA}` });
+  });
+});
+
+describe("carrinho pelo PASSE segurado (G1)", () => {
+  it("toque rápido no PASSE só dá o bote; segurar 0,3 s sem a bola vira carrinho", () => {
+    const p = criar();
+    emJogo(p);
+    p.posicionarParaTeste(CASA, 0, 0, 12, 12); // bola longe, ninguém com ela
+    const j = p.jogador(CASA)!;
+    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.passe }));
+    rodar(p, 0.1);
+    expect(j.bote).not.toBeNull();
+    expect(j.carrinho).toBeNull();
+    rodar(p, 0.15); // 0,25 s: o bote acabou, ainda não são 0,3 s
+    expect(j.carrinho).toBeNull();
+    rodar(p, 0.1); // 0,35 s segurando
+    expect(j.carrinho).not.toBeNull();
+    // Soltou e apertou rápido de novo: só bote (se a recarga deixar), nunca carrinho
+  });
+
+  it("soltar antes de 0,3 s não dá carrinho", () => {
+    const p = criar();
+    emJogo(p);
+    p.posicionarParaTeste(CASA, 0, 0, 12, 12);
+    p.definirComando(CASA, cmd({ seguros: BOTAO.passe }));
+    rodar(p, 0.2);
+    p.definirComando(CASA, cmd({ seguros: 0 }));
+    rodar(p, 0.5);
+    expect(p.jogador(CASA)!.carrinho).toBeNull();
+  });
+
+  it("se o bote roubou a bola, continuar segurando não vira carrinho (vira lançamento)", () => {
+    const p = criar();
+    emJogo(p);
+    comABola(p, VIS, 3, 0, Math.PI);
+    const c = p.jogador(CASA)!;
+    c.corpo.x = 1.3;
+    c.corpo.z = 0;
+    c.corpo.dir = 0;
+    p.definirComando(CASA, cmd({ seguros: BOTAO.passe }));
+    rodar(p, 0.2);
+    expect(p.dominante).toBe(CASA); // o bote roubou
+    p.jogador(VIS)!.caidoAte = 99; // o antigo dono não retoma a bola durante o teste
+    rodar(p, 0.2); // passou dos 0,3 s segurando
+    expect(p.dominante).toBe(CASA);
+    expect(c.carrinho).toBeNull();
+  });
+
+  it("CHUTE sem a bola não dá mais carrinho", () => {
+    const p = criar();
+    emJogo(p);
+    p.posicionarParaTeste(CASA, 0, 0, 12, 12);
+    p.definirComando(CASA, cmd({ seguros: BOTAO.chute }));
+    rodar(p, 0.5);
+    expect(p.jogador(CASA)!.carrinho).toBeNull();
   });
 });
 
@@ -402,7 +457,7 @@ describe("bote", () => {
     rodar(p, 0.2);
     expect(p.dominante).toBe(CASA);
     expect(p.eventosPendentes().find((e) => e.tipo === "roubo")).toMatchObject({ dados: { slot: CASA, de: VIS, jeito: "bote" } });
-    expect(p.resumo().destaques.desarmes).toEqual({ slot: CASA, quantidade: 1 });
+    expect(p.resumo().destaques.desarmes).toEqual({ slot: CASA, quantidade: 1, nome: `J${CASA}` });
   });
 
   it("o antigo dono não retoma a bola na hora", () => {
@@ -427,13 +482,14 @@ describe("bote", () => {
     p.definirComando(CASA, cmd({ seguros: BOTAO.passe }));
     p.passo();
     expect(j.bote).not.toBeNull();
-    rodar(p, 0.3);
+    rodar(p, 0.26); // o bote dura 0,25 s (soltar antes de 0,3 s: não vira carrinho)
     expect(j.bote).toBeNull();
     p.definirComando(CASA, cmd({ seguros: 0 }));
     p.passo();
     p.definirComando(CASA, cmd({ seguros: BOTAO.passe }));
     p.passo();
     expect(j.bote).toBeNull(); // ainda em recarga
+    p.definirComando(CASA, cmd({ seguros: 0 }));
     rodar(p, 0.7);
     p.definirComando(CASA, cmd({ seguros: 0 }));
     p.passo();
@@ -480,7 +536,7 @@ describe("voleio e lançamento", () => {
     expect(p.eventosPendentes().some((e) => e.tipo === "chute")).toBe(true);
   });
 
-  it("bola alta demais ou longe demais não é voleio (vira carrinho)", () => {
+  it("bola alta demais ou longe demais não é voleio (CHUTE sem a bola não dá mais carrinho)", () => {
     const p = criar();
     emJogo(p);
     p.posicionarParaTeste(CASA, 0, 0, 0.6, 0);
@@ -488,7 +544,7 @@ describe("voleio e lançamento", () => {
     p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.chute }));
     p.passo();
     expect(p.eventosPendentes().some((e) => e.tipo === "chute")).toBe(false);
-    expect(p.jogador(CASA)!.carrinho).not.toBeNull();
+    expect(p.jogador(CASA)!.carrinho).toBeNull();
   });
 
   it("PASSE segurado é lançamento: vai por cima para o companheiro mais avançado do cone", () => {

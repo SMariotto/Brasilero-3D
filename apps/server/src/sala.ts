@@ -42,8 +42,12 @@ export interface Jogador {
   canal: Canal | null;
   /** Hora (ms) em que a vaga guardada vence; `null` se está conectado. */
   venceEm: number | null;
-  /** Vaga na partida em andamento. `null` no lobby, ou se entrou depois de a partida começar. */
+  /**
+   * O jogador que ele controla AGORA na partida (G1: muda com passes e trocas). Espelho do que a partida diz, atualizado pela sala.
+   * `null` no lobby, se entrou depois de a partida começar, ou enquanto caiu da conexão.
+   */
   slot: number | null;
+  /** O time dele na partida (fixo até o fim dela). `null` no lobby ou se está em espera. */
   time: 0 | 1 | null;
   /** Última mensagem `voce` mandada (texto) e quando, para mandar só quando muda (no máximo 10 por segundo). */
   ultimoVoce: string;
@@ -84,6 +88,8 @@ export class Sala {
   private partidaId = 0;
   private clubesSorteados: { casa: string; visitante: string } | null = null;
   private fimEnviado = false;
+  /** A última \`versaoControle\` da partida que os aparelhos já receberam (mensagem \`donos\`). */
+  private versaoControleEnviada = 0;
   /** Tabela e estatísticas das partidas desta sala (só na memória; some quando a sala fecha). */
   readonly campeonato = new Campeonato();
   private relogioAnterior: number | null = null;
@@ -184,11 +190,16 @@ export class Sala {
       jogador.canal = canal;
       jogador.venceEm = null;
       jogador.ultimoVoce = "";
-      if (jogador.slot !== null) this.partida?.definirAusente(jogador.slot, false);
+      if (jogador.time !== null) {
+        this.partida?.definirAusenteHumano(jogador.id, false);
+        this.aposMudancaDeControle();
+      }
     } else {
       const limpo = validarApelido(apelido);
       if (limpo === null) return falha("APELIDO_INVALIDO", `Escolha um apelido de 1 a 12 letras.`);
-      if (this.jogadores.length >= SERVIDOR.maxControlesPorSala) return falha("SALA_CHEIA", "Essa sala já tem 10 controles.");
+      if (this.jogadores.length >= SERVIDOR.maxControlesPorSala) {
+        return falha("SALA_CHEIA", `Essa sala já tem ${SERVIDOR.maxControlesPorSala} controles. Quem sobrar assiste pelo telão.`);
+      }
       jogador = {
         id: this.proximoId++,
         apelido: limpo,
@@ -233,7 +244,10 @@ export class Sala {
     if (jogador.canal !== canal) return; // já foi substituído por uma conexão nova
     jogador.canal = null;
     jogador.venceEm = this.agora() + PARTIDA.vagaGuardadaS * 1000;
-    if (jogador.slot !== null) this.partida?.definirAusente(jogador.slot, true);
+    if (jogador.time !== null) {
+      this.partida?.definirAusenteHumano(jogador.id, true);
+      this.aposMudancaDeControle();
+    }
     this.atualizarVazio();
     this.transmitirLobby();
   }
@@ -256,8 +270,8 @@ export class Sala {
         if (msg.lado === jogador.lado) return;
         if (msg.lado !== "tanto") {
           const ocupadas = this.jogadores.filter((j) => j !== jogador && j.lado === msg.lado).length;
-          if (ocupadas >= PARTIDA.maxHumanosPorLado) {
-            this.erro(canal, "LADO_CHEIO", "Esse lado já tem 5 jogadores.");
+          if (ocupadas >= PARTIDA.maxHumanosPorTime) {
+            this.erro(canal, "LADO_CHEIO", `Esse lado já tem ${PARTIDA.maxHumanosPorTime} jogadores.`);
             return;
           }
         }
@@ -302,9 +316,9 @@ export class Sala {
 
   /** Comando binário de um controle (PROTOCOLO 4). Comando quebrado ou de quem não está jogando é ignorado. */
   comandoControle(jogador: Jogador, dados: Uint8Array): void {
-    if (!this.partida || jogador.slot === null) return;
+    if (!this.partida || jogador.time === null) return;
     const cmd = decodificarComando(dados);
-    if (cmd) this.partida.definirComando(jogador.slot, cmd);
+    if (cmd) this.partida.definirComandoDoHumano(jogador.id, cmd); // vale para o jogador que ele controla agora (G1)
   }
 
   // --- partida --------------------------------------------------------------
@@ -341,9 +355,8 @@ export class Sala {
       elenco.push({ slot, time, numero: 7 + i, nome: j.apelido, humano: true, idControle: j.id, goleiro: false });
     }
 
-    // Se um time tem mais humanos que N, N sobe até o máximo de 5 (SPEC 4.1).
-    const n = Math.min(PARTIDA.nLinhaMax, Math.max(this.config.n, contagem[0], contagem[1])) as Config["n"];
-    return { elenco, n };
+    // Cada time tem no máximo 3 humanos (PARTIDA.maxHumanosPorTime), que cabem em qualquer N (3, 4 ou 5): N é o que o Dono escolheu.
+    return { elenco, n: this.config.n };
   }
 
   /** Começa uma partida (ou a revanche) com o modo que o Dono escolheu. Os bots completam as vagas. */
@@ -355,7 +368,8 @@ export class Sala {
     this.clubesSorteados = { casa: sorteados.casa, visitante: sorteados.visitante };
     const config: Config = { ...sorteados, n };
     this.cores = coresDaPartida(config.casa, config.visitante);
-    this.partida = new Partida({ config, elenco, semente, semBots: this.semBots });
+    this.partida = new Partida({ config, elenco, semente, semBots: this.semBots, controleFifa: true });
+    this.versaoControleEnviada = this.partida.versaoControle;
     this.partidaId++;
     this.fimEnviado = false;
     this.relogioAnterior = null;
@@ -407,8 +421,7 @@ export class Sala {
   private assumirVagaNoMeio(jogador: Jogador): boolean {
     const p = this.partida;
     if (!p || p.terminou) return false;
-    const humanos: [number, number] = [0, 0];
-    for (const v of p.elenco) if (v.humano) humanos[v.time]++;
+    const humanos: [number, number] = [p.controle.quantidade(0), p.controle.quantidade(1)];
     const preferido: 0 | 1 = humanos[0] <= humanos[1] ? 0 : 1;
     const vaga = p.promoverHumano(preferido, jogador.apelido, jogador.id) ?? p.promoverHumano(preferido === 0 ? 1 : 0, jogador.apelido, jogador.id);
     if (!vaga) return false; // só humanos nos dois times: fica em espera até a próxima partida
@@ -430,6 +443,7 @@ export class Sala {
   /** Quem entra ou reconecta com a partida rolando recebe o elenco, o seu estado e, se já acabou, o resultado. */
   private reenviarPartida(canal: Canal, jogador?: Jogador): void {
     if (!this.partida || !this.mensagemPartida) return;
+    this.mensagemPartida = this.montarMensagemPartida(); // o elenco de agora (quem controla quem muda durante o jogo)
     canal.enviar(this.mensagemPartida);
     if (jogador) {
       jogador.ultimoVoce = "";
@@ -477,6 +491,8 @@ export class Sala {
     const p = this.partida;
     if (!p) return;
     p.passo();
+    // Quem controla quem mudou (passe, troca...): avisa antes dos eventos deste passo, para o nome do gol sair certo
+    if (p.versaoControle !== this.versaoControleEnviada) this.aposMudancaDeControle();
     for (const e of p.eventosPendentes()) this.transmitir({ t: "evento", ...e });
 
     const hora = p.tick % (TEMPO.tickHz / TEMPO.snapHz) === 0;
@@ -505,6 +521,23 @@ export class Sala {
     for (const j of this.jogadores) this.enviarVoz(j, forcar);
   }
 
+  /** Copia da partida para cada jogador o jogador que ele controla agora. */
+  private sincronizarSlots(): void {
+    const p = this.partida;
+    if (!p) return;
+    for (const j of this.jogadores) if (j.time !== null) j.slot = p.slotDoHumano(j.id);
+  }
+
+  /** O controle mudou de mãos: atualiza os espelhos, avisa todos (`donos`) e manda a cada celular o jogador novo dele. */
+  private aposMudancaDeControle(): void {
+    const p = this.partida;
+    if (!p) return;
+    this.versaoControleEnviada = p.versaoControle;
+    this.sincronizarSlots();
+    this.transmitir({ t: "donos", donos: p.donos() });
+    this.enviarVoces(true);
+  }
+
   /** `voce`: só quando muda e no máximo 10 vezes por segundo, mais um a cada 1 s (PROTOCOLO 3). */
   private enviarVoz(j: Jogador, forcar: boolean): void {
     const canal = j.canal;
@@ -512,8 +545,10 @@ export class Sala {
     if (!canal || !p) return;
 
     let msg: Voce;
-    if (j.slot === null || j.time === null) {
+    if (j.time === null) {
       msg = { t: "voce", slot: -1, time: 0, numero: 0, cor: "#888888", comBola: false, energia: 0, situacao: "espera" };
+    } else if (j.slot === null) {
+      return; // voltou da queda e ainda não recebeu um jogador (sai no próximo passo)
     } else {
       const estado = p.estadoDe(j.slot);
       const vaga = p.jogador(j.slot)?.vaga;
@@ -554,8 +589,11 @@ export class Sala {
     this.jogadores = this.jogadores.filter((j) => j.venceEm === null || t < j.venceEm);
     if (this.jogadores.length !== antes) {
       // A vaga venceu de vez: na partida, o bot que jogava por ele passa a ser o dono do lugar.
-      for (const j of vencidos) if (j.slot !== null) this.partida?.liberarSlot(j.slot);
-      if (vencidos.some((j) => j.slot !== null)) this.elencoMudou();
+      for (const j of vencidos) if (j.time !== null) this.partida?.removerHumano(j.id);
+      if (vencidos.some((j) => j.time !== null)) {
+        this.aposMudancaDeControle();
+        this.elencoMudou();
+      }
       this.transmitirLobby();
     }
     return this.vazioDesde !== null && t - this.vazioDesde >= SERVIDOR.salaVaziaApagaAposS * 1000;

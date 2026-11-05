@@ -332,7 +332,7 @@ describe("partida: gol", () => {
     expect(p.fase).toBe(FASE.gol);
     const gol = p.eventosPendentes().find((e) => e.tipo === "gol");
     expect(gol).toMatchObject({ dados: { time: 0, slot: CASA, contra: false, placar: [1, 0] } });
-    expect(p.gols).toEqual([{ slot: CASA, tick: expect.any(Number), contra: false }]);
+    expect(p.gols).toEqual([{ slot: CASA, tick: expect.any(Number), contra: false, nome: `J${CASA}` }]);
   });
 
   it("durante a comemoração o relógio e os jogadores ficam parados", () => {
@@ -406,8 +406,8 @@ describe("partida: gol", () => {
     expect(p.placar).toEqual([1, 0]);
     const gol = p.eventosPendentes().find((e) => e.tipo === "gol");
     expect(gol).toMatchObject({ dados: { slot: CASA_2, assistencia: CASA, contra: false } });
-    expect(p.resumo().destaques.assistencias).toEqual({ slot: CASA, quantidade: 1 });
-    expect(p.resumo().destaques.artilheiro).toEqual({ slot: CASA_2, quantidade: 1 });
+    expect(p.resumo().destaques.assistencias).toEqual({ slot: CASA, quantidade: 1, nome: `J${CASA}` });
+    expect(p.resumo().destaques.artilheiro).toEqual({ slot: CASA_2, quantidade: 1, nome: `J${CASA_2}` });
   });
 
   it("sem assistência quando o passe foi há mais de 6 s", () => {

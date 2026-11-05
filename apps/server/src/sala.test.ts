@@ -50,11 +50,11 @@ describe("entrada de controles", () => {
     expect(sala.quantidadeJogadores).toBe(0);
   });
 
-  it("o 11º controle recebe SALA_CHEIA", () => {
+  it("o 7º controle recebe SALA_CHEIA (3 por time, 6 por sala)", () => {
     for (let i = 0; i < SERVIDOR.maxControlesPorSala; i++) entrar(`J${i}`);
     const r = sala.entrarControle(new CanalFalso(), "Extra");
     expect(r).toMatchObject({ ok: false, codigo: "SALA_CHEIA" });
-    expect(sala.quantidadeJogadores).toBe(10);
+    expect(sala.quantidadeJogadores).toBe(SERVIDOR.maxControlesPorSala);
   });
 });
 
@@ -113,15 +113,15 @@ describe("lado e pronto", () => {
     ]);
   });
 
-  it("um lado aceita no máximo 5 humanos (LADO_CHEIO); 'tanto faz' sempre cabe", () => {
-    const jogadores = Array.from({ length: 6 }, (_, i) => entrar(`J${i}`));
-    for (const j of jogadores.slice(0, 5)) sala.tratarControle(j.jogador, { t: "lado", lado: "casa" });
-    const sexto = jogadores[5]!;
-    sala.tratarControle(sexto.jogador, { t: "lado", lado: "casa" });
-    expect(sexto.canal.ultimoErro()).toBe("LADO_CHEIO");
-    expect(sexto.jogador.lado).toBe("tanto");
-    sala.tratarControle(sexto.jogador, { t: "lado", lado: "visitante" });
-    expect(sexto.jogador.lado).toBe("visitante");
+  it("um lado aceita no máximo 3 humanos (LADO_CHEIO); 'tanto faz' sempre cabe", () => {
+    const jogadores = Array.from({ length: 4 }, (_, i) => entrar(`J${i}`));
+    for (const j of jogadores.slice(0, 3)) sala.tratarControle(j.jogador, { t: "lado", lado: "casa" });
+    const quarto = jogadores[3]!;
+    sala.tratarControle(quarto.jogador, { t: "lado", lado: "casa" });
+    expect(quarto.canal.ultimoErro()).toBe("LADO_CHEIO");
+    expect(quarto.jogador.lado).toBe("tanto");
+    sala.tratarControle(quarto.jogador, { t: "lado", lado: "visitante" });
+    expect(quarto.jogador.lado).toBe("visitante");
   });
 });
 

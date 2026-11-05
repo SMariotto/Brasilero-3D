@@ -11,4 +11,6 @@ export * from "./regras/partida";
 export * from "./regras/cores";
 export * from "./regras/campeonato";
 export * from "./regras/elenco";
+export * from "./regras/controle";
+export * from "./regras/donos";
 export type * from "./regras/tipos-partida";

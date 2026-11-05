@@ -1,5 +1,4 @@
 import type { Config } from "../protocolo/config";
-import type { VagaElenco } from "../protocolo/mensagens";
 
 // Campeonato da sala (F8a): tabela de pontos corridos dos clubes e estatísticas de cada jogador humano, só na memória do servidor
 // (some quando a sala fecha). Lógica pura: o servidor entrega o resultado de cada partida que termina.
@@ -47,11 +46,9 @@ export interface CampeonatoMsg {
 /** O que a `Partida` guarda e o campeonato precisa, sem importar a classe inteira. */
 export interface FonteDeEstatisticas {
   config: Config;
-  elenco: VagaElenco[];
   placar: [number, number];
-  gols: Array<{ slot: number; contra: boolean }>;
-  assistenciasPorSlot: ReadonlyMap<number, number>;
-  desarmesPorSlot: ReadonlyMap<number, number>;
+  /** O que cada um fez, pelo nome (o humano muda de jogador durante o jogo, G1). Só os humanos entram no campeonato. */
+  estatisticas: ReadonlyArray<{ nome: string; time: 0 | 1; humano: boolean; gols: number; assistencias: number; desarmes: number }>;
 }
 
 /** Monta o resultado de uma partida terminada. Gol contra não conta como gol do jogador (já está no placar do outro time). */
@@ -60,15 +57,9 @@ export function resultadoDaPartida(p: FonteDeEstatisticas): ResultadoDaPartida {
     casa: p.config.casa,
     visitante: p.config.visitante,
     placar: [p.placar[0], p.placar[1]],
-    jogadores: p.elenco
-      .filter((v) => v.humano)
-      .map((v) => ({
-        apelido: v.nome,
-        time: v.time,
-        gols: p.gols.filter((g) => g.slot === v.slot && !g.contra).length,
-        assistencias: p.assistenciasPorSlot.get(v.slot) ?? 0,
-        desarmes: p.desarmesPorSlot.get(v.slot) ?? 0,
-      })),
+    jogadores: p.estatisticas
+      .filter((c) => c.humano)
+      .map((c) => ({ apelido: c.nome, time: c.time, gols: c.gols, assistencias: c.assistencias, desarmes: c.desarmes })),
   };
 }
 
