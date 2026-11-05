@@ -19,7 +19,7 @@ export interface OpcoesServidor {
   /** Porta HTTP e WebSocket. 0 deixa o sistema escolher (usado nos testes). */
   porta: number;
   maxSalas?: number;
-  /** Liga a rota `POST /teste/posicionar` (põe um jogador e a bola num lugar). Padrão: só com NODE_ENV=test. */
+  /** Liga as rotas `POST /teste/posicionar` (põe um jogador e a bola num lugar) e `GET /teste/estado`. Padrão: só com NODE_ENV=test. */
   rotasDeTeste?: boolean;
   /** Semente fixa das partidas (testes). */
   semente?: () => number;
@@ -76,6 +76,11 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente }: Opcoes
     }
     if (req.method === "GET" && url.pathname === "/rede") {
       json(res, { ips: ipsDaRede() });
+      return;
+    }
+    if (testeLigado && req.method === "GET" && url.pathname === "/teste/estado") {
+      // Só testes: o snapshot atual da partida da sala, em JSON legível.
+      json(res, salas.achar(url.searchParams.get("sala") ?? "")?.partida?.snapshot() ?? null);
       return;
     }
     if (testeLigado && req.method === "POST" && url.pathname === "/teste/posicionar") {

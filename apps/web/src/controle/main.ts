@@ -1,14 +1,16 @@
-import { normalizarSala, validarApelido, type MensagemServidor } from "@b3d/core";
+import { normalizarSala, validarApelido, type Lobby, type MensagemServidor } from "@b3d/core";
 import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./controle.css";
+import { JogoControle } from "./jogo";
 import { criarLobbyControle } from "./lobby";
 
 // Este arquivo nunca importa Three.js nem nada de src/tela/ (o build confere o tamanho).
 
 const entrarEl = porId("entrar");
 const lobbyEl = porId("lobby");
+const jogoEl = porId("jogo");
 const reconectando = porId("reconectando");
 const toast = porId("toast");
 const aviso = porId("aviso-entrar");
@@ -20,6 +22,8 @@ let apelido = "";
 let meuId = -1;
 let cliente: Cliente | null = null;
 let timerToast: ReturnType<typeof setTimeout> | undefined;
+let emJogo = false;
+let ultimoLobby: Lobby | null = null;
 
 // --- armazenamento (pode falhar em aba privada: sempre com try/catch) -----
 
@@ -45,9 +49,10 @@ function guardarTexto(storage: "local" | "sessao", chave: string, valor: string 
 
 // --- telas -----------------------------------------------------------------
 
-function mostrar(cena: "entrar" | "lobby"): void {
+function mostrar(cena: "entrar" | "lobby" | "jogo"): void {
   entrarEl.hidden = cena !== "entrar";
   lobbyEl.hidden = cena !== "lobby";
+  jogoEl.hidden = cena !== "jogo";
 }
 
 function avisar(texto: string): void {
@@ -58,6 +63,8 @@ function avisar(texto: string): void {
 }
 
 function voltarAEntrar(mensagem: string): void {
+  jogoUI.parar();
+  emJogo = false;
   cliente?.fechar();
   cliente = null;
   reconectando.hidden = true;
@@ -69,8 +76,16 @@ const lobbyUI = criarLobbyControle(lobbyEl, {
   lado: (lado) => cliente?.enviar({ t: "lado", lado }),
   pronto: (valor) => cliente?.enviar({ t: "pronto", valor }),
   config: (mudanca) => cliente?.enviar({ t: "config", ...mudanca }),
-  comecar: () => avisar("O jogo chega na próxima fase. Por enquanto isto é só o lobby."),
+  comecar: () => cliente?.enviar({ t: "comecar" }),
 });
+
+const jogoUI = new JogoControle(jogoEl, {
+  mandar: (dados) => cliente?.enviarBinario(dados),
+  revanche: () => cliente?.enviar({ t: "revanche" }),
+  lobby: () => cliente?.enviar({ t: "lobby" }),
+});
+
+const souDono = (): boolean => ultimoLobby?.jogadores.find((j) => j.id === meuId)?.dono === true;
 
 // --- rede ------------------------------------------------------------------
 
@@ -81,10 +96,31 @@ function aoMensagem(msg: MensagemServidor): void {
       meuId = msg.id ?? -1;
       guardarTexto("sessao", chaveToken(sala), msg.token ?? null);
       history.replaceState(null, "", `${location.pathname}?${paramsDaUrl(sala)}`);
-      mostrar("lobby");
+      mostrar(emJogo ? "jogo" : "lobby");
       return;
     case "lobby":
+      ultimoLobby = msg;
       lobbyUI.atualizar(msg, meuId);
+      if (emJogo && !msg.emPartida) {
+        emJogo = false;
+        jogoUI.parar();
+        mostrar("lobby");
+      }
+      return;
+    case "partida":
+      emJogo = true;
+      jogoUI.setNome(apelido);
+      jogoUI.iniciar(msg, meuId);
+      mostrar("jogo");
+      return;
+    case "voce":
+      jogoUI.voce(msg);
+      return;
+    case "evento":
+      jogoUI.evento(msg);
+      return;
+    case "fim":
+      jogoUI.fim(msg, souDono());
       return;
     case "erro":
       tratarErro(msg.codigo, msg.msg);

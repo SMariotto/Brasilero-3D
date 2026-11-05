@@ -5,3 +5,5 @@ assets-fonte/
 .env.*
 *.log
 .vercel/
+test-results/
+playwright-report/
