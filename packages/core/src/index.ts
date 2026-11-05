@@ -7,3 +7,5 @@ export * from "./fisica/campo";
 export * from "./fisica/bola";
 export * from "./fisica/jogador";
 export * from "./regras/acoes";
+export * from "./regras/partida";
+export * from "./regras/cores";

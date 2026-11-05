@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
-import { VERSAO_PROTOCOLO } from "@b3d/core";
+import { ACAO, BOTAO, FASE, VERSAO_PROTOCOLO, anguloParaByte, codificarComando, comandoParado, decodificarSnapshot, magParaByte, type Snapshot } from "@b3d/core";
 import { criarServidor, type ServidorB3D } from "./servidor";
 
 type Msg = Record<string, any>;
@@ -8,10 +8,14 @@ type Msg = Record<string, any>;
 /** Cliente de teste: guarda as mensagens que chegam e deixa esperar por uma de cada tipo. */
 class Aparelho {
   fila: Msg[] = [];
+  binarias: Uint8Array[] = [];
   fechou: number | null = null;
 
   private constructor(readonly ws: WebSocket) {
-    ws.on("message", (d) => this.fila.push(JSON.parse(d.toString())));
+    ws.on("message", (d, binario) => {
+      if (binario) this.binarias.push(new Uint8Array(d as Buffer));
+      else this.fila.push(JSON.parse(d.toString()));
+    });
     ws.on("close", (codigo) => (this.fechou = codigo));
   }
 
@@ -25,6 +29,16 @@ class Aparelho {
 
   enviar(m: unknown): void {
     this.ws.send(typeof m === "string" ? m : JSON.stringify(m));
+  }
+
+  enviarBinario(b: Uint8Array): void {
+    this.ws.send(b, { binary: true });
+  }
+
+  /** O snapshot mais recente que chegou. */
+  ultimoSnapshot(): Snapshot | null {
+    const b = this.binarias[this.binarias.length - 1];
+    return b ? decodificarSnapshot(b) : null;
   }
 
   async esperar(tipo: string, ms = 2000): Promise<Msg> {
@@ -307,4 +321,90 @@ describe("limites da conexão", () => {
     const a = await novo();
     expect(await a.esperarFechar(7000)).toBe(4000);
   }, 10000);
+});
+
+describe("partida pelo WebSocket", () => {
+  async function iniciarPartida(): Promise<{ tela: Aparelho; a: Aparelho; b: Aparelho; sala: string }> {
+    const { tela, sala } = await criarSala();
+    const { c: a } = await entrarControle(sala, "Ana");
+    const { c: b } = await entrarControle(sala, "Beto");
+    a.enviar({ t: "lado", lado: "casa" });
+    b.enviar({ t: "lado", lado: "visitante" });
+    a.enviar({ t: "comecar" });
+    await tela.esperar("partida");
+    await a.esperar("voce");
+    return { tela, a, b, sala };
+  }
+
+  it("o Dono começa e telão e controles recebem a partida; o telão recebe snapshots binários a cerca de 30 por segundo", async () => {
+    await subir();
+    const { tela, a, b } = await iniciarPartida();
+    expect((await b.esperar("partida"))["elenco"]).toHaveLength(2);
+    const base = tela.binarias.length;
+    await new Promise((r) => setTimeout(r, 1000));
+    const n = tela.binarias.length - base;
+    expect(n).toBeGreaterThan(20);
+    expect(n).toBeLessThan(40);
+    const s = tela.ultimoSnapshot()!;
+    expect(s.jogadores.map((j) => j.slot)).toEqual([1, 7]);
+    expect(s.fase).toBe(FASE.preJogo);
+    expect(a.binarias).toHaveLength(0);
+  });
+
+  it("o comando binário do celular mexe no jogador e o snapshot mostra", async () => {
+    await subir();
+    const { tela, a, sala: codigo } = await iniciarPartida();
+    // Rota de teste: solta o jogo e põe a Ana e a bola em lugares conhecidos
+    const r = await fetch(`http://127.0.0.1:${servidor!.porta()}/teste/posicionar`, {
+      method: "POST",
+      body: JSON.stringify({ sala: codigo, id: 0, x: 0, z: 0, bolaX: 10, bolaZ: 10 }),
+    });
+    expect(((await r.json()) as Msg)["ok"]).toBe(true);
+    await new Promise((res) => setTimeout(res, 150));
+
+    // Joystick para a direita (+X) com força máxima
+    a.enviarBinario(codificarComando({ ...comandoParado(), ang: anguloParaByte(0), mag: magParaByte(1) }));
+    await new Promise((res) => setTimeout(res, 600));
+    const s = tela.ultimoSnapshot()!;
+    expect(s.fase).toBe(FASE.jogo);
+    const ana = s.jogadores.find((j) => j.slot === 1)!;
+    expect(ana.x).toBeGreaterThan(2);
+    expect(Math.abs(ana.z)).toBeLessThan(0.5);
+  });
+
+  it("segurar CHUTE perto do gol e soltar faz gol: o placar sobe e vem o evento", async () => {
+    await subir();
+    const { tela, a, sala: codigo } = await iniciarPartida();
+    await fetch(`http://127.0.0.1:${servidor!.porta()}/teste/posicionar`, {
+      method: "POST",
+      body: JSON.stringify({ sala: codigo, id: 0, x: 20, z: 0, bolaX: 20.55, bolaZ: 0 }),
+    });
+    await new Promise((res) => setTimeout(res, 300));
+    a.enviarBinario(codificarComando({ ...comandoParado(), seguros: BOTAO.chute }));
+    await new Promise((res) => setTimeout(res, 800));
+    a.enviarBinario(codificarComando({ ...comandoParado(), acao: ACAO.chute, forca: 255, acaoSeq: 1 }));
+    const gol = await tela.esperar("evento", 3000).then(async (e) => {
+      let ev = e;
+      while (ev["tipo"] !== "gol") ev = await tela.esperar("evento", 3000);
+      return ev;
+    });
+    expect(gol["dados"]).toMatchObject({ time: 0, slot: 1, contra: false, placar: [1, 0] });
+    await new Promise((res) => setTimeout(res, 100));
+    expect(tela.ultimoSnapshot()!.golsCasa).toBe(1);
+  });
+
+  it("a rota de teste fica desligada fora do modo de teste", async () => {
+    servidor = await criarServidor({ porta: 0, rotasDeTeste: false });
+    const r = await fetch(`http://127.0.0.1:${servidor.porta()}/teste/posicionar`, { method: "POST", body: "{}" });
+    expect(r.status).toBe(404);
+  });
+
+  it("o /saude mostra o pior tempo de passo depois de uma partida rodar", async () => {
+    await subir();
+    await iniciarPartida();
+    await new Promise((r) => setTimeout(r, 400));
+    const corpo = (await (await fetch(`http://127.0.0.1:${servidor!.porta()}/saude`)).json()) as Msg;
+    expect(corpo["piorPassoMs"]).toBeGreaterThan(0);
+    expect(corpo["piorPassoMs"]).toBeLessThan(50);
+  });
 });

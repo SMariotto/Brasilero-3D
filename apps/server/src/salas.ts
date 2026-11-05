@@ -8,6 +8,8 @@ export interface OpcoesSalas {
   /** Sorteia um inteiro em [0, max). Os testes trocam por algo previsível. */
   sortear?: (max: number) => number;
   gerarToken?: () => string;
+  /** Sorteia a semente de cada partida. */
+  semente?: () => number;
 }
 
 /** Todas as salas de um servidor: criar, achar e apagar as abandonadas. */
@@ -17,9 +19,11 @@ export class Salas {
   private readonly sortear: (max: number) => number;
   private readonly gerarToken: () => string;
   private readonly maxSalas: number;
+  private readonly semente: (() => number) | undefined;
 
   constructor(opcoes: Partial<OpcoesSalas> = {}) {
     this.maxSalas = opcoes.maxSalas ?? SERVIDOR.maxSalasPadrao;
+    this.semente = opcoes.semente;
     this.agora = opcoes.agora ?? Date.now;
     this.sortear = opcoes.sortear ?? ((max) => randomInt(max));
     this.gerarToken = opcoes.gerarToken ?? (() => randomBytes(16).toString("hex"));
@@ -41,7 +45,7 @@ export class Salas {
     for (;;) {
       const codigo = this.novoCodigo();
       if (this.mapa.has(codigo)) continue;
-      const sala = new Sala(codigo, this.agora, this.gerarToken);
+      const sala = new Sala(codigo, this.agora, this.gerarToken, this.semente ? { semente: this.semente } : {});
       this.mapa.set(codigo, sala);
       return sala;
     }
@@ -49,6 +53,13 @@ export class Salas {
 
   achar(codigo: string): Sala | undefined {
     return this.mapa.get(normalizarSala(codigo));
+  }
+
+  /** Roda o laço de jogo de cada sala e devolve o tempo do passo mais lento (ms). */
+  avancar(): number {
+    let pior = 0;
+    for (const sala of this.mapa.values()) pior = Math.max(pior, sala.avancar());
+    return pior;
   }
 
   /** Roda a manutenção de cada sala e apaga as que ficaram vazias tempo demais. */

@@ -1,30 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CONFIG_PADRAO, SERVIDOR, type Lobby, type MensagemServidor } from "@b3d/core";
-import { Sala, type Canal, type Jogador } from "./sala";
+import { CONFIG_PADRAO, SERVIDOR } from "@b3d/core";
+import { CanalFalso } from "./canal-falso";
+import { Sala, type Jogador } from "./sala";
 import { Salas } from "./salas";
-
-/** Aparelho falso: guarda tudo o que a sala mandou. */
-class CanalFalso implements Canal {
-  recebidas: MensagemServidor[] = [];
-  fechadoCom: number | null = null;
-  enviar(msg: MensagemServidor): void {
-    this.recebidas.push(msg);
-  }
-  fechar(codigo = 1000): void {
-    this.fechadoCom = codigo;
-  }
-  ultimas<T extends MensagemServidor["t"]>(tipo: T): Extract<MensagemServidor, { t: T }>[] {
-    return this.recebidas.filter((m): m is Extract<MensagemServidor, { t: T }> => m.t === tipo);
-  }
-  ultimoLobby(): Lobby {
-    const l = this.ultimas("lobby");
-    return l[l.length - 1] as Lobby;
-  }
-  ultimoErro(): string | undefined {
-    const e = this.ultimas("erro");
-    return e[e.length - 1]?.codigo;
-  }
-}
 
 let tempo = 0;
 let contadorToken = 0;

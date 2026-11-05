@@ -19,6 +19,10 @@ export interface OpcoesServidor {
   /** Porta HTTP e WebSocket. 0 deixa o sistema escolher (usado nos testes). */
   porta: number;
   maxSalas?: number;
+  /** Liga a rota `POST /teste/posicionar` (põe um jogador e a bola num lugar). Padrão: só com NODE_ENV=test. */
+  rotasDeTeste?: boolean;
+  /** Semente fixa das partidas (testes). */
+  semente?: () => number;
 }
 
 export interface ServidorB3D {
@@ -37,9 +41,20 @@ const CORS = { "access-control-allow-origin": "*" };
  * Servidor HTTP (`GET /saude`, `GET /rede`) com WebSocket em `/ws`: salas, lobby, reconexão e ping.
  * O jogo (física, regras) entra na F2.
  */
-export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<ServidorB3D> {
+export function criarServidor({ porta, maxSalas, rotasDeTeste, semente }: OpcoesServidor): Promise<ServidorB3D> {
   const inicio = Date.now();
-  const salas = new Salas(maxSalas === undefined ? {} : { maxSalas });
+  const salas = new Salas({ ...(maxSalas === undefined ? {} : { maxSalas }), ...(semente ? { semente } : {}) });
+  const testeLigado = rotasDeTeste ?? process.env["NODE_ENV"] === "test";
+
+  // Pior tempo de passo de cada um dos últimos 60 segundos (para o /saude).
+  const piorPorSegundo = new Array<number>(60).fill(0);
+  let segundoAtual = Math.floor(Date.now() / 1000);
+  const registrarPasso = (ms: number): void => {
+    const s = Math.floor(Date.now() / 1000);
+    while (segundoAtual < s) piorPorSegundo[++segundoAtual % 60] = 0;
+    const i = segundoAtual % 60;
+    piorPorSegundo[i] = Math.max(piorPorSegundo[i] ?? 0, ms);
+  };
 
   const json = (res: import("node:http").ServerResponse, corpo: unknown): void => {
     res.writeHead(200, { "content-type": "application/json; charset=utf-8", ...CORS });
@@ -54,13 +69,28 @@ export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<Serv
         versaoProtocolo: VERSAO_PROTOCOLO,
         salas: salas.total,
         conexoes: salas.conexoes,
-        piorPassoMs: 0, // sem laço de jogo ainda (F2)
+        piorPassoMs: Math.round(Math.max(...piorPorSegundo) * 1000) / 1000,
         ativoHaS: Math.round((Date.now() - inicio) / 1000),
       });
       return;
     }
     if (req.method === "GET" && url.pathname === "/rede") {
       json(res, { ips: ipsDaRede() });
+      return;
+    }
+    if (testeLigado && req.method === "POST" && url.pathname === "/teste/posicionar") {
+      let corpo = "";
+      req.on("data", (d: Buffer) => (corpo += d.toString()));
+      req.on("end", () => {
+        try {
+          const o = JSON.parse(corpo) as { sala: string; id: number; x: number; z: number; bolaX: number; bolaZ: number; dir?: number };
+          const ok = salas.achar(o.sala)?.posicionarParaTeste(o.id, o.x, o.z, o.bolaX, o.bolaZ, o.dir ?? 0) ?? false;
+          json(res, { ok });
+        } catch {
+          res.writeHead(400, CORS);
+          res.end("corpo inválido");
+        }
+      });
       return;
     }
     res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
@@ -82,6 +112,9 @@ export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<Serv
     const canal: Canal = {
       enviar: (msg: MensagemServidor) => {
         if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+      },
+      enviarBinario: (dados: Uint8Array) => {
+        if (ws.readyState === ws.OPEN) ws.send(dados, { binary: true });
       },
       fechar: (codigo, motivo) => ws.close(codigo, motivo),
     };
@@ -137,8 +170,15 @@ export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<Serv
     };
 
     ws.on("message", (dados: RawData, binario: boolean) => {
-      if (binario) return; // comandos binários só existem a partir da F2
       if (!limite.permitir()) return;
+
+      if (binario) {
+        // Comando do controle (PROTOCOLO 4). Telão não manda binário.
+        if (contexto?.tipo !== "controle") return;
+        const buf = Array.isArray(dados) ? Buffer.concat(dados) : dados instanceof ArrayBuffer ? Buffer.from(dados) : dados;
+        contexto.sala.comandoControle(contexto.jogador, new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
+        return;
+      }
 
       const msg = lerMensagemCliente(dados.toString());
       if (!msg) {
@@ -164,6 +204,9 @@ export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<Serv
 
   const manutencao = setInterval(() => salas.varrer(), 1000);
   manutencao.unref();
+  // Laço do jogo: acorda a cada ~8 ms e cada sala roda os passos de 1/60 s que o tempo real pede (ARQUITETURA 4.1).
+  const laco = setInterval(() => registrarPasso(salas.avancar()), 8);
+  laco.unref();
 
   return new Promise((resolve, reject) => {
     http.once("error", reject);
@@ -175,6 +218,7 @@ export function criarServidor({ porta, maxSalas }: OpcoesServidor): Promise<Serv
         fechar: () =>
           new Promise<void>((ok) => {
             clearInterval(manutencao);
+            clearInterval(laco);
             for (const cliente of wss.clients) cliente.terminate();
             wss.close(() => http.close(() => ok()));
             http.closeAllConnections();

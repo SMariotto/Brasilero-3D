@@ -95,6 +95,8 @@ export interface Lobby {
   jogadores: JogadorLobby[];
   /** Quantos telões estão olhando a sala. */
   telas: number;
+  /** Há uma partida rolando (ou acabada, esperando Revanche ou Lobby). Telão e controle trocam de tela por isto. */
+  emPartida: boolean;
 }
 
 export interface Pong {
@@ -115,7 +117,86 @@ export interface Erro {
   msg: string;
 }
 
-export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro;
+/** Medidas do campo que o telão desenha. `areaComp` é a profundidade da área (em X) e `areaLarg` a largura (em Z). */
+export interface CampoMsg {
+  comp: number;
+  larg: number;
+  golLarg: number;
+  golAlt: number;
+  areaComp: number;
+  areaLarg: number;
+  paredes: boolean;
+}
+
+export interface VagaElenco {
+  slot: number;
+  time: 0 | 1;
+  numero: number;
+  nome: string;
+  humano: boolean;
+  idControle?: number;
+  goleiro: boolean;
+}
+
+/** Começo da partida. Reenviada a quem entra no meio e sempre que o elenco muda. */
+export interface PartidaMsg {
+  t: "partida";
+  /** A config que vale de verdade (na F2 o modo é sempre "arena"). */
+  config: Config;
+  campo: CampoMsg;
+  elenco: VagaElenco[];
+  /** Cor da camisa de cada time, em hexadecimal: [Casa, Visitante]. */
+  cores: [string, string];
+  tickHz: number;
+  snapHz: number;
+  tick0: number;
+}
+
+export type SituacaoJogador = "normal" | "lateral" | "escanteio" | "falta" | "caido" | "espera";
+
+/** Estado do próprio jogador, só para o celular dele. */
+export interface Voce {
+  t: "voce";
+  slot: number;
+  time: 0 | 1;
+  numero: number;
+  cor: string;
+  comBola: boolean;
+  /** 0 a 100. */
+  energia: number;
+  situacao: SituacaoJogador;
+}
+
+export type EventoJogo =
+  | { tipo: "apito"; dados: { motivo: "inicio" | "fim" | "falta" | "reinicio" } }
+  | { tipo: "saida"; dados: { time: 0 | 1 } }
+  | { tipo: "chute"; dados: { slot: number; forca: number } }
+  | { tipo: "passe"; dados: { de: number; para?: number; alto: boolean } }
+  | { tipo: "trave"; dados: { x: number; y: number; z: number } }
+  | { tipo: "gol"; dados: { time: 0 | 1; slot: number; assistencia?: number; contra: boolean; placar: [number, number] } }
+  | { tipo: "fim"; dados: { placar: [number, number] } };
+
+export type Evento = { t: "evento"; tick: number } & EventoJogo;
+
+export interface GolFeito {
+  slot: number;
+  tick: number;
+  contra: boolean;
+}
+
+export interface Destaque {
+  slot: number;
+  quantidade: number;
+}
+
+export interface Fim {
+  t: "fim";
+  placar: [number, number];
+  gols: GolFeito[];
+  destaques: { artilheiro: Destaque | null; assistencias: Destaque | null; desarmes: Destaque | null };
+}
+
+export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim;
 
 // ---------------------------------------------------------------------------
 // Validação
