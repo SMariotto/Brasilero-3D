@@ -1022,3 +1022,50 @@ body.tela:has(.vitrine:not([hidden])) {
 .seguindo-tag[hidden] {
   display: none;
 }
+
+/* O nome do chute: "Trivela!", por 1 s (H2) */
+.tipo-chute {
+  position: absolute;
+  left: 50%;
+  top: 14vh;
+  transform: translateX(-50%);
+  padding: 0.15em 0.9em;
+  border-radius: 0.6em;
+  background: rgba(8, 23, 14, 0.8);
+  border: 0.12em solid #ffd54a;
+  color: #ffd54a;
+  font-size: 2.2em;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-shadow: 0 0.06em 0.12em rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tipo-chute.some {
+  animation: tipo-chute-aparece 1s ease-out forwards;
+}
+
+.tipo-chute[hidden] {
+  display: none;
+}
+
+@keyframes tipo-chute-aparece {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.7);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.08);
+  }
+  25% {
+    transform: translateX(-50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

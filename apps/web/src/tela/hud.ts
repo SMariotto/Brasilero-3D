@@ -2,6 +2,7 @@ import { FASE, acharTime, type Destaque, type Evento, type Fim, type PartidaMsg 
 import { el, trocar } from "../comum/dom";
 import { corDoTexto as corTexto, distintivo, escudoSeExistir } from "../comum/escudo";
 import { golsPorTime, textoDaLinha, vencedor, type LinhaDeGol } from "./fim";
+import { DURACAO_DO_TEXTO_MS, textoDoChute } from "./tipo-chute";
 
 const corDoTexto = corTexto;
 
@@ -21,6 +22,9 @@ export class Hud {
   private replayTag = el("div", { id: "replay-tag", class: "replay-tag" }, "REPLAY");
   private seguindoTag = el("div", { id: "seguindo-tag", class: "seguindo-tag" });
   private ouroTag = el("div", { id: "ouro-tag", class: "ouro-tag" }, "GOL DE OURO");
+  /** O nome do chute ("Trivela!"), por 1 s depois do chute (H2). */
+  private tipoChute = el("div", { id: "tipo-chute", class: "tipo-chute" });
+  private tipoChuteTimer: ReturnType<typeof setTimeout> | undefined;
   private modoLeveTag = el("div", { id: "modo-leve-tag", class: "modo-leve-tag" }, "Modo leve");
   readonly botaoLeve = el("button", { id: "botao-leve", class: "botao-camera botao-leve", type: "button", title: "Modo leve: tira sombras, torcida e brilho (tecla L)" }, "Modo leve");
   readonly botaoCamera = el("button", { id: "botao-camera", class: "botao-camera", type: "button", title: "Trocar a câmera (tecla C)" }, "Câmera");
@@ -66,9 +70,10 @@ export class Hud {
     this.painelFim.hidden = true;
     this.replayTag.hidden = true;
     this.ouroTag.hidden = true;
+    this.tipoChute.hidden = true;
     this.seguindoTag.hidden = true;
     this.modoLeveTag.hidden = true;
-    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.ouroTag, this.seguindoTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
+    trocar(this.raiz, placar, this.mensagem, this.faixaGol, this.painelFim, this.replayTag, this.ouroTag, this.tipoChute, this.seguindoTag, this.modoLeveTag, this.botaoLeve, this.botaoCamera);
   }
 
   /** Mesma partida, elenco mudou (humano entrou ou saiu): só atualiza os nomes. */
@@ -100,6 +105,7 @@ export class Hud {
   }
 
   limpar(): void {
+    clearTimeout(this.tipoChuteTimer);
     this.p = null;
     trocar(this.raiz);
   }
@@ -127,6 +133,17 @@ export class Hud {
   }
 
   evento(e: Evento): void {
+    const texto = textoDoChute(e);
+    if (texto !== null) {
+      // O nome do chute aparece por 1 s; outro chute logo em seguida troca o texto e reinicia a contagem
+      this.tipoChute.textContent = texto;
+      this.tipoChute.hidden = false;
+      this.tipoChute.classList.remove("some");
+      void this.tipoChute.offsetWidth; // reinicia a animação
+      this.tipoChute.classList.add("some");
+      clearTimeout(this.tipoChuteTimer);
+      this.tipoChuteTimer = setTimeout(() => (this.tipoChute.hidden = true), DURACAO_DO_TEXTO_MS);
+    }
     if (e.tipo === "saida") this.textoReinicio = `${this.siglas[e.dados.time]} sai jogando`;
     else if (e.tipo === "lateral") this.textoReinicio = `Lateral: ${this.siglas[e.dados.time]}`;
     else if (e.tipo === "escanteio") this.textoReinicio = `Escanteio: ${this.siglas[e.dados.time]}`;
