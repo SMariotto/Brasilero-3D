@@ -356,3 +356,38 @@ describe("chute de muito longe (H4)", () => {
     expect(algum).toBeGreaterThan(0);
   }, 60000);
 });
+
+describe("ajuda de mira do chute do humano com o gol à frente (H4)", () => {
+  const desvio = (px: number, pz: number, dirZ: number, s: number): number => {
+    const n = Math.hypot(1, dirZ);
+    const r = calcularChuteComTipo({ forca: 0.5, dirX: 1 / n, dirZ: dirZ / n, px, pz, time: 0, campo, rng: criarRng(s), situacao: livre, tipo: "normal" });
+    return Math.abs(Math.atan2(r.vz, r.vx) - Math.atan2(dirZ, 1));
+  };
+
+  it("apontando para o gol o erro máximo cai 20% (2° → 1,6°); apontando para longe do gol continua 2°", () => {
+    const grau = Math.PI / 180;
+    let paraGol = 0;
+    let paraFora = 0;
+    for (let s = 1; s <= 300; s++) {
+      paraGol = Math.max(paraGol, desvio(L - 12, 0, 0, s)); // reto no meio do gol
+      paraFora = Math.max(paraFora, desvio(L - 12, 0, 3, s)); // joystick virado para a linha lateral: sem gol à frente
+    }
+    expect(CHUTE.ajudaGol.erroFator).toBeLessThan(1);
+    expect(paraGol / grau).toBeLessThanOrEqual(CHUTE.erroGraus * CHUTE.ajudaGol.erroFator + 0.01);
+    expect(paraFora / grau).toBeGreaterThan(CHUTE.erroGraus * CHUTE.ajudaGol.erroFator + 0.2);
+  });
+
+  it("o gol perto e médio fica só um pouco mais fácil: a taxa sobe no máximo uns poucos pontos (sem chuva de gols)", () => {
+    // A medição completa está em `npm run chutes -- --distancia`; aqui só garantimos que não explode: nenhuma faixa passa de 60%
+    let gols = 0;
+    let n = 0;
+    for (const { x, z } of posicoesDeChute()) {
+      for (let s = 0; s < 4; s++) {
+        gols += simularChute(x, z, "auto", 100 + s * 37, { forca: 0.85, mira: "canto" }).gol ? 1 : 0;
+        n++;
+      }
+    }
+    expect(gols / n).toBeLessThan(0.6);
+    expect(gols / n).toBeGreaterThan(0.1);
+  });
+});

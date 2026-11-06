@@ -51,6 +51,8 @@ export interface EntradaChute {
   rng: Rng;
   /** Erro angular extra (graus), somado ao sorteado: os bots erram mais ou menos conforme a dificuldade. */
   erroExtraGraus?: number;
+  /** Multiplica o erro angular SORTEADO (H4: a ajuda de mira do humano com o gol à frente). Padrão 1. */
+  erroFator?: number;
 }
 
 /** Quanto do efeito "chute de muito longe" vale (0 a 1) a esta distância (m) do gol, num campo de `comprimento` m (H4). */
@@ -67,7 +69,7 @@ export function calcularChute(e: EntradaChute): VelocidadeBola & { forca: number
   angulo = miraAssistida(e.px, e.pz, angulo, e.campo, e.time);
 
   const erroMax = forca > CHUTE.erroAltoForca ? CHUTE.erroAltoGraus : CHUTE.erroGraus;
-  angulo += grausParaRad(e.rng.entre(-erroMax, erroMax) + (e.erroExtraGraus ?? 0));
+  angulo += grausParaRad(e.rng.entre(-erroMax, erroMax) * (e.erroFator ?? 1) + (e.erroExtraGraus ?? 0));
 
   let rapidez = CHUTE.velocidadeBase + CHUTE.velocidadeExtra * forca;
   let subida = CHUTE.vzBase + CHUTE.vzExtra * forca;

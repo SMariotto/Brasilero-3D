@@ -225,6 +225,9 @@ export interface ResultadoDoChute extends VelocidadeBola {
 /** O chute com o tipo escolhido: velocidade da bola, efeito e o tipo (para o telão mostrar). */
 export function calcularChuteComTipo(e: EntradaChuteComTipo): ResultadoDoChute {
   const a = analisarChute(e, e.situacao);
+  // H4: com o gol à frente o humano erra 20% menos (ajuda de mira); os bots não passam por aqui
+  const fatorDeErro = a.mirandoNoGol ? CHUTE.ajudaGol.erroFator : 1;
+  const ajudado: EntradaChute = fatorDeErro === 1 ? e : { ...e, erroFator: fatorDeErro };
   // Toque rápido: continua sendo o chute fraco de sempre (o tipo automático é para chute de verdade)
   const tipo = e.tipo ?? (e.forca < TIPO_CHUTE.forcaMinParaTipo ? "normal" : escolherTipoDeChute(a));
   const t = TIPO_CHUTE;
@@ -233,23 +236,23 @@ export function calcularChuteComTipo(e: EntradaChuteComTipo): ResultadoDoChute {
   const dx = a.ateALinha;
 
   if (tipo === "normal" || dx < 0.5) {
-    const r = calcularChute(e);
+    const r = calcularChute(ajudado);
     return { ...r, giro: 0, tipo: "normal" };
   }
 
   if (tipo === "canudo") {
-    const r = calcularChute({ ...e, forca: Math.max(e.forca, t.canudoForcaMin) });
+    const r = calcularChute({ ...ajudado, forca: Math.max(e.forca, t.canudoForcaMin) });
     return { ...r, giro: 0, tipo };
   }
 
-  const erro = grausParaRad(e.rng.entre(-CHUTE.erroGraus, CHUTE.erroGraus) * t.erroEfeitoFator);
+  const erro = grausParaRad(e.rng.entre(-CHUTE.erroGraus, CHUTE.erroGraus) * t.erroEfeitoFator * fatorDeErro);
 
   if (tipo === "cavadinha") {
     const zt = limitar(a.zNaLinha, -(meia - 0.8), meia - 0.8);
     const d = Math.hypot(dx, zt - e.pz);
     const sol = resolverCavadinha(d, a.goleiroAdiantadoM ?? 3);
     if (!sol) {
-      const r = calcularChute(e); // forçado sem solução: chute normal
+      const r = calcularChute(ajudado); // forçado sem solução: chute normal
       return { ...r, giro: 0, tipo: "normal" };
     }
     const ang = Math.atan2(zt - e.pz, dx) + erro;

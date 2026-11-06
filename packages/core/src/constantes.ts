@@ -385,6 +385,12 @@ export const CHUTE = {
   /** Acima desta força vale o erro alto. */
   erroAltoForca: 0.9,
   /**
+   * Ajuda de mira do chute do humano com o gol à frente (H4): quando o chute aponta para o gol (dentro da margem da mira assistida),
+   * o erro angular sorteado fica multiplicado por `erroFator` (0,8 = 20% menos erro). Só o chute do humano (`chutarComTipo`); os bots
+   * têm o erro da dificuldade deles.
+   */
+  ajudaGol: { erroFator: 0.8 },
+  /**
    * Chute de muito longe (H4): quanto mais longe do gol, menos força final e mais erro de direção, sem ficar impossível.
    * A distância é medida até o centro do gol e dividida pelo comprimento do campo (60 m no campo 5; o meio de campo é 50%).
    * Abaixo de `inicioFracao` nada muda; de `inicioFracao` a `fimFracao` o efeito sobe suave (smoothstep); depois fica no máximo:
