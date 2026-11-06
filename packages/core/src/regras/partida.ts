@@ -1,4 +1,4 @@
-import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, TEMPO, type Dificuldade } from "../constantes";
+import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, RECEPCAO, TEMPO, type Dificuldade } from "../constantes";
 import { criarCampo, type Campo } from "../fisica/campo";
 import { golMarcado, novaBola, passoBola, type Bola } from "../fisica/bola";
 import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade } from "../fisica/jogador";
@@ -157,6 +157,8 @@ export class Partida {
       caidoAte: 0,
       carrinho: null,
       carrinhoProntoEm: 0,
+      recepcaoAte: 0,
+      recepcaoProntaEm: 0,
       bote: null,
       boteProntoEm: 0,
       mergulho: null,
@@ -348,7 +350,10 @@ export class Partida {
     }
 
     this.moverJogadores(jogando);
-    if (jogando) this.atualizarDominio();
+    if (jogando) {
+      this.receberBola();
+      this.atualizarDominio();
+    }
     else this.dominante = null;
 
     const r = this.reinicio;
@@ -799,6 +804,64 @@ export class Partida {
 
   alvoDeConducao(j: JogadorPartida): [number, number] {
     return [j.corpo.x + Math.cos(j.corpo.dir) * DOMINIO.alvoConducao, j.corpo.z + Math.sin(j.corpo.dir) * DOMINIO.alvoConducao];
+  }
+
+  /**
+   * Recepção (H1): uma bola solta que chega perto do pé de um jogador controlado por humano é amortecida e puxada para o ponto de
+   * condução durante `RECEPCAO.duracaoS`. Só mexe na velocidade da bola (nada de teleporte): a velocidade dela em relação ao jogador
+   * é amortecida e uma aceleração a empurra para o pé. Daí o domínio de sempre (SPEC 6.3) pega a bola.
+   */
+  private receberBola(): void {
+    const b = this.bola;
+    if (this.reinicio || b.naRede !== 0) return;
+    const t = this.t;
+    for (const j of this.jogadores) {
+      if (controladoPorBot(j) || j.vaga.goleiro) continue;
+      if (this.noChao(j) || j.mergulho || t < j.bloqueioAte || this.dominante === j.vaga.slot) {
+        j.recepcaoAte = 0;
+        continue;
+      }
+      const c = j.corpo;
+      const dx = b.x - c.x;
+      const dz = b.z - c.z;
+      const d = Math.hypot(dx, dz) || 1e-6;
+
+      if (t >= j.recepcaoAte) {
+        // Começa? Só com a bola solta, perto, baixa, não rápida demais e chegando (ou quase parada)
+        if (t < j.recepcaoProntaEm || this.dominante !== null) continue;
+        if (d > RECEPCAO.raio || b.y > RECEPCAO.alturaMax) continue;
+        const rvx = b.vx - c.vx;
+        const rvz = b.vz - c.vz;
+        const vr = Math.hypot(rvx, b.vy, rvz);
+        if (vr > RECEPCAO.velocidadeMax) continue;
+        const aproxima = -(rvx * dx + rvz * dz) / d;
+        if (aproxima < RECEPCAO.aproximacaoMin && vr > RECEPCAO.velocidadeParada) continue;
+        j.recepcaoAte = t + RECEPCAO.duracaoS;
+        j.recepcaoProntaEm = t + RECEPCAO.recargaS;
+        j.anim = ANIM.recepcao;
+        j.animAte = j.recepcaoAte;
+      } else if ((this.dominante !== null && this.dominante !== j.vaga.slot) || d > RECEPCAO.raioDesiste) {
+        j.recepcaoAte = 0; // alguém pegou a bola, ou ela se afastou demais
+        continue;
+      }
+
+      // Amortece: a velocidade da bola em relação ao jogador cai (como o pé recuando para tirar a força da bola)
+      const k = Math.exp(-DT / RECEPCAO.amortecimentoS);
+      b.vx = c.vx + (b.vx - c.vx) * k;
+      b.vz = c.vz + (b.vz - c.vz) * k;
+      b.vy *= k;
+      // Puxa: aceleração limitada em direção ao pé (suave quando já está perto)
+      const [tx, tz] = this.alvoDeConducao(j);
+      const ex = tx - b.x;
+      const ez = tz - b.z;
+      const e = Math.hypot(ex, ez);
+      if (e > 1e-3) {
+        const a = RECEPCAO.puxao * Math.min(1, e / 0.5);
+        b.vx += (ex / e) * a * DT;
+        b.vz += (ez / e) * a * DT;
+      }
+      break; // uma recepção por vez
+    }
   }
 
   private atualizarDominio(): void {

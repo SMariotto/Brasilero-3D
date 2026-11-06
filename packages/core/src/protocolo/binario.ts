@@ -88,6 +88,8 @@ export const ANIM = {
   cabeceio: 11,
   goleiroComBola: 12,
   cobranca: 13,
+  /** Recepção da bola (H1): o jogador amortece e puxa a bola para o pé. */
+  recepcao: 14,
 } as const;
 
 export const SEM_DOMINANTE = 255;

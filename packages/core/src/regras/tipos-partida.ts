@@ -81,6 +81,9 @@ export interface JogadorPartida {
   caidoAte: number;
   carrinho: Carrinho | null;
   carrinhoProntoEm: number;
+  /** Recepção da bola (H1): até quando a recepção em andamento puxa a bola, e a partir de quando pode começar outra. */
+  recepcaoAte: number;
+  recepcaoProntaEm: number;
   bote: Bote | null;
   boteProntoEm: number;
   mergulho: Mergulho | null;

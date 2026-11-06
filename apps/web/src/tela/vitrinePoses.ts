@@ -27,6 +27,7 @@ function itens(velCorrida: number): Item[] {
     { nome: "Comemoração", anim: ANIM.comemoracao, vel: 0, goleiro: false, laco: false },
     { nome: "Cabeceio", anim: ANIM.cabeceio, vel: 0, goleiro: false, laco: true },
     { nome: "Cobrança", anim: ANIM.cobranca, vel: 0, goleiro: false, laco: false },
+    { nome: "Recepção", anim: ANIM.recepcao, vel: 0, goleiro: false, laco: true },
     { nome: "Goleiro parado", anim: ANIM.goleiroParado, vel: 0, goleiro: true, laco: false },
     { nome: "Goleiro com bola", anim: ANIM.goleiroComBola, vel: 0, goleiro: true, laco: false },
     { nome: "Mergulho (esq.)", anim: ANIM.goleiroMergulhoEsq, vel: 0, goleiro: true, laco: true },

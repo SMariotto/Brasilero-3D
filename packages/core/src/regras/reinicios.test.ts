@@ -285,8 +285,10 @@ describe("carrinho e falta", () => {
     p.jogador(VIS)!.corpo.x = 3.6; // fica no caminho do deslize, DEPOIS da bola
     p.jogador(VIS)!.corpo.z = 0;
     darCarrinho(p, CASA, 0);
-    rodar(p, 0.2);
+    // Logo depois do toque (H1: o adversário, que também é humano, passa a amortecer a bola quando ela chega perto dele)
+    rodar(p, 0.06);
     expect(p.bola.vx).toBeGreaterThan(5);
+    rodar(p, 0.14);
     rodar(p, 1.2);
     expect(p.fase).toBe(FASE.jogo);
     expect(p.eventosPendentes().some((e) => e.tipo === "falta")).toBe(false);

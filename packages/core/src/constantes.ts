@@ -163,6 +163,36 @@ export const DOMINIO = {
 } as const;
 
 // ---------------------------------------------------------------------------
+// Recepção da bola (H1, provisório): o primeiro toque do jogador controlado por humano
+// ---------------------------------------------------------------------------
+/**
+ * Quando uma bola solta que chega passa perto do pé de um jogador controlado por humano, ela é amortecida e puxada para o pé
+ * durante uma recepção curta. É só força na bola (a física continua mandando: sem teleporte), e só vale para humanos (os bots
+ * seguem as regras de domínio de antes).
+ */
+export const RECEPCAO = {
+  /** A recepção começa se a bola está a menos disto (m) do centro do jogador. O domínio normal é 0,7: isto é o "perto do pé". */
+  raio: 1.6,
+  /** ...e abaixo desta altura (m): bola alta passa por cima. */
+  alturaMax: 0.9,
+  /** ...e com velocidade relativa ao jogador abaixo disto (m/s): um chute forte demais ainda quica no corpo. */
+  velocidadeMax: 22,
+  /** "Chegando": a bola tem que se aproximar a pelo menos esta velocidade (m/s), ou estar quase parada em relação ao jogador. */
+  aproximacaoMin: 0.5,
+  velocidadeParada: 2.5,
+  /** Duração (s) da recepção: a animação de amortecer e o tempo em que a bola é puxada. */
+  duracaoS: 0.2,
+  /** Depois de uma recepção, só começa outra depois disto (s). */
+  recargaS: 0.7,
+  /** Constante de tempo (s) com que a velocidade da bola em relação ao jogador é amortecida: menor = amortece mais rápido. */
+  amortecimentoS: 0.07,
+  /** Aceleração (m/s²) que puxa a bola para o pé (o ponto de condução, à frente do jogador). */
+  puxao: 38,
+  /** A recepção termina antes se a bola se afastar mais que isto (m). */
+  raioDesiste: 2.2,
+} as const;
+
+// ---------------------------------------------------------------------------
 // Passe (SPEC 6.4)
 // ---------------------------------------------------------------------------
 export const PASSE = {

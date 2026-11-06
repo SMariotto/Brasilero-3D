@@ -18,6 +18,7 @@ export const NOME_DO_CLIPE: Record<number, string> = {
   [ANIM.cabeceio]: "Cabeceio",
   [ANIM.goleiroComBola]: "GoleiroComBola",
   [ANIM.cobranca]: "Cobranca",
+  [ANIM.recepcao]: "Recepcao",
 };
 
 /** Todos os nomes que o GLB deveria ter, na ordem do protocolo. */
@@ -27,6 +28,7 @@ export const TODOS_OS_CLIPES: string[] = Object.values(NOME_DO_CLIPE);
 const RESERVAS: Record<string, string[]> = {
   GoleiroComBola: ["GoleiroParado"],
   Cobranca: ["Parado"],
+  Recepcao: ["Parado"],
   Arrancada: ["Corrida"],
   Cabeceio: ["Chute"],
   Passe: ["Chute"],

@@ -264,6 +264,22 @@ export function alvoDaPose(e: EntradaDaPose): Pose {
       break;
     }
 
+    case ANIM.recepcao: {
+      // Amortece a bola: o pé sobe ao encontro dela e recua puxando, o corpo cede um pouco
+      const u = Math.min(1, tAnim / 0.2);
+      const sobe = suave(u / 0.4);
+      const puxa = suave((u - 0.4) / 0.6);
+      p.quadrilD = 0.85 * sobe - 0.75 * puxa;
+      p.joelhoD = 0.55 + 0.45 * sobe * (1 - puxa);
+      p.quadrilE = -0.05;
+      p.joelhoE = 0.3;
+      p.pitch = 0.06;
+      p.altura = 0;
+      p.abreE = p.abreD = 0.45;
+      p.cabeca = 0.2;
+      break;
+    }
+
     case ANIM.cobranca: {
       // Esperando para cobrar: em pé, olhando para a bola
       p.pitch = 0.08;
@@ -287,7 +303,7 @@ export function alvoDaPose(e: EntradaDaPose): Pose {
 
 /** As animações que precisam do tempo desde o começo (golpe só): ao mudar de animação o tempo volta a zero. */
 export function ehGolpe(anim: number): boolean {
-  return anim === ANIM.chute || anim === ANIM.passe || anim === ANIM.cabeceio || anim === ANIM.carrinho || anim === ANIM.queda || anim === ANIM.goleiroMergulhoEsq || anim === ANIM.goleiroMergulhoDir;
+  return anim === ANIM.chute || anim === ANIM.passe || anim === ANIM.recepcao || anim === ANIM.cabeceio || anim === ANIM.carrinho || anim === ANIM.queda || anim === ANIM.goleiroMergulhoEsq || anim === ANIM.goleiroMergulhoDir;
 }
 
 // ---------------------------------------------------------------------------
