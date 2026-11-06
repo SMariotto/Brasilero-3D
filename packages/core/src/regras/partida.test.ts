@@ -208,7 +208,7 @@ describe("partida: chute e passe", () => {
   it("segurar CHUTE carrega e soltar chuta forte; o celular dita a força", () => {
     const p = criar({ semente: 5 });
     ateOJogoRolar(p);
-    comABola(p, CASA, 0, -10);
+    comABola(p, CASA, 18, -10); // H4: perto do gol (de muito longe o chute sai mais fraco)
     p.definirComando(CASA, cmd({ seguros: BOTAO.chute, dirRad: 0 }));
     rodar(p, 0.4);
     const snap = p.snapshot().jogadores.find((j) => j.slot === CASA)!;
@@ -230,7 +230,7 @@ describe("partida: chute e passe", () => {
   it("toque rápido dá chute fraco (0,15)", () => {
     const p = criar();
     ateOJogoRolar(p);
-    comABola(p, CASA, 0, -10);
+    comABola(p, CASA, 18, -10); // H4: perto do gol (de muito longe o chute sai mais fraco)
     chutar(p, CASA, 0.05);
     expect(Math.hypot(p.bola.vx, p.bola.vz)).toBeGreaterThan(15.5);
     expect(Math.hypot(p.bola.vx, p.bola.vz)).toBeLessThan(17.5);

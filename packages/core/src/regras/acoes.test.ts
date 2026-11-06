@@ -48,7 +48,7 @@ describe("mira assistida", () => {
 });
 
 describe("chute", () => {
-  const base = { dirX: 1, dirZ: 0, px: 0, pz: 0, time: 0 as const, campo };
+  const base = { dirX: 1, dirZ: 0, px: 20, pz: 0, time: 0 as const, campo };
 
   it("força 1: 30 m/s na horizontal e 6 m/s para cima", () => {
     const v = calcularChute({ ...base, forca: 1, rng: criarRng(1) });

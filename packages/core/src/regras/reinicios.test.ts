@@ -515,7 +515,7 @@ describe("voleio e lançamento", () => {
   it("bola no ar entre 0,6 e 1,6 m a menos de 1 m: CHUTE dispara na hora, sem carregar, com força 0,7", () => {
     const p = criar();
     emJogo(p);
-    p.posicionarParaTeste(CASA, 0, 0, 0.6, 0);
+    p.posicionarParaTeste(CASA, 20, 0, 20.6, 0);
     p.bola.y = 1;
     p.bola.vy = 0;
     p.eventosPendentes();

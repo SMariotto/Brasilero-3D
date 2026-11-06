@@ -1,6 +1,6 @@
 import { BOLA, CHUTE, GOLEIRO, TIPO_CHUTE } from "../constantes";
 import { grausParaRad, limitar } from "../util/vetor";
-import { calcularChute, type EntradaChute, type VelocidadeBola } from "./acoes";
+import { calcularChute, fracaoDeChuteLonge, type EntradaChute, type VelocidadeBola } from "./acoes";
 
 // Tipos de chute (H2). O jogador continua com um botão só (CHUTE com a bola); o servidor escolhe o tipo pelo lance:
 //  - canudo: reto e forte, perto do gol com o ângulo aberto;
@@ -283,10 +283,14 @@ export function calcularChuteComTipo(e: EntradaChuteComTipo): ResultadoDoChute {
   // Para a bola CHEGAR ao canto (e não só mudar de rumo no fim), o rumo inicial é achado simulando a trajetória (sai desviada para
   // o lado contrário ao da curva, cerca de metade da curva nos ângulos abertos, e mais nos fechados).
   const ang0 = rumoParaCruzar(e.pz, dx, zt, v, giroNoReferencialDoAtaque) + erro;
+  // H4: de longe o efeito também sai mais fraco e mais torto (o chute reto e o canudo já passam por `calcularChute`)
+  const longe =fracaoDeChuteLonge(a.distancia, e.campo.comp);
+  const ang1 = longe > 0 ? ang0 + grausParaRad(e.rng.entre(-1, 1) * CHUTE.longe.erroExtraGraus * longe) : ang0;
+  const v1 = v * (1 - CHUTE.longe.perdaForca * longe);
   return {
-    vx: ataque * Math.cos(ang0) * v,
+    vx: ataque * Math.cos(ang1) * v1,
     vy: CHUTE.vzBase + CHUTE.vzExtra * forca + (tipo === "chapada" ? t.chapadaVyExtra : t.trivelaVyExtra),
-    vz: Math.sin(ang0) * v,
+    vz: Math.sin(ang1) * v1,
     forca,
     // O referencial espelhado do Visitante inverte o sentido do giro em relação ao rumo real
     giro: giroNoReferencialDoAtaque * ataque,

@@ -384,6 +384,13 @@ export const CHUTE = {
   erroAltoGraus: 7,
   /** Acima desta força vale o erro alto. */
   erroAltoForca: 0.9,
+  /**
+   * Chute de muito longe (H4): quanto mais longe do gol, menos força final e mais erro de direção, sem ficar impossível.
+   * A distância é medida até o centro do gol e dividida pelo comprimento do campo (60 m no campo 5; o meio de campo é 50%).
+   * Abaixo de `inicioFracao` nada muda; de `inicioFracao` a `fimFracao` o efeito sobe suave (smoothstep); depois fica no máximo:
+   * a velocidade da bola perde até `perdaForca` (fração) e o erro angular ganha até `erroExtraGraus` (para cada lado).
+   */
+  longe: { inicioFracao: 0.3, fimFracao: 0.6, perdaForca: 0.15, erroExtraGraus: 12 },
   /** Voleio: alcance horizontal, faixa de altura e força fixa. */
   voleioAlcance: 1,
   voleioAlturaMin: 0.6,
@@ -478,6 +485,8 @@ export const GOLEIRO = {
   falhaChance: { facil: 0.25, medio: 0.12, dificil: 0.05 } satisfies Record<Dificuldade, number>,
   /** Provisório (F3): duração e velocidade lateral do mergulho. */
   mergulhoDuracaoS: 0.45,
+  /** H4: ele só mergulha quando a bola chega em até a duração do mergulho mais esta folga (s). */
+  mergulhoFolgaS: 0.08,
   mergulhoVelocidade: 9,
   /** Alcance horizontal (m) para encaixar ou espalmar, em pé e mergulhando. */
   alcanceEmPe: 0.85,

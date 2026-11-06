@@ -53,6 +53,13 @@ export interface EntradaChute {
   erroExtraGraus?: number;
 }
 
+/** Quanto do efeito "chute de muito longe" vale (0 a 1) a esta distância (m) do gol, num campo de `comprimento` m (H4). */
+export function fracaoDeChuteLonge(distancia: number, comprimento: number): number {
+  const L = CHUTE.longe;
+  const k = limitar((distancia / comprimento - L.inicioFracao) / (L.fimFracao - L.inicioFracao), 0, 1);
+  return k * k * (3 - 2 * k);
+}
+
 /** Velocidade da bola num chute (SPEC 6.5): 14 + 16·força na horizontal, 1 + 5·força na vertical, com mira assistida e erro. */
 export function calcularChute(e: EntradaChute): VelocidadeBola & { forca: number } {
   const forca = limitar(e.forca, CHUTE.forcaToque, 1);
@@ -62,10 +69,18 @@ export function calcularChute(e: EntradaChute): VelocidadeBola & { forca: number
   const erroMax = forca > CHUTE.erroAltoForca ? CHUTE.erroAltoGraus : CHUTE.erroGraus;
   angulo += grausParaRad(e.rng.entre(-erroMax, erroMax) + (e.erroExtraGraus ?? 0));
 
-  const rapidez = CHUTE.velocidadeBase + CHUTE.velocidadeExtra * forca;
+  let rapidez = CHUTE.velocidadeBase + CHUTE.velocidadeExtra * forca;
+  let subida = CHUTE.vzBase + CHUTE.vzExtra * forca;
+  // H4: de muito longe a bola sai um pouco mais fraca e mais torta (só sorteia quando há efeito, para não mudar os chutes de perto)
+  const ataque = e.time === 0 ? 1 : -1;
+  const longe = fracaoDeChuteLonge(Math.hypot(e.campo.metadeComp - e.px * ataque, e.pz), e.campo.comp);
+  if (longe > 0) {
+    rapidez *= 1 - CHUTE.longe.perdaForca * longe;
+    angulo += grausParaRad(e.rng.entre(-1, 1) * CHUTE.longe.erroExtraGraus * longe);
+  }
   return {
     vx: Math.cos(angulo) * rapidez,
-    vy: CHUTE.vzBase + CHUTE.vzExtra * forca,
+    vy: subida,
     vz: Math.sin(angulo) * rapidez,
     forca,
   };

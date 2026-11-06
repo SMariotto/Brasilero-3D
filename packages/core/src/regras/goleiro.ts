@@ -15,13 +15,13 @@ const DT = 1 / 60;
 const grau = Math.PI / 180;
 
 /** Para onde a bola vai cruzar a linha do gol que este goleiro defende, se for entrar. */
-function preverChute(p: Partida, g: JogadorPartida): { z: number; y: number } | null {
+function preverChute(p: Partida, g: JogadorPartida): { z: number; y: number; t: number } | null {
   const lado = g.vaga.time === 0 ? -1 : 1; // a Casa defende X negativo
   const copia: Bola = { ...p.bola };
   for (let i = 0; i < GOLEIRO.previsaoPassos; i++) {
     const xAntes = copia.x;
     passoBola(copia, p.campo, DT);
-    if (golMarcado(copia, p.campo, xAntes) === lado) return { z: copia.z, y: copia.y };
+    if (golMarcado(copia, p.campo, xAntes) === lado) return { z: copia.z, y: copia.y, t: (i + 1) * DT };
   }
   return null;
 }
@@ -166,7 +166,9 @@ export function atualizarGoleiro(p: Partida, g: JogadorPartida): void {
     // Ele mergulha até 2,2 m para o lado e o braço ainda alcança 1,25 m além: dá para defender chute até ~3,4 m do centro dele
     if (previsto && Math.abs(previsto.z - g.corpo.z) <= GOLEIRO.alcanceLateral + GOLEIRO.alcanceMergulhando && previsto.y <= GOLEIRO.alcanceAltura) {
       g.cerebro.detectadoEm ??= t;
-      if (t - g.cerebro.detectadoEm >= GOLEIRO.reacaoS[dif]) {
+      // H4: o mergulho dura `mergulhoDuracaoS` e depois ele fica no chão; chute de longe demora a chegar, então ele espera para cair junto
+      // com a bola (antes mergulhava logo ao ver o chute e já estava no chão quando a bola passava)
+      if (t - g.cerebro.detectadoEm >= GOLEIRO.reacaoS[dif] && previsto.t <= GOLEIRO.mergulhoDuracaoS + GOLEIRO.mergulhoFolgaS) {
         if (Math.abs(previsto.z - g.corpo.z) > 0.6) {
           p.mergulhar(g, limitar(previsto.z, g.corpo.z - GOLEIRO.alcanceLateral, g.corpo.z + GOLEIRO.alcanceLateral));
         }

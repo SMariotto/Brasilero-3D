@@ -7,6 +7,7 @@ import { analisarChute, calcularChuteComTipo, escolherTipoDeChute, resolverCavad
 import { CONFIG_PADRAO } from "../protocolo/config";
 import { Partida } from "./partida";
 import { posicoesDeChute, simularChute } from "./simulacao";
+import { calcularChute, fracaoDeChuteLonge } from "./acoes";
 
 // H2: o tipo do chute (canudo, chapada, trivela, cavadinha) é escolhido pelo lance, e a bola curva pelo efeito (BOLA.giro).
 
@@ -288,7 +289,7 @@ describe("taxa de gol por tipo (simulador): o automático ajuda e nenhum tipo é
         expect(taxa(rodar(tipo, mira)), `${tipo} (${mira})`).toBeLessThan(0.8);
       }
     }
-  });
+  }, 30000); // várias centenas de chutes simulados: passa de 5 s com a máquina ocupada
 
   it("ângulo fechado perto (H4: com o goleiro que fecha o ângulo): o automático rende pelo menos o que o chute reto", () => {
     const tight = posicoes.filter((q) => q.x >= L - 20 && Math.abs(q.z) >= 7);
@@ -299,4 +300,59 @@ describe("taxa de gol por tipo (simulador): o automático ajuda e nenhum tipo é
     };
     expect(taxa(dos("auto"))).toBeGreaterThanOrEqual(taxa(dos("normal")) - 0.05);
   });
+});
+
+describe("chute de muito longe (H4)", () => {
+  const ataqueLongo = { dirX: 1, dirZ: 0, pz: 0, time: 0 as const, campo };
+
+  it("a fração do efeito é 0 perto, sobe suave e chega a 1: meio de campo (50%) já pesa, e a defesa do próprio time pesa tudo", () => {
+    const comp = campo.comp;
+    expect(fracaoDeChuteLonge(10, comp)).toBe(0);
+    expect(fracaoDeChuteLonge(0.3 * comp, comp)).toBe(0);
+    let antes = 0;
+    for (let d = 10; d <= 60; d += 2) {
+      const f = fracaoDeChuteLonge(d, comp);
+      expect(f).toBeGreaterThanOrEqual(antes);
+      antes = f;
+    }
+    expect(fracaoDeChuteLonge(0.5 * comp, comp)).toBeGreaterThan(0.5);
+    expect(fracaoDeChuteLonge(0.6 * comp, comp)).toBe(1);
+    expect(fracaoDeChuteLonge(60, comp)).toBe(1);
+  });
+
+  it("de longe a bola sai mais fraca (até o limite da constante) e mais torta; de perto nada muda", () => {
+    const perto = calcularChute({ ...ataqueLongo, px: L - 10, forca: 1, rng: criarRng(3) });
+    expect(Math.hypot(perto.vx, perto.vz)).toBeCloseTo(CHUTE.velocidadeBase + CHUTE.velocidadeExtra, 5);
+    const longe = calcularChute({ ...ataqueLongo, px: L - 45, forca: 1, rng: criarRng(3) });
+    expect(Math.hypot(longe.vx, longe.vz)).toBeCloseTo((CHUTE.velocidadeBase + CHUTE.velocidadeExtra) * (1 - CHUTE.longe.perdaForca), 5);
+    // Mais erro: em 200 chutes, o desvio de direção passa do erro normal (7°) e chega perto do máximo (7° + erro de longe)
+    let maior = 0;
+    for (let s = 1; s <= 200; s++) {
+      const v = calcularChute({ ...ataqueLongo, px: L - 45, forca: 1, rng: criarRng(s) });
+      maior = Math.max(maior, Math.abs(Math.atan2(v.vz, v.vx)) * (180 / Math.PI));
+    }
+    expect(maior).toBeGreaterThan(CHUTE.erroAltoGraus + 3);
+    expect(maior).toBeLessThanOrEqual(CHUTE.erroAltoGraus + CHUTE.longe.erroExtraGraus + 0.01);
+  });
+
+  it("do meio de campo ainda dá para fazer gol, mas é raro (maior que zero e abaixo de 12%)", () => {
+    for (const mira of ["canto", "centro"] as const) {
+      let gols = 0;
+      let n = 0;
+      for (const z of [0, 4, -4, 8, -8]) {
+        for (let s = 0; s < 40; s++) {
+          const c = simularChute(0, z, "auto", 100 + s * 37, { forca: 1, mira });
+          gols += c.gol ? 1 : 0;
+          n++;
+        }
+      }
+      expect(gols / n, `mira ${mira}`).toBeLessThan(0.12);
+    }
+    // E o chute é possível: com uma amostra grande (várias forças e mira no meio) pelo menos um gol sai
+    let algum = 0;
+    for (const forca of [0.7, 0.85, 1]) {
+      for (let s = 0; s < 120; s++) algum += simularChute(0, ((s % 9) - 4) * 1.5, "auto", 100 + s * 37, { forca, mira: "centro" }).gol ? 1 : 0;
+    }
+    expect(algum).toBeGreaterThan(0);
+  }, 60000);
 });

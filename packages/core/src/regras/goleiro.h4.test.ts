@@ -321,7 +321,8 @@ describe("goleiro H4: bola recuada pelo companheiro é só de pé (nada de gol c
       p.passo();
       if (i % 6 === 0 && i < 150) trace.push(`${i}: bola ${p.bola.x.toFixed(1)},${p.bola.z.toFixed(1)} v${p.bola.vx.toFixed(1)},${p.bola.vz.toFixed(1)} gk ${p.jogador(GK_CASA)!.corpo.x.toFixed(1)},${p.jogador(GK_CASA)!.corpo.z.toFixed(1)} dan ${dan.corpo.x.toFixed(1)},${dan.corpo.z.toFixed(1)} dom ${p.dominante}`);
       const g = p.snapshot().jogadores.find((j) => j.slot === GK_CASA)!;
-      if (g.anim === ANIM.goleiroMergulhoEsq || g.anim === ANIM.goleiroMergulhoDir) mergulhou = true;
+      // só vale como erro se mergulhou enquanto a bola ainda era "recuada" (depois que o adversário toca nela, o chute dele é jogo normal)
+      if ((g.anim === ANIM.goleiroMergulhoEsq || g.anim === ANIM.goleiroMergulhoDir) && p.bolaRecuadaPara(p.jogador(GK_CASA)!)) mergulhou = true;
       if (p.dominante === GK_CASA && pegouAs === null) pegouAs = p.t;
       for (const e of p.eventosPendentes()) {
         if (e.tipo === "gol") golContra = true;
