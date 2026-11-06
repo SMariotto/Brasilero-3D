@@ -245,8 +245,6 @@ export const TIPO_CHUTE = {
     vhMin: 6,
     vhMax: 15,
   },
-  /** Quanto tempo (s) o telão mostra o nome do tipo de chute ("Trivela!"). */
-  textoS: 1,
 } as const;
 
 // ---------------------------------------------------------------------------
