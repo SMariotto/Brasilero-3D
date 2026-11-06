@@ -19,14 +19,13 @@ function corDoTexto(hex: string): string {
 }
 
 /**
- * A tela do jogo no celular (SPEC 5): joystick à esquerda, CHUTE, PASSE e CORRER à direita, faixa de cima com a cor do time,
- * número, apelido, energia e carga do chute. Não desenha o campo nem carrega Three.js.
+ * A tela do jogo no celular (SPEC 5): joystick à esquerda (a inclinação dele decide se o jogador anda ou corre), CHUTE e PASSE à
+ * direita, faixa de cima com a cor do time, número, apelido e carga do chute. H3: não há stamina nem botão de correr. Não desenha o campo nem carrega Three.js.
  */
 export class JogoControle {
   private readonly faixa = el("header", { class: "faixa-time" });
   private readonly numero = el("strong", { class: "numero" }, "");
   private readonly nome = el("span", { class: "nome-jogador" }, "");
-  private readonly energia = el("div", { class: "barra-energia" }, el("i", {}));
   private readonly carga = el("div", { class: "barra-carga" }, el("i", {}));
   private readonly ping = el("span", { class: "ping-jogo" });
   private readonly aviso = el("div", { class: "aviso-jogo" });
@@ -38,7 +37,6 @@ export class JogoControle {
   private readonly joystick: Joystick;
   private readonly chute: Botao;
   private readonly passe: Botao;
-  private readonly correr: Botao;
   private readonly envio: Envio;
 
   private meuSlot = -1;
@@ -57,8 +55,7 @@ export class JogoControle {
 
     const bChute = el("button", { class: "botao-jogo chute", type: "button" }, "CHUTE");
     const bPasse = el("button", { class: "botao-jogo passe", type: "button" }, "PASSE");
-    const bCorrer = el("button", { class: "botao-jogo correr", type: "button" }, "CORRER");
-    const botoes = el("div", { class: "botoes-jogo" }, bPasse, bCorrer, bChute);
+    const botoes = el("div", { class: "botoes-jogo" }, bPasse, bChute);
 
     trocar(
       raiz,
@@ -70,7 +67,7 @@ export class JogoControle {
       this.aviso,
       this.fimPainel,
     );
-    trocar(this.faixa, this.numero, this.nome, this.energia, this.carga, this.ping);
+    trocar(this.faixa, this.numero, this.nome, this.carga, this.ping);
     this.fimPainel.hidden = true;
     this.aviso.hidden = true;
     this.miraEl.hidden = true;
@@ -80,7 +77,6 @@ export class JogoControle {
         joystick: { get ang() { return joy.ang; }, get mag() { return joy.mag; } },
         chuteApertado: () => this.chute.apertado,
         passeApertado: () => this.passe.apertado,
-        correrApertado: () => this.correr.apertado,
       },
       (d) => acoes.mandar(d),
     );
@@ -89,7 +85,6 @@ export class JogoControle {
 
     this.chute = new Botao(bChute, () => this.envio.botaoApertado(), (_, ms) => this.envio.chuteSolto(ms));
     this.passe = new Botao(bPasse, () => this.envio.botaoApertado(), (_, ms) => this.envio.passeSolto(ms));
-    this.correr = new Botao(bCorrer, () => this.envio.botaoApertado(), () => this.envio.botaoApertado());
 
     // Sem zoom, sem menu de toque longo, sem rolagem (SPEC 5.2)
     raiz.addEventListener("contextmenu", (e) => e.preventDefault());
@@ -109,7 +104,6 @@ export class JogoControle {
     this.joystick.zerar();
     this.chute.zerar();
     this.passe.zerar();
-    this.correr.zerar();
     this.aplicarSituacao(false, "normal");
     this.rodando = true;
     this.envio.iniciar();
@@ -126,7 +120,6 @@ export class JogoControle {
     this.joystick.zerar();
     this.chute.zerar();
     this.passe.zerar();
-    this.correr.zerar();
   }
 
   voce(v: Voce): void {
@@ -145,7 +138,6 @@ export class JogoControle {
     this.faixa.style.background = v.cor;
     this.faixa.style.color = corDoTexto(v.cor);
     this.numero.textContent = String(v.numero);
-    (this.energia.firstElementChild as HTMLElement).style.width = `${Math.max(0, Math.min(100, v.energia))}%`;
     this.aplicarSituacao(v.comBola, v.situacao);
   }
 
@@ -226,11 +218,9 @@ export class JogoControle {
         this.passe.rotulo("BOTE", "segure: carrinho");
       }
     }
-    this.correr.rotulo("CORRER");
 
     this.chute.desligar(caido || situacao === "lateral");
     this.passe.desligar(caido);
-    this.correr.desligar(caido || cobrando);
   }
 
   /** A barra de carga do chute sobe enquanto CHUTE está apertado com a bola (medida aqui, igual à que vai ao servidor). */

@@ -72,7 +72,7 @@ for (const par of cenariosTexto.split(",")) {
 }
 
 if (!process.argv.includes("--sem-humano")) {
-  console.log(`\nDriblador humano de mentira (corre em zigue-zague, arrancada metade do tempo, chuta de perto) contra bots, ${partidas} partidas de ${segundos} s:`);
+  console.log(`\nDriblador humano de mentira (corre em zigue-zague, chuta de perto) contra bots, ${partidas} partidas de ${segundos} s:`);
   console.log("Por partida. 'perdas' = vezes que um bot tirou a bola dele (bote ou carrinho); 'posse' = segundos médios com a bola por posse.\n");
   const cab2 = ["dificuldade", "gols", "sofridos", "posses", "perdas", "bola (s)", "posse (s)", "perdas/min"];
   console.log(cab2.map((c) => pad(c, 11)).join(" "));

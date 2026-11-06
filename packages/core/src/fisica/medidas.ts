@@ -1,8 +1,9 @@
 import { JOGADOR } from "../constantes";
-import { novoCorpo, passoJogador, velocidade, type Corpo, type EntradaMovimento } from "./jogador";
+import { novoCorpo, passoJogador, velocidade, fracaoDaInclinacao, type Corpo, type EntradaMovimento } from "./jogador";
 
-// Medidas do movimento do jogador (H2): o quanto ele "desliza no sabão". Serve ao `npm run medir` e aos testes, que garantem que a
-// velocidade máxima não mudou e que a frenagem e a mudança de direção continuam firmes.
+// Medidas do movimento do jogador (H2, H3): aceleração, velocidade máxima, frenagem, mudança de direção e a curva da inclinação do
+// joystick. Serve ao `npm run medir` e aos testes, que garantem que a velocidade máxima é a escolhida e que o jogo não é nem
+// "no sabão" nem travado.
 
 const DT = 1 / 60;
 
@@ -20,19 +21,24 @@ export interface MedidaDeGiro {
 export interface MedidasDeMovimento {
   /** Segundos de 0 a 90% da velocidade máxima, joystick cheio. */
   aceleracao90S: number;
-  /** Velocidade máxima andando e na arrancada (m/s): não pode mudar. */
+  /** Velocidade máxima sem a bola e com a bola nos pés (m/s). */
   velocidadeMaxima: number;
-  velocidadeArrancada: number;
+  velocidadeComBola: number;
+  /** Segundos para atravessar os 60 m de um campo de 5 de linha, sem a bola e com a bola. */
+  travessiaS: number;
+  travessiaComBolaS: number;
   /** Frenagem ao soltar o joystick na velocidade máxima. */
   freadaS: number;
   freadaM: number;
-  /** Frenagem ao empurrar o joystick para trás (inversão). */
+  /** Mudança de direção em velocidade máxima. */
   giro45: MedidaDeGiro;
   giro90: MedidaDeGiro;
   giro180: MedidaDeGiro;
+  /** A velocidade (m/s) em regime para cada inclinação do joystick (0,1 a 1), sem a bola: a curva suave de andar a correr. */
+  curva: Array<{ inclinacao: number; velocidade: number }>;
 }
 
-const entrada = (dx: number, dz: number, mag: number, correr = false): EntradaMovimento => ({ dx, dz, mag, correr, comBola: false });
+const entrada = (dx: number, dz: number, mag: number, comBola = false): EntradaMovimento => ({ dx, dz, mag, comBola });
 
 function correrParado(c: Corpo, e: EntradaMovimento, segundos: number): void {
   for (let i = 0; i < segundos / DT; i++) passoJogador(c, e, DT);
@@ -68,9 +74,25 @@ function medirGiro(graus: number): MedidaDeGiro {
   return { alinhaS: alinhouEm < 0 ? t : alinhouEm, velocidadeMinima: minima, derrapagemMax: derrapagem, desvioM: Math.max(0, vmax * t - andou) };
 }
 
-/** Mede aceleração, velocidade máxima, frenagem e mudança de direção com a física atual do jogador. */
+/** A velocidade (m/s) em regime com uma inclinação do joystick. */
+function velocidadeEmRegime(inclinacao: number, comBola: boolean): number {
+  const c = novoCorpo(0, 0, 0);
+  correrParado(c, entrada(1, 0, inclinacao, comBola), 3);
+  return velocidade(c);
+}
+
+function travessia(comBola: boolean, metros: number): number {
+  const c = novoCorpo(0, 0, 0);
+  let t = 0;
+  while (c.x < metros && t < 30) {
+    passoJogador(c, entrada(1, 0, 1, comBola), DT);
+    t += DT;
+  }
+  return t;
+}
+
+/** Mede aceleração, velocidade máxima, frenagem, mudança de direção e a curva da inclinação com a física atual do jogador. */
 export function medirMovimento(): MedidasDeMovimento {
-  // Aceleração
   const c = novoCorpo(0, 0, 0);
   let aceleracao90S = 0;
   for (let i = 0; i < 5 / DT; i++) {
@@ -78,10 +100,6 @@ export function medirMovimento(): MedidasDeMovimento {
     aceleracao90S += DT;
     if (velocidade(c) >= 0.9 * JOGADOR.velocidadeMax) break;
   }
-  const vmax = novoCorpo(0, 0, 0);
-  correrParado(vmax, entrada(1, 0, 1), 3);
-  const arr = novoCorpo(0, 0, 0);
-  correrParado(arr, entrada(1, 0, 1, true), 1.5);
 
   // Frenagem: solta o joystick na velocidade máxima
   const f = novoCorpo(0, 0, 0);
@@ -95,12 +113,15 @@ export function medirMovimento(): MedidasDeMovimento {
 
   return {
     aceleracao90S,
-    velocidadeMaxima: velocidade(vmax),
-    velocidadeArrancada: velocidade(arr),
+    velocidadeMaxima: velocidadeEmRegime(1, false),
+    velocidadeComBola: velocidadeEmRegime(1, true),
+    travessiaS: travessia(false, 60),
+    travessiaComBolaS: travessia(true, 60),
     freadaS,
     freadaM: f.x - xf,
     giro45: medirGiro(45),
     giro90: medirGiro(90),
     giro180: medirGiro(180),
+    curva: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1].map((inclinacao) => ({ inclinacao, velocidade: JOGADOR.velocidadeMax * fracaoDaInclinacao(inclinacao) })),
   };
 }

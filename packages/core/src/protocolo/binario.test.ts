@@ -22,10 +22,10 @@ import {
 
 describe("comando de 7 bytes", () => {
   it("tem 7 bytes, tipo 1 e cada campo no lugar certo", () => {
-    const c: Comando = { ang: 64, mag: 119, seguros: BOTAO.chute | BOTAO.correr, acao: ACAO.passeSegurado, forca: 200, acaoSeq: 9 };
+    const c: Comando = { ang: 64, mag: 119, seguros: BOTAO.chute | BOTAO.passe, acao: ACAO.passeSegurado, forca: 200, acaoSeq: 9 };
     const b = codificarComando(c);
     expect(b.length).toBe(COMANDO_BYTES);
-    expect([...b]).toEqual([1, 64, 119, 5, 3, 200, 9]);
+    expect([...b]).toEqual([1, 64, 119, 3, 3, 200, 9]);
   });
 
   it("ida e volta com todos os campos, em todos os valores de byte", () => {
@@ -83,7 +83,6 @@ function jogadorAleatorio(rng: ReturnType<typeof criarRng>, slot: number): Jogad
     vel: rng.entre(0, 8.5),
     anim: rng.inteiro(0, 14),
     caido: rng.sorteio(0.5),
-    arrancando: rng.sorteio(0.5),
     comBola: rng.sorteio(0.5),
     carregandoChute: rng.sorteio(0.5),
     humano: rng.sorteio(0.5),
@@ -154,7 +153,6 @@ describe("snapshot", () => {
         expect(Math.abs(d.vel - o.vel)).toBeLessThanOrEqual(0.0251);
         expect(d.anim).toBe(o.anim);
         expect(d.caido).toBe(o.caido);
-        expect(d.arrancando).toBe(o.arrancando);
         expect(d.comBola).toBe(o.comBola);
         expect(d.carregandoChute).toBe(o.carregandoChute);
         expect(d.humano).toBe(o.humano);
@@ -172,7 +170,7 @@ describe("snapshot", () => {
       fase: FASE.fim,
       dominante: SEM_DOMINANTE,
       bola: { x: -30, y: 0, z: -19, vx: -327, vy: 327, vz: -100.5 },
-      jogadores: [{ slot: 11, x: -327.68, z: 327.67, dir: 0, vel: 12.75, anim: ANIM.cobranca, caido: true, arrancando: false, comBola: true, carregandoChute: false, humano: true, carga: 1 }],
+      jogadores: [{ slot: 11, x: -327.68, z: 327.67, dir: 0, vel: 12.75, anim: ANIM.cobranca, caido: true, comBola: true, carregandoChute: false, humano: true, carga: 1 }],
     };
     const d = decodificarSnapshot(codificarSnapshot(s))!;
     expect(d.tick).toBe(0xffffffff);

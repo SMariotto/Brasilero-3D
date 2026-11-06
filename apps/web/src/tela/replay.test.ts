@@ -12,7 +12,7 @@ function snap(tick: number, x = tick * 0.1): Snapshot {
     fase: FASE.jogo,
     dominante: SEM_DOMINANTE,
     bola: { x, y: 0.11, z: 0, vx: 0, vy: 0, vz: 0 },
-    jogadores: [{ slot: 1, x, z: 0, dir: 0, vel: 0, anim: 0, caido: false, arrancando: false, comBola: false, carregandoChute: false, humano: true, carga: 0 }],
+    jogadores: [{ slot: 1, x, z: 0, dir: 0, vel: 0, anim: 0, caido: false, comBola: false, carregandoChute: false, humano: true, carga: 0 }],
   };
 }
 

@@ -47,7 +47,7 @@ describe("mira assistida", () => {
 });
 
 describe("chute", () => {
-  const base = { dirX: 1, dirZ: 0, px: 0, pz: 0, time: 0 as const, campo, arrancando: false };
+  const base = { dirX: 1, dirZ: 0, px: 0, pz: 0, time: 0 as const, campo };
 
   it("força 1: 30 m/s na horizontal e 6 m/s para cima", () => {
     const v = calcularChute({ ...base, forca: 1, rng: criarRng(1) });
@@ -71,21 +71,16 @@ describe("chute", () => {
     const rng = criarRng(7);
     let maxNormal = 0;
     let maxForte = 0;
-    let maxArrancada = 0;
     for (let i = 0; i < 2000; i++) {
       const n = calcularChute({ ...base, forca: 0.5, rng });
       maxNormal = Math.max(maxNormal, Math.abs(radParaGraus(Math.atan2(n.vz, n.vx))));
       const f = calcularChute({ ...base, forca: 0.95, rng });
       maxForte = Math.max(maxForte, Math.abs(radParaGraus(Math.atan2(f.vz, f.vx))));
-      const a = calcularChute({ ...base, forca: 0.5, arrancando: true, rng });
-      maxArrancada = Math.max(maxArrancada, Math.abs(radParaGraus(Math.atan2(a.vz, a.vx))));
     }
     expect(maxNormal).toBeLessThanOrEqual(2.0001);
     expect(maxNormal).toBeGreaterThan(1.8);
     expect(maxForte).toBeLessThanOrEqual(7.0001);
     expect(maxForte).toBeGreaterThan(6);
-    expect(maxArrancada).toBeLessThanOrEqual(7.0001);
-    expect(maxArrancada).toBeGreaterThan(6);
   });
 
   it("com a mesma semente o chute sai sempre igual", () => {

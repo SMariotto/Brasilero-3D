@@ -1,5 +1,5 @@
 import { TEMPO, type Dificuldade } from "../constantes";
-import { ACAO, BOTAO, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
+import { ACAO, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
 import { CONFIG_PADRAO, type Config } from "../protocolo/config";
 import { Partida } from "./partida";
 
@@ -90,7 +90,7 @@ export interface ResultadoDriblador {
 }
 
 /**
- * Um driblador humano de mentira (corre em zigue-zague, arrancada metade do tempo, chuta de perto, sem a bola corre atrás dela)
+ * Um driblador humano de mentira (corre em zigue-zague, chuta de perto, sem a bola corre atrás dela)
  * contra bots de uma dificuldade: mede o que o jogador sente (os adversários pegam a bola de quem dribla?).
  */
 export function simularDriblador(dificuldade: Dificuldade, semente: number, o: OpcoesSimulacao): ResultadoDriblador {
@@ -115,13 +115,11 @@ export function simularDriblador(dificuldade: Dificuldade, semente: number, o: O
     const t = p.t;
     let alvoX: number;
     let alvoZ: number;
-    let botoes = 0;
     let acao: { acao: number; forca: number } | null = null;
     if (tem) {
       const distGol = Math.hypot(p.campo.metadeComp - h.corpo.x, h.corpo.z);
       alvoX = p.campo.metadeComp;
       alvoZ = Math.sin(t * 4.2) * 5; // zigue-zague de ~1,5 s de período
-      if (Math.floor(t / 2.5) % 2 === 0) botoes |= BOTAO.correr; // metade do tempo em arrancada
       if (distGol < 17 && t >= proximoChute) {
         seq = (seq + 1) & 255;
         acao = { acao: ACAO.chute, forca: 220 };
@@ -130,10 +128,9 @@ export function simularDriblador(dificuldade: Dificuldade, semente: number, o: O
     } else {
       alvoX = p.bola.x;
       alvoZ = p.bola.z;
-      botoes |= BOTAO.correr;
     }
     const ang = Math.atan2(-(alvoZ - h.corpo.z), alvoX - h.corpo.x);
-    const c: Comando = { ...comandoParado(), ang: anguloParaByte(ang), mag: magParaByte(1), seguros: botoes };
+    const c: Comando = { ...comandoParado(), ang: anguloParaByte(ang), mag: magParaByte(1), seguros: 0 };
     if (acao) Object.assign(c, { acao: acao.acao, forca: acao.forca, acaoSeq: seq });
     p.definirComando(1, c);
     p.passo();

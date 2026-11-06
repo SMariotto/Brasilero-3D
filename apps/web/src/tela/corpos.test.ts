@@ -18,7 +18,7 @@ function elenco(): VagaElenco[] {
   return v;
 }
 
-const amostra = (slot: number, x: number, z: number, extra: Partial<AmostraDoJogador> = {}): AmostraDoJogador => ({ slot, x, z, dir: 0, vel: 0, anim: ANIM.parado, arrancando: false, ...extra });
+const amostra = (slot: number, x: number, z: number, extra: Partial<AmostraDoJogador> = {}): AmostraDoJogador => ({ slot, x, z, dir: 0, vel: 0, anim: ANIM.parado, ...extra });
 
 function todas(e: ElencoProcedural): THREE.InstancedMesh[] {
   const l: THREE.InstancedMesh[] = [];
@@ -97,7 +97,6 @@ describe("jogador feito por código: desenho", () => {
     const poses: Array<[string, number, number]> = [
       ["parado", ANIM.parado, 0],
       ["corrida", ANIM.corrida, 6],
-      ["arrancada", ANIM.arrancada, 8.2],
       ["chute", ANIM.chute, 0],
       ["passe", ANIM.passe, 0],
       ["comemoração", ANIM.comemoracao, 0],
@@ -111,7 +110,7 @@ describe("jogador feito por código: desenho", () => {
       let min = Infinity;
       let max = -Infinity;
       for (let i = 0; i < 180; i++) {
-        e.atualizar([amostra(1, 0, 0, { vel, anim, arrancando: anim === ANIM.arrancada })], 1 / 60);
+        e.atualizar([amostra(1, 0, 0, { vel, anim })], 1 / 60);
         const botas = todas(e).find((m) => (m.material as THREE.MeshStandardMaterial).color?.getHex() === 0x141414)!;
         for (let k = 0; k < 2; k++) {
           const mat = new THREE.Matrix4();

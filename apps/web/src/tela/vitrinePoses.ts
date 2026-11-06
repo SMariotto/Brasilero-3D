@@ -19,7 +19,6 @@ function itens(velCorrida: number): Item[] {
   return [
     { nome: "Parado", anim: ANIM.parado, vel: 0, goleiro: false, laco: false },
     { nome: "Corrida", anim: ANIM.corrida, vel: velCorrida, goleiro: false, laco: false },
-    { nome: "Arrancada", anim: ANIM.arrancada, vel: velCorrida * 1.3, goleiro: false, laco: false },
     { nome: "Chute", anim: ANIM.chute, vel: 0, goleiro: false, laco: true },
     { nome: "Passe", anim: ANIM.passe, vel: 0, goleiro: false, laco: true },
     { nome: "Carrinho", anim: ANIM.carrinho, vel: 0, goleiro: false, laco: true },
@@ -116,7 +115,7 @@ export function abrirVitrinePoses(raiz: HTMLElement): void {
       const [x, z] = posicao(i);
       const emLaco = it.laco && tempo % 2.2 > 1.4;
       // Corrida: o jogador "anda" no lugar; o que importa é a perna casar com a velocidade
-      return { slot: i, x, z, dir: 0, vel: it.vel, anim: emLaco ? ANIM.parado : it.anim, arrancando: it.anim === ANIM.arrancada };
+      return { slot: i, x, z, dir: 0, vel: it.vel, anim: emLaco ? ANIM.parado : it.anim };
     });
     corpos.atualizar(amostras, dt);
     renderer.render(scene, camera);

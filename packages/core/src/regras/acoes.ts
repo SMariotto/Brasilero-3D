@@ -48,7 +48,6 @@ export interface EntradaChute {
   pz: number;
   time: 0 | 1;
   campo: Campo;
-  arrancando: boolean;
   rng: Rng;
   /** Erro angular extra (graus), somado ao sorteado: os bots erram mais ou menos conforme a dificuldade. */
   erroExtraGraus?: number;
@@ -60,7 +59,7 @@ export function calcularChute(e: EntradaChute): VelocidadeBola & { forca: number
   let angulo = Math.atan2(e.dirZ, e.dirX);
   angulo = miraAssistida(e.px, e.pz, angulo, e.campo, e.time);
 
-  const erroMax = forca > CHUTE.erroAltoForca || e.arrancando ? CHUTE.erroAltoGraus : CHUTE.erroGraus;
+  const erroMax = forca > CHUTE.erroAltoForca ? CHUTE.erroAltoGraus : CHUTE.erroGraus;
   angulo += grausParaRad(e.rng.entre(-erroMax, erroMax) + (e.erroExtraGraus ?? 0));
 
   const rapidez = CHUTE.velocidadeBase + CHUTE.velocidadeExtra * forca;

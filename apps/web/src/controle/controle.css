@@ -367,7 +367,6 @@ button {
   max-width: 30%;
 }
 
-.barra-energia,
 .barra-carga {
   height: 10px;
   border-radius: 6px;
@@ -375,19 +374,9 @@ button {
   overflow: hidden;
 }
 
-.barra-energia {
-  flex: 1;
-}
-
-.barra-energia i {
-  display: block;
-  height: 100%;
-  width: 100%;
-  background: #5ee08a;
-}
-
 .barra-carga {
-  width: 25%;
+  /* H3: sem a barra de energia, a barra de carga do chute ocupa o resto da faixa */
+  flex: 1;
   opacity: 0.35;
 }
 
@@ -435,7 +424,7 @@ button {
 
 .botoes-jogo {
   --g: clamp(110px, 32vmin, 190px);
-  --m: clamp(80px, 22vmin, 130px);
+  --p: clamp(100px, 28vmin, 160px);
   position: absolute;
   top: 48px;
   right: 0;
@@ -470,22 +459,14 @@ button {
   font-size: 1.2rem;
 }
 
+/* H3: sem o CORRER, o PASSE ficou maior e fica ao lado do CHUTE, os dois ao alcance do polegar direito */
 .botao-jogo.passe {
-  right: calc(var(--g) + 26px);
+  right: calc(var(--g) + 22px);
   bottom: 14px;
-  width: var(--m);
-  height: var(--m);
+  width: var(--p);
+  height: var(--p);
   background: #1e88e5;
   font-size: 0.95rem;
-}
-
-.botao-jogo.correr {
-  right: calc(var(--g) * 0.55 + 14px);
-  bottom: calc(var(--g) + 26px);
-  width: var(--m);
-  height: var(--m);
-  background: #fb8c00;
-  font-size: 0.85rem;
 }
 
 .botao-jogo.apertado {

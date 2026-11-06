@@ -205,7 +205,7 @@ describe("goleiro: defesa", () => {
       rodar(p, 1);
       if (p.placar[0] === 1) gols++;
     }
-    expect(gols).toBeGreaterThanOrEqual(7);
+    expect(gols).toBeGreaterThanOrEqual(5); // H3: todo mundo corre sempre, o goleiro também (antes: 7)
   });
 
   it("o atraso de reação vem da dificuldade (Fácil 0,30 s, Médio 0,22 s, Difícil 0,15 s)", () => {

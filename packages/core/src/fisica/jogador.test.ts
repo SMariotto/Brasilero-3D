@@ -1,42 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { JOGADOR } from "../constantes";
 import { criarCampo } from "./campo";
-import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade, type EntradaMovimento } from "./jogador";
+import { colidirJogadores, fracaoDaInclinacao, inclinacaoParaFracao, limitarAoCampo, novoCorpo, passoJogador, velocidade, type EntradaMovimento } from "./jogador";
 
 const DT = 1 / 60;
-const direita: EntradaMovimento = { dx: 1, dz: 0, mag: 1, correr: false, comBola: false };
-const parado: EntradaMovimento = { dx: 0, dz: 0, mag: 0, correr: false, comBola: false };
+const direita: EntradaMovimento = { dx: 1, dz: 0, mag: 1, comBola: false };
+const parado: EntradaMovimento = { dx: 0, dz: 0, mag: 0, comBola: false };
 
 function rodar(c: ReturnType<typeof novoCorpo>, e: EntradaMovimento, segundos: number): void {
   for (let i = 0; i < Math.round(segundos / DT); i++) passoJogador(c, e, DT);
 }
 
 describe("jogador: movimento", () => {
-  it("acelera até 6,5 m/s e não passa disso", () => {
+  it("acelera até a velocidade máxima e não passa disso", () => {
     const c = novoCorpo(0, 0);
     rodar(c, direita, 2);
     expect(velocidade(c)).toBeCloseTo(JOGADOR.velocidadeMax, 5);
   });
 
-  it("leva cerca de 0,36 s para chegar a 6,5 m/s (aceleração 18 m/s²)", () => {
+  it("na largada acelera com JOGADOR.aceleracao", () => {
     const c = novoCorpo(0, 0);
     rodar(c, direita, 0.2);
-    expect(velocidade(c)).toBeCloseTo(3.6, 1);
+    expect(velocidade(c)).toBeCloseTo(JOGADOR.aceleracao * 0.2, 1);
   });
 
-  it("com a bola anda a 90% e arranca a 85% de 8,2", () => {
+  it("com a bola nos pés corre a 90% da velocidade máxima", () => {
     const a = novoCorpo(0, 0);
     rodar(a, { ...direita, comBola: true }, 2);
-    expect(velocidade(a)).toBeCloseTo(6.5 * 0.9, 5);
-    const b = novoCorpo(0, 0);
-    rodar(b, { ...direita, comBola: true, correr: true }, 1);
-    expect(velocidade(b)).toBeCloseTo(8.2 * 0.85, 5);
+    expect(velocidade(a)).toBeCloseTo(JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola, 5);
   });
 
-  it("joystick pela metade dá metade da velocidade", () => {
+  it("joystick pela metade anda (curva suave): velocidade = fracaoDaInclinacao(0,5) da máxima", () => {
     const c = novoCorpo(0, 0);
     rodar(c, { ...direita, mag: 0.5 }, 2);
-    expect(velocidade(c)).toBeCloseTo(3.25, 5);
+    expect(velocidade(c)).toBeCloseTo(fracaoDaInclinacao(0.5) * JOGADOR.velocidadeMax, 5);
+    expect(velocidade(c)).toBeGreaterThan(0.3 * JOGADOR.velocidadeMax);
+    expect(velocidade(c)).toBeLessThan(0.6 * JOGADOR.velocidadeMax);
   });
 
   it("ao soltar o joystick freia mais forte (JOGADOR.freadaSolto) do que acelera (JOGADOR.aceleracao)", () => {
@@ -53,10 +52,10 @@ describe("jogador: movimento", () => {
   it("a direção do movimento responde na hora e o corpo gira até 720°/s", () => {
     const c = novoCorpo(0, 0, 0);
     // Pede para ir para trás (180°): o corpo leva 0,25 s para virar.
-    passoJogador(c, { dx: -1, dz: 0, mag: 1, correr: false, comBola: false }, DT);
+    passoJogador(c, { dx: -1, dz: 0, mag: 1, comBola: false }, DT);
     expect(c.vx).toBeLessThan(0.5); // já começou a mudar de direção
     expect(Math.abs(c.dir)).toBeCloseTo((720 * Math.PI) / 180 / 60, 5);
-    for (let i = 0; i < 20; i++) passoJogador(c, { dx: -1, dz: 0, mag: 1, correr: false, comBola: false }, DT);
+    for (let i = 0; i < 20; i++) passoJogador(c, { dx: -1, dz: 0, mag: 1, comBola: false }, DT);
     expect(Math.abs(Math.abs(c.dir) - Math.PI)).toBeLessThan(0.01);
   });
 
@@ -67,61 +66,51 @@ describe("jogador: movimento", () => {
   });
 });
 
-describe("jogador: energia e arrancada", () => {
-  it("arrancada gasta 25/s e chega a 8,2 m/s", () => {
+describe("jogador: sem stamina, a velocidade segue a inclinação do joystick (H3)", () => {
+  it("o corpo não tem energia nem estado de arrancada", () => {
     const c = novoCorpo(0, 0);
-    rodar(c, { ...direita, correr: true }, 1);
-    expect(c.energia).toBeCloseTo(75, 0);
-    expect(velocidade(c)).toBeCloseTo(8.2, 5);
-    expect(c.arrancando).toBe(true);
+    expect("energia" in c).toBe(false);
+    expect("arrancando" in c).toBe(false);
+    expect("exausto" in c).toBe(false);
   });
 
-  it("CORRER sem mexer o joystick não gasta energia", () => {
+  it("correr sempre: 30 s com o joystick cheio e a velocidade não cai (sem cansaço)", () => {
     const c = novoCorpo(0, 0);
-    c.energia = 50;
-    rodar(c, { ...parado, correr: true }, 1);
-    expect(c.arrancando).toBe(false);
-    expect(c.energia).toBeGreaterThan(50);
+    rodar(c, direita, 30);
+    expect(velocidade(c)).toBeCloseTo(JOGADOR.velocidadeMax, 5);
   });
 
-  it("recupera 12/s sem arrancar, até 100", () => {
-    const c = novoCorpo(0, 0);
-    c.energia = 40;
-    rodar(c, direita, 1);
-    expect(c.energia).toBeCloseTo(52, 0);
-    rodar(c, parado, 10);
-    expect(c.energia).toBe(100);
-  });
-
-  it("abaixo de 15 não arranca até voltar a 30", () => {
-    const c = novoCorpo(0, 0);
-    c.energia = 16;
-    const correr = { ...direita, correr: true };
-    rodar(c, correr, 0.1); // cai abaixo de 15
-    expect(c.exausto).toBe(true);
-    expect(c.arrancando).toBe(false);
-
-    // Continua segurando CORRER: não arranca, recupera 12/s e só volta ao passar de 30
-    let arrancouAntes = false;
-    let tempo = 0;
-    while (c.exausto && tempo < 5) {
-      passoJogador(c, correr, DT);
-      tempo += DT;
-      if (c.arrancando) arrancouAntes = true;
+  it("a curva vai de zero (inclinação mínima) a 1 (inclinação de correr), sem degrau e sempre subindo", () => {
+    expect(fracaoDaInclinacao(0)).toBe(0);
+    expect(fracaoDaInclinacao(JOGADOR.inclinacaoAnda)).toBe(0);
+    expect(fracaoDaInclinacao(JOGADOR.inclinacaoCorre)).toBe(1);
+    expect(fracaoDaInclinacao(1)).toBe(1);
+    let anterior = 0;
+    let maiorSalto = 0;
+    for (let m = 0; m <= 1.0001; m += 0.005) {
+      const f = fracaoDaInclinacao(m);
+      expect(f).toBeGreaterThanOrEqual(anterior);
+      maiorSalto = Math.max(maiorSalto, f - anterior);
+      anterior = f;
     }
-    expect(arrancouAntes).toBe(false);
-    expect(c.energia).toBeGreaterThanOrEqual(30);
-    // 15 → 30 a 12/s leva 1,25 s
-    expect(tempo).toBeGreaterThan(1.0);
-    expect(tempo).toBeLessThan(1.5);
-    passoJogador(c, correr, DT);
-    expect(c.arrancando).toBe(true);
+    // Entre duas inclinações vizinhas (0,005) a velocidade nunca dá um pulo: no máximo 3% da máxima
+    expect(maiorSalto).toBeLessThan(0.03);
   });
 
-  it("a velocidade cai de volta a 6,5 m/s quando a energia acaba", () => {
-    const c = novoCorpo(0, 0);
-    rodar(c, { ...direita, correr: true }, 6);
-    expect(velocidade(c)).toBeLessThan(7);
+  it("inclinação leve anda e dá para conduzir a bola devagar; inclinação total corre", () => {
+    const v = (mag: number): number => fracaoDaInclinacao(mag) * JOGADOR.velocidadeMax;
+    expect(v(0.3)).toBeLessThan(2); // andando devagar
+    expect(v(0.5)).toBeGreaterThan(2);
+    expect(v(0.5)).toBeLessThan(0.6 * JOGADOR.velocidadeMax);
+    expect(v(0.8)).toBeGreaterThan(0.8 * JOGADOR.velocidadeMax);
+    expect(v(1)).toBe(JOGADOR.velocidadeMax);
+  });
+
+  it("o inverso (usado pelos bots) devolve a inclinação que dá a fração pedida", () => {
+    for (const f of [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1]) {
+      expect(fracaoDaInclinacao(inclinacaoParaFracao(f)), `fração ${f}`).toBeCloseTo(f, 3);
+    }
+    expect(inclinacaoParaFracao(2)).toBeLessThanOrEqual(1);
   });
 });
 

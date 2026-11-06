@@ -83,7 +83,7 @@ describe("começar a partida", () => {
     expect(t.ultimoLobby().emPartida).toBe(true);
 
     const vozA = a.canal.ultimas("voce")[0] as Voce;
-    expect(vozA).toMatchObject({ slot: 1, time: 0, numero: 7, cor: "#C8102E", comBola: false, energia: 100, situacao: "normal" });
+    expect(vozA).toMatchObject({ slot: 1, time: 0, numero: 7, cor: "#C8102E", comBola: false, situacao: "normal" });
     expect((b.canal.ultimas("voce")[0] as Voce).slot).toBe(7);
   });
 
@@ -284,15 +284,14 @@ describe("comandos do controle", () => {
 });
 
 describe("voce", () => {
-  it("manda quando muda, no máximo 10 por segundo", () => {
+  it("H3: sem stamina, correr não faz o `voce` mudar a cada passo (no máximo 10 por segundo, e quase nada com o jogador só correndo)", () => {
     const a = entrar("Ana", "casa");
     sala.tratarControle(a.j, { t: "comecar" });
     passarTempo(7000);
     const antes = a.canal.ultimas("voce").length;
-    sala.comandoControle(a.j, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.correr })); // a energia muda a cada passo
+    sala.comandoControle(a.j, cmd({ dirRad: 0, forca01: 1, seguros: BOTAO.passe }));
     passarTempo(1000);
     const novas = a.canal.ultimas("voce").length - antes;
-    expect(novas).toBeGreaterThanOrEqual(5);
     expect(novas).toBeLessThanOrEqual(11);
   });
 

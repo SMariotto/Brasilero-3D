@@ -28,9 +28,12 @@ describe("constantes", () => {
     expect(maisFraco).toBeLessThan(GOLEIRO.encaixaAteVelocidade);
   });
 
-  it("a arrancada é mais rápida que a corrida e a energia volta a arrancar acima do mínimo", () => {
-    expect(JOGADOR.arrancada).toBeGreaterThan(JOGADOR.velocidadeMax);
-    expect(JOGADOR.energiaVoltaAArrancar).toBeGreaterThan(JOGADOR.energiaMinimaParaArrancar);
+  it("H3: sem stamina nem arrancada: a velocidade máxima é uma só, entre a antiga corrida normal (6,5) e a arrancada (8,2)", () => {
+    expect(JOGADOR.velocidadeMax).toBeGreaterThan(6.5);
+    expect(JOGADOR.velocidadeMax).toBeLessThanOrEqual(8.2);
+    expect(JOGADOR.inclinacaoAnda).toBeLessThan(JOGADOR.inclinacaoCorre);
+    expect("energiaMax" in JOGADOR).toBe(false);
+    expect("arrancada" in JOGADOR).toBe(false);
   });
 
   it("a bola cabe no gol e o código de sala não tem letras confusas", () => {

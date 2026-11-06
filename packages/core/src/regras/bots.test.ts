@@ -160,7 +160,7 @@ describe("partida só de bots", () => {
 
     const gols = p.placar[0] + p.placar[1];
     expect(gols).toBeGreaterThanOrEqual(1);
-    expect(gols).toBeLessThanOrEqual(35);
+    expect(gols).toBeLessThanOrEqual(60); // H3: todo mundo corre sempre, o jogo ficou mais gol a gol (antes: até 35)
 
     // Jogo vivo: passes, chutes, roubos de bola, laterais
     expect(e.eventos["passe"] ?? 0).toBeGreaterThan(20);

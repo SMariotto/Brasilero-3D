@@ -491,7 +491,7 @@ describe("controle estilo FIFA: partida de verdade", () => {
     for (let tick = 0; tick < 90 * 60; tick++) {
       if (tick % 15 === 0) {
         for (const id of presentes) {
-          const botoes = (rng.sorteio(0.3) ? BOTAO.chute : 0) | (rng.sorteio(0.3) ? BOTAO.passe : 0) | (rng.sorteio(0.3) ? BOTAO.correr : 0);
+          const botoes = (rng.sorteio(0.3) ? BOTAO.chute : 0) | (rng.sorteio(0.3) ? BOTAO.passe : 0);
           const acao = rng.sorteio(0.2) ? [ACAO.chute, ACAO.passeToque, ACAO.passeSegurado][rng.inteiro(0, 2)]! : 0;
           p.definirComandoDoHumano(
             id,

@@ -123,31 +123,31 @@ export const GOL = {
 // ---------------------------------------------------------------------------
 export const JOGADOR = {
   raio: 0.4,
-  velocidadeMax: 6.5,
+  /**
+   * Velocidade máxima (m/s), com o joystick inclinado até o fim (H3). Todo mundo corre sempre, sem stamina e sem botão de correr: esta
+   * é a antiga velocidade de "CORRER" (8,2) ou um pouco abaixo; o valor escolhido e a medida estão no PROGRESSO.md.
+   */
+  velocidadeMax: 7.6,
+  /** Com a bola nos pés o jogador usa esta fração da velocidade. */
   fatorVelocidadeComBola: 0.9,
-  arrancada: 8.2,
-  fatorArrancadaComBola: 0.85,
-  aceleracao: 18,
+  /**
+   * A velocidade segue a inclinação do joystick por uma curva suave (sem degrau): abaixo de `inclinacaoAnda` ele quase não anda e a
+   * partir de `inclinacaoCorre` corre na velocidade máxima. No meio, anda (dá para conduzir a bola devagar).
+   */
+  inclinacaoAnda: 0.1,
+  inclinacaoCorre: 0.95,
+  aceleracao: 21.0,
   /** Freada (m/s²) ao diminuir a velocidade ou virar para trás (H2: era 24). */
-  freada: 28,
+  freada: 32.7,
   /** Freada (m/s²) ao SOLTAR o joystick: o jogador para mais firme, sem deslizar (H2). */
-  freadaSolto: 34,
+  freadaSolto: 39.8,
   /**
    * Aceleração (m/s²) para o LADO, ao mudar de direção em movimento (H2). Antes a curva usava os mesmos 18 m/s² da largada, e o jogador
    * derrapava de lado (parecia "no sabão"). Não mexe na velocidade máxima, só na rapidez de virar.
    */
-  aceleracaoLateral: 30,
+  aceleracaoLateral: 35.1,
   /** Graus por segundo. */
   giroMax: 720,
-  energiaMax: 100,
-  /** Gasto por segundo na arrancada. */
-  energiaGasto: 25,
-  /** Recuperação por segundo sem arrancar. */
-  energiaRecupera: 12,
-  /** Abaixo disso não arranca... */
-  energiaMinimaParaArrancar: 15,
-  /** ...até voltar a este valor. */
-  energiaVoltaAArrancar: 30,
   massa: 1,
   massaGoleiro: 1.3,
   /** Altura do corpo (m): a bola abaixo disso e perto do corpo bate nele (F2, provisório). */
@@ -233,10 +233,10 @@ export const TIPO_CHUTE = {
     /** E tem que ficar acima disto (m) em toda a zona onde o goleiro alcançaria a bola (ele alcança 2 m em pé). */
     alturaSobreGoleiroM: 2.05,
     /**
-     * O goleiro recua em direção à linha enquanto a bola voa (medido: de 2 m/s perto da linha a 4 m/s partindo de longe, até 0,8 m da linha): a zona onde ele alcança a
+     * O goleiro recua em direção à linha enquanto a bola voa (medido: de 2 m/s perto da linha a 4 m/s antes da H3; com os jogadores a 7,6 m/s o goleiro chega a uns 6 m/s partindo de longe, até 0,8 m da linha): a zona onde ele alcança a
      * bola vai até onde ele chega no fim do voo. Por isso a cavadinha só encobre quando ele está bem fora do lugar.
      */
-    goleiroRecuoMS: 4.5,
+    goleiroRecuoMS: 6.5,
     goleiroRecuoMinimoM: 0.8,
     /** Faixa de velocidade vertical (m/s) e teto da velocidade horizontal (m/s) que a busca aceita. */
     vyMin: 4,
@@ -343,7 +343,7 @@ export const CHUTE = {
   /** Erro angular aleatório (graus). */
   erroGraus: 2,
   erroAltoGraus: 7,
-  /** Acima desta força (ou durante arrancada) vale o erro alto. */
+  /** Acima desta força vale o erro alto. */
   erroAltoForca: 0.9,
   /** Voleio: alcance horizontal, faixa de altura e força fixa. */
   voleioAlcance: 1,
@@ -363,14 +363,16 @@ export const ANIMACAO = { chuteS: 0.3, passeS: 0.3 } as const;
 export const DEFESA = {
   bote: {
     duracaoS: 0.25,
-    velocidade: 9,
+    /** H3: era 9 (contra 5,85 m/s do portador); agora o portador corre a 6,84 e o bote sobe para manter quase a mesma vantagem. */
+    velocidade: 9.5,
     /** Se a bola ficar a menos disto durante o avanço, rouba. */
     raioRoubo: 0.8,
     recargaS: 0.8,
   },
   carrinho: {
     duracaoS: 1.0,
-    velocidadeInicial: 9,
+    /** H3: era 9; sobe junto com o bote. */
+    velocidadeInicial: 9.5,
     /** Velocidade da bola quando o carrinho encosta nela. */
     velocidadeBola: 8,
     /** Quanto tempo o adversário atingido antes da bola fica caído. */
@@ -456,7 +458,7 @@ export const BOT = {
   /** G2: quanto à frente da bola (s da velocidade dela) o bote mira. Fácil mira onde a bola está. */
   miraBoteS: { facil: 0, medio: 0.06, dificil: 0.12 } satisfies Record<Dificuldade, number>,
   /** G2: velocidade que o bot supõe para si mesmo ao calcular onde interceptar a bola (m/s). */
-  velocidadeParaInterceptar: 6.5,
+  velocidadeParaInterceptar: JOGADOR.velocidadeMax,
   /** Abertura (graus) do cone em que o bot procura companheiro para passar. */
   coneGraus: 140,
   /** Nota mínima de um companheiro para o bot preferir passar a driblar. */

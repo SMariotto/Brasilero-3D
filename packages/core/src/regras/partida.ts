@@ -84,7 +84,6 @@ const novoCerebro = (): CerebroEstado => ({
   proximaDecisao: 0,
   alvoX: 0,
   alvoZ: 0,
-  correr: false,
   baseX: 0,
   baseZ: 0,
   papel: "apoio",
@@ -475,7 +474,6 @@ export class Partida {
       pz: j.corpo.z,
       time: j.vaga.time,
       campo: this.campo,
-      arrancando: j.corpo.arrancando,
       rng: this.rng,
       erroExtraGraus,
     });
@@ -507,7 +505,6 @@ export class Partida {
       pz: j.corpo.z,
       time: j.vaga.time,
       campo: this.campo,
-      arrancando: j.corpo.arrancando,
       rng: this.rng,
       situacao: this.situacaoDoChute(j),
       ...(tipo ? { tipo } : {}),
@@ -785,7 +782,6 @@ export class Partida {
         corpo.vz = j.carrinho.dz * v;
         corpo.x += corpo.vx * DT;
         corpo.z += corpo.vz * DT;
-        corpo.arrancando = false;
         if (t >= j.carrinho.ate) {
           j.carrinho = null;
           corpo.vx = corpo.vz = 0;
@@ -833,7 +829,6 @@ export class Partida {
           dx: Math.cos(a),
           dz: -Math.sin(a), // PROTOCOLO 4: direita do celular = +X, cima = -Z
           mag: parado ? 0 : c.mag / 255,
-          correr: !parado && (c.seguros & BOTAO.correr) !== 0,
           comBola: this.temBola(j),
         },
         DT,
@@ -1374,8 +1369,6 @@ export class Partida {
         }
         c.vx = c.vz = 0;
         c.dir = time === 0 ? 0 : Math.PI;
-        c.energia = JOGADOR.energiaMax;
-        c.exausto = false;
         j.bloqueioAte = 0;
         j.caidoAte = 0;
         j.carrinho = null;
@@ -1409,7 +1402,6 @@ export class Partida {
     if (j.mergulho) return j.mergulho.zAlvo < j.mergulho.z0 ? ANIM.goleiroMergulhoEsq : ANIM.goleiroMergulhoDir;
     if (t < j.animAte && j.anim !== ANIM.parado) return j.anim;
     if (j.vaga.goleiro) return this.dominante === j.vaga.slot ? ANIM.goleiroComBola : ANIM.goleiroParado;
-    if (j.corpo.arrancando && v > 0.3) return ANIM.arrancada;
     return v > 0.3 ? ANIM.corrida : ANIM.parado;
   }
 
@@ -1427,7 +1419,6 @@ export class Partida {
         vel: v,
         anim: this.animacaoDe(j, v),
         caido: this.noChao(j) && !j.carrinho,
-        arrancando: c.arrancando,
         comBola: this.dominante === j.vaga.slot,
         carregandoChute: carregando,
         humano: j.vaga.humano,
@@ -1449,7 +1440,7 @@ export class Partida {
   }
 
   /** O que o celular de cada jogador precisa saber dele mesmo (mensagem `voce`). */
-  estadoDe(slot: number): { comBola: boolean; energia: number; situacao: SituacaoJogador } | null {
+  estadoDe(slot: number): { comBola: boolean; situacao: SituacaoJogador } | null {
     const j = this.jogador(slot);
     if (!j) return null;
     let situacao: SituacaoJogador = "normal";
@@ -1458,7 +1449,7 @@ export class Partida {
     else if (r && r.cobrador === slot && r.pronto) {
       situacao = r.tipo === "escanteio" ? "escanteio" : r.tipo === "falta" ? "falta" : "lateral";
     }
-    return { comBola: this.dominante === slot, energia: Math.round(j.corpo.energia), situacao };
+    return { comBola: this.dominante === slot, situacao };
   }
 
   /** Resumo do fim da partida (mensagem `fim`). */

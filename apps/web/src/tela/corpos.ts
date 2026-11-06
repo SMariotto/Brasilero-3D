@@ -25,7 +25,7 @@ const OMBRO_X = 0.2;
 const OMBRO_Y = 0.5;
 const PESCOCO_Y = 0.54;
 
-export type AmostraDoJogador = Pick<JogadorSnap, "slot" | "x" | "z" | "vel" | "anim" | "arrancando"> & { dir: number };
+export type AmostraDoJogador = Pick<JogadorSnap, "slot" | "x" | "z" | "vel" | "anim"> & { dir: number };
 
 interface Kit {
   chave: string;
@@ -186,7 +186,7 @@ export class ElencoProcedural {
       const dono = this.indice.get(j.slot);
       const animador = this.animadores.get(j.slot);
       if (!dono || !animador) continue;
-      const pose = animador.atualizar(j.anim, j.vel, j.arrancando, dt, Math.cos(j.dir) >= 0 ? 1 : -1);
+      const pose = animador.atualizar(j.anim, j.vel, dt, Math.cos(j.dir) >= 0 ? 1 : -1);
       this.escrever(j, dono.kit, dono.i, dono.ordem, pose);
     }
     for (const m of this.malhas) m.instanceMatrix.needsUpdate = true;

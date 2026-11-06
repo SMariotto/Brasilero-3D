@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PARTIDA } from "../constantes";
+import { JOGADOR, PARTIDA } from "../constantes";
 import { CONFIG_PADRAO, type Config } from "../protocolo/config";
 import { ACAO, BOTAO, FASE, SEM_DOMINANTE, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
 import { Partida, type VagaPartida } from "./partida";
@@ -489,7 +489,7 @@ describe("partida: determinismo e snapshot", () => {
   function partidaComRoteiro(semente: number): Partida {
     const p = criar({ semente });
     ateOJogoRolar(p);
-    p.definirComando(CASA, cmd({ dirRad: 0.3, forca01: 1, seguros: BOTAO.correr }));
+    p.definirComando(CASA, cmd({ dirRad: 0.3, forca01: 1 }));
     p.definirComando(VISITANTE, cmd({ dirRad: 3, forca01: 0.6 }));
     rodar(p, 5);
     chutar(p, CASA, 0.5, { dirRad: 0.1, forca01: 1 });
@@ -522,17 +522,24 @@ describe("partida: determinismo e snapshot", () => {
     const p = criar();
     ateOJogoRolar(p);
     comABola(p, CASA, -10, 0);
-    expect(p.estadoDe(CASA)).toEqual({ comBola: true, energia: 100, situacao: "normal" });
-    expect(p.estadoDe(VISITANTE)).toEqual({ comBola: false, energia: 100, situacao: "normal" });
+    expect(p.estadoDe(CASA)).toEqual({ comBola: true, situacao: "normal" });
+    expect(p.estadoDe(VISITANTE)).toEqual({ comBola: false, situacao: "normal" });
     expect(p.estadoDe(99)).toBeNull();
   });
 
-  it("arrancar gasta energia e ela aparece no estado", () => {
+  it("sem stamina (H3): correr 10 s seguidos não cansa e o estado não tem energia", () => {
     const p = criar();
     ateOJogoRolar(p);
-    p.definirComando(CASA, cmd({ dirRad: Math.PI, forca01: 1, seguros: BOTAO.correr }));
-    rodar(p, 1);
-    expect(p.estadoDe(CASA)!.energia).toBeLessThan(80);
-    expect(p.snapshot().jogadores.find((j) => j.slot === CASA)!.arrancando).toBe(true);
+    p.posicionarParaTeste(CASA, 0, 0, 12, 12);
+    p.definirComando(CASA, cmd({ dirRad: 0, forca01: 1 }));
+    const j = p.jogador(CASA)!;
+    let vMax = 0;
+    for (let i = 0; i < 4 * 60; i++) {
+      p.passo();
+      vMax = Math.max(vMax, Math.hypot(j.corpo.vx, j.corpo.vz));
+    }
+    expect(vMax).toBeCloseTo(JOGADOR.velocidadeMax, 1);
+    expect("energia" in p.estadoDe(CASA)!).toBe(false);
+    expect("arrancando" in p.snapshot().jogadores[0]!).toBe(false);
   });
 });

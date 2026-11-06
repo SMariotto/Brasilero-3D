@@ -12,20 +12,19 @@ import {
   type EntradaDaPose,
 } from "./pose";
 
-const entrada = (anim: number, extra: Partial<EntradaDaPose> = {}): EntradaDaPose => ({ anim, vel: 0, arrancando: false, fase: 0, tAnim: 0, t: 0, sinalLado: 1, ...extra });
+const entrada = (anim: number, extra: Partial<EntradaDaPose> = {}): EntradaDaPose => ({ anim, vel: 0, fase: 0, tAnim: 0, t: 0, sinalLado: 1, ...extra });
 
 describe("corrida sem patinar", () => {
   it("o pé de apoio anda para trás à mesma velocidade que o jogador corre, em qualquer velocidade", () => {
     for (const v of [1, 2.5, 4, 5.85, 6.5, 8.2, 9]) {
-      expect(velocidadeDoPe(v, false), `v=${v}`).toBeCloseTo(Math.max(v, 0.4), 6);
-      expect(velocidadeDoPe(v, true), `v=${v} arrancando`).toBeCloseTo(Math.max(v, 0.4), 6);
+      expect(velocidadeDoPe(v), `v=${v}`).toBeCloseTo(Math.max(v, 0.4), 6);
     }
   });
 
   it("a cadência sobe com a velocidade e fica numa faixa de corrida de verdade (1,8 a 4,5 passos por segundo)", () => {
     let antes = 0;
     for (const v of [3, 4, 5, 6, 7, 8]) {
-      const passosPorSegundo = velocidadeDaFase(v, v > 7) / Math.PI;
+      const passosPorSegundo = velocidadeDaFase(v) / Math.PI;
       expect(passosPorSegundo, `v=${v}`).toBeGreaterThan(1.8);
       expect(passosPorSegundo, `v=${v}`).toBeLessThan(4.5);
       expect(passosPorSegundo).toBeGreaterThan(antes - 0.2);
@@ -33,19 +32,18 @@ describe("corrida sem patinar", () => {
     }
   });
 
-  it("a amplitude cresce com a velocidade (mais na arrancada) e tem teto", () => {
-    expect(amplitudeDaCorrida(6, false)).toBeGreaterThan(amplitudeDaCorrida(3, false));
-    expect(amplitudeDaCorrida(6, true)).toBeGreaterThan(amplitudeDaCorrida(6, false));
-    expect(amplitudeDaCorrida(50, true)).toBeLessThanOrEqual(0.95);
+  it("a amplitude cresce com a velocidade e tem teto", () => {
+    expect(amplitudeDaCorrida(6)).toBeGreaterThan(amplitudeDaCorrida(3));
+    expect(amplitudeDaCorrida(50)).toBeLessThanOrEqual(0.95);
   });
 
   it("o animador avança a fase só quando corre, na cadência da velocidade", () => {
     const a = new AnimadorDePose();
-    a.atualizar(ANIM.parado, 0, false, 1);
+    a.atualizar(ANIM.parado, 0, 1);
     expect(a.faseDaCorrida).toBe(0);
     const v = 6;
-    a.atualizar(ANIM.corrida, v, false, 0.1);
-    expect(a.faseDaCorrida).toBeCloseTo(velocidadeDaFase(v, false) * 0.1, 6);
+    a.atualizar(ANIM.corrida, v, 0.1);
+    expect(a.faseDaCorrida).toBeCloseTo(velocidadeDaFase(v) * 0.1, 6);
   });
 
   it("as pernas se alternam e os braços balançam ao contrário das pernas", () => {
@@ -144,10 +142,10 @@ describe("as poses de cada animação", () => {
 describe("transição suave entre animações", () => {
   it("de parado para chute o corpo não dá salto: nenhuma articulação muda mais de 0,5 rad num quadro de 1/60 s", () => {
     const a = new AnimadorDePose();
-    for (let i = 0; i < 30; i++) a.atualizar(ANIM.parado, 0, false, 1 / 60);
+    for (let i = 0; i < 30; i++) a.atualizar(ANIM.parado, 0, 1 / 60);
     let anterior = { ...a.pose };
     for (let i = 0; i < 60; i++) {
-      const p = a.atualizar(ANIM.chute, 0, false, 1 / 60);
+      const p = a.atualizar(ANIM.chute, 0, 1 / 60);
       for (const c of CHAVES_DA_POSE) expect(Math.abs(p[c] - anterior[c]), `${c} no quadro ${i}`).toBeLessThan(0.5);
       anterior = { ...p };
     }
@@ -155,7 +153,7 @@ describe("transição suave entre animações", () => {
 
   it("alcança a pose pedida e não passa dela (sem quicar)", () => {
     const a = new AnimadorDePose();
-    for (let i = 0; i < 90; i++) a.atualizar(ANIM.goleiroParado, 0, false, 1 / 60);
+    for (let i = 0; i < 90; i++) a.atualizar(ANIM.goleiroParado, 0, 1 / 60);
     const alvo = alvoDaPose(entrada(ANIM.goleiroParado, { t: 1.5 }));
     expect(Math.abs(a.pose.joelhoE - alvo.joelhoE)).toBeLessThan(0.02);
     expect(Math.abs(a.pose.altura - alvo.altura)).toBeLessThan(0.02);
@@ -163,18 +161,18 @@ describe("transição suave entre animações", () => {
 
   it("depois de correr e parar, volta em pé em menos de meio segundo", () => {
     const a = new AnimadorDePose();
-    for (let i = 0; i < 60; i++) a.atualizar(ANIM.corrida, 6, false, 1 / 60);
-    for (let i = 0; i < 30; i++) a.atualizar(ANIM.parado, 0, false, 1 / 60);
+    for (let i = 0; i < 60; i++) a.atualizar(ANIM.corrida, 6, 1 / 60);
+    for (let i = 0; i < 30; i++) a.atualizar(ANIM.parado, 0, 1 / 60);
     expect(Math.abs(a.pose.quadrilE)).toBeLessThan(0.05);
     expect(Math.abs(a.pose.pitch)).toBeLessThan(0.05);
   });
 
   it("um golpe de uma jogada só recomeça do zero quando a animação volta", () => {
     const a = new AnimadorDePose();
-    a.atualizar(ANIM.chute, 0, false, 0.25);
+    a.atualizar(ANIM.chute, 0, 0.25);
     const fimDoGolpe = a.pose.quadrilD;
-    a.atualizar(ANIM.parado, 0, false, 0.5);
-    for (let i = 0; i < 6; i++) a.atualizar(ANIM.chute, 0, false, 1 / 60);
+    a.atualizar(ANIM.parado, 0, 0.5);
+    for (let i = 0; i < 6; i++) a.atualizar(ANIM.chute, 0, 1 / 60);
     // 0,1 s depois de recomeçar, está armando a perna para trás de novo (e não terminando como antes)
     expect(a.pose.quadrilD).toBeLessThan(fimDoGolpe);
   });

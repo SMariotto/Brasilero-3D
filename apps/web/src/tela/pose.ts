@@ -82,9 +82,9 @@ export const poseDeDescanso = (): Pose => ({
 // Corrida: a cadência vem da velocidade real, para o pé não patinar
 // ---------------------------------------------------------------------------
 
-/** Amplitude (rad) do balanço da coxa na corrida, crescendo com a velocidade (e mais na arrancada). */
-export function amplitudeDaCorrida(vel: number, arrancando: boolean): number {
-  const a = 0.38 + 0.06 * vel + (arrancando ? 0.12 : 0);
+/** Amplitude (rad) do balanço da coxa na corrida, crescendo com a velocidade (H3: sem arrancada, só a velocidade real conta). */
+export function amplitudeDaCorrida(vel: number): number {
+  const a = 0.38 + 0.06 * vel;
   return Math.min(a, 0.95);
 }
 
@@ -93,14 +93,14 @@ export function amplitudeDaCorrida(vel: number, arrancando: boolean): number {
  * no chão anda para trás, em relação ao quadril, a `L·A·ω` m/s no meio do apoio. Fazendo `ω = v / (L·A)` isso é igual à velocidade
  * do jogador (`v`): o pé fica parado no gramado e o jogador não "patina".
  */
-export function velocidadeDaFase(vel: number, arrancando: boolean): number {
+export function velocidadeDaFase(vel: number): number {
   const v = Math.max(vel, 0.4);
-  return v / (CORPO.perna * amplitudeDaCorrida(v, arrancando));
+  return v / (CORPO.perna * amplitudeDaCorrida(v));
 }
 
 /** Quanto o pé de apoio anda para trás em relação ao quadril no meio do passo (m/s): tem que ser igual à velocidade do jogador. */
-export function velocidadeDoPe(vel: number, arrancando: boolean): number {
-  return CORPO.perna * amplitudeDaCorrida(Math.max(vel, 0.4), arrancando) * velocidadeDaFase(vel, arrancando);
+export function velocidadeDoPe(vel: number): number {
+  return CORPO.perna * amplitudeDaCorrida(Math.max(vel, 0.4)) * velocidadeDaFase(vel);
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +119,6 @@ export interface EntradaDaPose {
   anim: number;
   /** Velocidade real do jogador (m/s). */
   vel: number;
-  arrancando: boolean;
   /** A fase da corrida (rad), que o animador faz avançar com `velocidadeDaFase`. */
   fase: number;
   /** Segundos desde que esta animação começou (para as jogadas de um golpe só). */
@@ -136,10 +135,8 @@ export function alvoDaPose(e: EntradaDaPose): Pose {
   const { anim, tAnim, t } = e;
 
   switch (anim) {
-    case ANIM.corrida:
-    case ANIM.arrancada: {
-      const arr = anim === ANIM.arrancada || e.arrancando;
-      const A = amplitudeDaCorrida(e.vel, arr);
+    case ANIM.corrida: {
+      const A = amplitudeDaCorrida(e.vel);
       const s = Math.sin(e.fase);
       const c = Math.cos(e.fase);
       const f = Math.min(1.4, Math.max(0.35, e.vel / 6));
@@ -152,7 +149,7 @@ export function alvoDaPose(e: EntradaDaPose): Pose {
       p.ombroD = 1.0 * A * s + 0.1;
       p.cotoveloE = p.cotoveloD = 1.25;
       p.abreE = p.abreD = 0.08;
-      p.pitch = 0.07 + 0.022 * e.vel + (arr ? 0.1 : 0);
+      p.pitch = 0.07 + 0.022 * e.vel + (e.vel > 6.5 ? 0.04 * (e.vel - 6.5) : 0); // inclina um pouco mais nas velocidades altas
       p.altura = -0.012 - 0.004 * e.vel + 0.03 * Math.abs(c) * f;
       p.cabeca = -p.pitch * 0.6;
       break;
@@ -321,15 +318,15 @@ export class AnimadorDePose {
   private t = 0;
 
   /** Avança `dt` segundos com a animação, a velocidade e o lado do mergulho que o servidor mandou. */
-  atualizar(anim: number, vel: number, arrancando: boolean, dt: number, sinalLado = 1): Pose {
+  atualizar(anim: number, vel: number, dt: number, sinalLado = 1): Pose {
     this.t += dt;
     if (anim !== this.anim) {
       this.anim = anim;
       this.desde = this.t;
     }
-    if (anim === ANIM.corrida || anim === ANIM.arrancada) this.fase = (this.fase + velocidadeDaFase(vel, arrancando || anim === ANIM.arrancada) * dt) % (Math.PI * 2);
+    if (anim === ANIM.corrida) this.fase = (this.fase + velocidadeDaFase(vel) * dt) % (Math.PI * 2);
 
-    const alvo = alvoDaPose({ anim, vel, arrancando, fase: this.fase, tAnim: this.t - this.desde, t: this.t, sinalLado });
+    const alvo = alvoDaPose({ anim, vel, fase: this.fase, tAnim: this.t - this.desde, t: this.t, sinalLado });
     // A fase da corrida não é suavizada (senão a cadência mudaria de frequência); o resto é.
     const k = 1 - Math.exp(-RAPIDEZ * dt);
     for (const chave of CHAVES_DA_POSE) this.pose[chave] += (alvo[chave] - this.pose[chave]) * k;

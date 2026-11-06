@@ -9,7 +9,8 @@ export const TIPO_COMANDO = 1;
 export const TIPO_SNAPSHOT = 2;
 
 /** Bits do campo `seguros`. */
-export const BOTAO = { chute: 1, passe: 2, correr: 4 } as const;
+/** Botões apertados (bits do byte `seguros`). O bit 2 era CORRER e está reservado (H3: todo mundo corre sempre; a velocidade segue o joystick). */
+export const BOTAO = { chute: 1, passe: 2 } as const;
 
 /** Valores do campo `acao`: a última ação concluída. */
 export const ACAO = { nenhuma: 0, chute: 1, passeToque: 2, passeSegurado: 3 } as const;
@@ -76,7 +77,7 @@ export type Fase = (typeof FASE)[keyof typeof FASE];
 export const ANIM = {
   parado: 0,
   corrida: 1,
-  arrancada: 2,
+  /** 2 está reservado (era Arrancada, removida na H3: sem stamina nem botão de correr). */
   chute: 3,
   passe: 4,
   carrinho: 5,
@@ -113,7 +114,6 @@ export interface JogadorSnap {
   vel: number;
   anim: number;
   caido: boolean;
-  arrancando: boolean;
   comBola: boolean;
   carregandoChute: boolean;
   humano: boolean;
@@ -173,7 +173,7 @@ export function codificarSnapshot(s: Snapshot): Uint8Array {
     v.setUint8(o + 7, j.anim);
     v.setUint8(
       o + 8,
-      (j.caido ? 1 : 0) | (j.arrancando ? 2 : 0) | (j.comBola ? 4 : 0) | (j.carregandoChute ? 8 : 0) | (j.humano ? 16 : 0),
+      (j.caido ? 1 : 0) | (j.comBola ? 4 : 0) | (j.carregandoChute ? 8 : 0) | (j.humano ? 16 : 0),
     );
     v.setUint8(o + 9, Math.max(0, Math.min(255, Math.round(j.carga * 255))));
     o += SNAP_JOGADOR;
@@ -210,7 +210,6 @@ export function decodificarSnapshot(dados: Uint8Array): Snapshot | null {
       vel: v.getUint8(o + 6) * 0.05,
       anim: v.getUint8(o + 7),
       caido: (flags & 1) !== 0,
-      arrancando: (flags & 2) !== 0,
       comBola: (flags & 4) !== 0,
       carregandoChute: (flags & 8) !== 0,
       humano: (flags & 16) !== 0,

@@ -53,7 +53,6 @@ export interface CerebroEstado {
   proximaDecisao: number;
   alvoX: number;
   alvoZ: number;
-  correr: boolean;
   /** Posição base da formação (já deslocada pela bola) que o bot ocupa. */
   baseX: number;
   baseZ: number;

@@ -20,7 +20,6 @@ describe("clipeDaAnimacao", () => {
     const sem = (...nomes: string[]): Set<string> => new Set(TODOS_OS_CLIPES.filter((n) => !nomes.includes(n)));
     expect(clipeDaAnimacao(ANIM.goleiroComBola, sem("GoleiroComBola"))).toBe("GoleiroParado");
     expect(clipeDaAnimacao(ANIM.cobranca, sem("Cobranca"))).toBe("Parado");
-    expect(clipeDaAnimacao(ANIM.arrancada, sem("Arrancada"))).toBe("Corrida");
     expect(clipeDaAnimacao(ANIM.goleiroMergulhoDir, sem("GoleiroMergulhoDir"))).toBe("GoleiroMergulhoEsq");
   });
 
@@ -43,7 +42,7 @@ describe("velocidadeDoClipe", () => {
 
   it("tem piso e teto", () => {
     expect(velocidadeDoClipe("Corrida", 0.1)).toBe(0.5);
-    expect(velocidadeDoClipe("Arrancada", JOGADOR.arrancada * 3)).toBeLessThan(2.5);
+    expect(velocidadeDoClipe("Corrida", JOGADOR.velocidadeMax * 3)).toBeLessThan(2.5);
   });
 
   it("chute longo é acelerado para caber no gesto; curto fica normal", () => {

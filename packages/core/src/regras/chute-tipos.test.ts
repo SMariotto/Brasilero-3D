@@ -24,16 +24,16 @@ function tipoEm(x: number, z: number, s: SituacaoDeChute, forca = 0.85, time: 0 
   const dz = -z;
   const n = Math.hypot(dx, dz);
   const sit: SituacaoDeChute = { ...s, goleiro: s.goleiro ? { x: s.goleiro.x * ataque, z: s.goleiro.z } : null };
-  const r = calcularChuteComTipo({ forca, dirX: dx / n, dirZ: dz / n, px, pz: z, time, campo, arrancando: false, rng: criarRng(1), situacao: sit });
+  const r = calcularChuteComTipo({ forca, dirX: dx / n, dirZ: dz / n, px, pz: z, time, campo, rng: criarRng(1), situacao: sit });
   return r.tipo;
 }
 
 describe("escolha do tipo de chute pelo lance (14 situações)", () => {
   it("1. perto do gol, ângulo aberto, goleiro na linha: canudo", () => expect(tipoEm(25, 0, livre)).toBe("canudo"));
   it("2. perto, aberto, com adversário em cima: canudo (chuta rápido)", () => expect(tipoEm(25, 0, marcado)).toBe("canudo"));
-  it("3. goleiro muito fora do lugar (8 m da linha) e jogador livre, a 12 m: cavadinha", () => expect(tipoEm(18, 0, adiantado(8))).toBe("cavadinha"));
+  it("3. goleiro muito fora do lugar (10 m da linha) e jogador livre, a 16 m: cavadinha", () => expect(tipoEm(14, 0, adiantado(10))).toBe("cavadinha"));
   it("4. goleiro adiantado mas com adversário em cima: não é cavadinha", () => {
-    expect(tipoEm(18, 0, { goleiro: { x: L - 8, z: 0 }, adversarioMaisPertoM: 1.5 })).not.toBe("cavadinha");
+    expect(tipoEm(14, 0, { goleiro: { x: L - 10, z: 0 }, adversarioMaisPertoM: 1.5 })).not.toBe("cavadinha");
   });
   it("5. goleiro no lugar (na linha), a 10 m: canudo, não cavadinha", () => expect(tipoEm(20, 0, livre)).toBe("canudo"));
   it("5b. goleiro um pouco adiantado (2 m, como no jogo): ainda canudo, a cavadinha não encobriria", () => expect(tipoEm(20, 0, adiantado(2))).toBe("canudo"));
@@ -59,7 +59,7 @@ describe("escolha do tipo de chute pelo lance (14 situações)", () => {
   });
 
   it("o Visitante (ataca X negativo) escolhe o mesmo tipo no lance espelhado", () => {
-    const casos: Array<[number, number, SituacaoDeChute]> = [[25, 0, livre], [18, 0, adiantado(8)], [18, 0, marcado], [26, 10, livre], [2, 0, livre], [15, 0, livre]];
+    const casos: Array<[number, number, SituacaoDeChute]> = [[25, 0, livre], [14, 0, adiantado(10)], [18, 0, marcado], [26, 10, livre], [2, 0, livre], [15, 0, livre]];
     for (const [x, z, s] of casos) expect(tipoEm(x, z, s, 0.85, 1), `x=${x} z=${z}`).toBe(tipoEm(x, z, s, 0.85, 0));
   });
 
@@ -136,7 +136,7 @@ describe("a curva da chapada e da trivela", () => {
     const dx = L - x;
     const dz = -z;
     const n = Math.hypot(dx, dz);
-    const r = calcularChuteComTipo({ forca: 0.85, dirX: dx / n, dirZ: dz / n, px: x, pz: z, time: 0, campo, arrancando: false, rng: criarRng(3), situacao: livre, tipo });
+    const r = calcularChuteComTipo({ forca: 0.85, dirX: dx / n, dirZ: dz / n, px: x, pz: z, time: 0, campo, rng: criarRng(3), situacao: livre, tipo });
     const b = novaBola(x + 0.55, z);
     b.vx = r.vx;
     b.vy = r.vy;
@@ -170,34 +170,34 @@ describe("a curva da chapada e da trivela", () => {
   });
 
   it("o lado do efeito é o espelho para o Visitante (que ataca X negativo)", () => {
-    const casa = calcularChuteComTipo({ forca: 0.85, dirX: 1, dirZ: -0.3, px: 22, pz: 6, time: 0, campo, arrancando: false, rng: criarRng(3), situacao: livre, tipo: "chapada" });
-    const vis = calcularChuteComTipo({ forca: 0.85, dirX: -1, dirZ: -0.3, px: -22, pz: 6, time: 1, campo, arrancando: false, rng: criarRng(3), situacao: livre, tipo: "chapada" });
+    const casa = calcularChuteComTipo({ forca: 0.85, dirX: 1, dirZ: -0.3, px: 22, pz: 6, time: 0, campo, rng: criarRng(3), situacao: livre, tipo: "chapada" });
+    const vis = calcularChuteComTipo({ forca: 0.85, dirX: -1, dirZ: -0.3, px: -22, pz: 6, time: 1, campo, rng: criarRng(3), situacao: livre, tipo: "chapada" });
     expect(vis.giro).toBeCloseTo(-casa.giro, 6);
     expect(vis.vz).toBeCloseTo(casa.vz, 6);
     expect(vis.vx).toBeCloseTo(-casa.vx, 6);
   });
 
   it("canudo é reto e forte (sem efeito, força mínima), e o chute normal continua reto como antes", () => {
-    const c = calcularChuteComTipo({ forca: 0.5, dirX: 1, dirZ: 0, px: 25, pz: 0, time: 0, campo, arrancando: false, rng: criarRng(1), situacao: livre });
+    const c = calcularChuteComTipo({ forca: 0.5, dirX: 1, dirZ: 0, px: 25, pz: 0, time: 0, campo, rng: criarRng(1), situacao: livre });
     expect(c.tipo).toBe("canudo");
     expect(c.giro).toBe(0);
     expect(c.forca).toBeGreaterThanOrEqual(TIPO_CHUTE.canudoForcaMin);
     expect(Math.hypot(c.vx, c.vz)).toBeGreaterThan(CHUTE.velocidadeBase + CHUTE.velocidadeExtra * TIPO_CHUTE.canudoForcaMin - 0.5);
-    const n = calcularChuteComTipo({ forca: 0.5, dirX: 0, dirZ: 1, px: 25, pz: 0, time: 0, campo, arrancando: false, rng: criarRng(1), situacao: livre });
+    const n = calcularChuteComTipo({ forca: 0.5, dirX: 0, dirZ: 1, px: 25, pz: 0, time: 0, campo, rng: criarRng(1), situacao: livre });
     expect(n.tipo).toBe("normal");
     expect(n.giro).toBe(0);
   });
 });
 
 describe("cavadinha: encobre o goleiro adiantado", () => {
-  it("só há trajetória com o goleiro MUITO fora do lugar (8 m da linha): ele recua a 2 a 4 m/s, então nas posições normais (até uns 3 m) a bola nunca encobre e ainda entra", () => {
-    for (const d of [12, 14, 16]) expect(resolverCavadinha(d, 8), `d=${d}`).not.toBeNull();
-    for (const a of [0.8, 1.5, 2.2, 3, 5]) expect(resolverCavadinha(12, a), `goleiro a ${a} m`).toBeNull();
-    expect(resolverCavadinha(3, 8), "perto demais").toBeNull();
+  it("só há trajetória com o goleiro EXTREMAMENTE fora do lugar (10 m da linha): ele recua a 6 m/s, então nas posições normais (até uns 3 m) a bola nunca encobre e ainda entra", () => {
+    expect(resolverCavadinha(16, 10)).not.toBeNull();
+    for (const a of [0.8, 1.5, 2.2, 3, 5, 8]) expect(resolverCavadinha(12, a), `goleiro a ${a} m`).toBeNull();
+    expect(resolverCavadinha(3, 10), "perto demais").toBeNull();
   });
 
   it("de verdade (física completa): a bola passa por cima do goleiro (acima do alcance dele) e entra no gol", () => {
-    for (const recuo of [12, 14]) {
+    for (const recuo of [16]) {
       const p = new Partida({
         config: { ...CONFIG_PADRAO, modo: "campo", n: 5, duracao: 4 },
         elenco: [
@@ -212,7 +212,7 @@ describe("cavadinha: encobre o goleiro adiantado", () => {
       const x = L - recuo;
       p.posicionarParaTeste(1, x, 0, x + 0.55, 0, 0);
       for (let i = 0; i < 60; i++) p.passo();
-      gk.corpo.x = L - 8; // goleiro muito fora do lugar
+      gk.corpo.x = L - 10; // goleiro extremamente fora do lugar
       gk.corpo.z = 0;
       const tipo = p.chutarComTipo(j, 0.85, 1, 0);
       expect(tipo, `recuo ${recuo}`).toBe("cavadinha");
@@ -227,7 +227,7 @@ describe("cavadinha: encobre o goleiro adiantado", () => {
   });
 
   it("é um chute leve: bem mais lento que o canudo", () => {
-    const c = calcularChuteComTipo({ forca: 0.85, dirX: 1, dirZ: 0, px: 18, pz: 0, time: 0, campo, arrancando: false, rng: criarRng(1), situacao: adiantado(8) });
+    const c = calcularChuteComTipo({ forca: 0.85, dirX: 1, dirZ: 0, px: 14, pz: 0, time: 0, campo, rng: criarRng(1), situacao: adiantado(10) });
     expect(c.tipo).toBe("cavadinha");
     expect(Math.hypot(c.vx, c.vz)).toBeLessThan(CHUTE.velocidadeBase + 0.2 * CHUTE.velocidadeExtra + 1);
     expect(c.vy).toBeGreaterThan(5);

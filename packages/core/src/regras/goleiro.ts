@@ -95,7 +95,7 @@ export function atualizarGoleiro(p: Partida, g: JogadorPartida): void {
   const xMax = Math.max(golX, golX - lado * campo.areaProf) - folga;
   const alvoX = limitar(golX + (dx / dist) * adiantado, xMin, xMax);
   const alvoZ = limitar((dz / dist) * adiantado, -campo.areaLarg / 2 + folga, campo.areaLarg / 2 - folga);
-  mover(g, alvoX, alvoZ, false);
+  mover(g, alvoX, alvoZ);
 
   // Parado, olha para a bola
   if (g.cmd.mag === 0) g.corpo.dir = Math.atan2(b.z - g.corpo.z, b.x - g.corpo.x);

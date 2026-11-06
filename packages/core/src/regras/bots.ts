@@ -1,4 +1,5 @@
 import { BOT } from "../constantes";
+import { inclinacaoParaFracao } from "../fisica/jogador";
 import { anguloParaByte, magParaByte } from "../protocolo/binario";
 import { limitar } from "../util/vetor";
 import { escolherAlvoDoPasse, notaDoPasse, type Alvo, type Ponto } from "./acoes";
@@ -70,8 +71,11 @@ export function posicoesDeSaida(p: Partida, time: 0 | 1): Map<number, { x: numbe
   return mapa;
 }
 
-/** Manda o jogador ir até (x, z) como se fosse um joystick: direção, força e CORRER. */
-export function mover(j: JogadorPartida, x: number, z: number, correr: boolean, fator = 1): void {
+/**
+ * Manda o jogador ir até (x, z) como se fosse um joystick: direção e inclinação. `fator` é a fração da velocidade máxima que ele usa
+ * (a dificuldade); perto do destino ele desacelera. H3: não há CORRER, todo mundo corre sempre.
+ */
+export function mover(j: JogadorPartida, x: number, z: number, fator = 1): void {
   const dx = x - j.corpo.x;
   const dz = z - j.corpo.z;
   const d = Math.hypot(dx, dz);
@@ -79,7 +83,7 @@ export function mover(j: JogadorPartida, x: number, z: number, correr: boolean, 
     j.cmd = { ...j.cmd, mag: 0, seguros: 0 };
     return;
   }
-  j.cmd = { ...j.cmd, ang: anguloParaByte(Math.atan2(-dz, dx)), mag: magParaByte(Math.min(1, d / 1.5) * fator), seguros: correr ? 4 : 0 };
+  j.cmd = { ...j.cmd, ang: anguloParaByte(Math.atan2(-dz, dx)), mag: magParaByte(inclinacaoParaFracao(Math.min(1, d / 1.5) * fator)), seguros: 0 };
 }
 
 function distanciaAoSegmento(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
@@ -199,7 +203,7 @@ export class Bots {
       this.decidir(j);
       c.proximaDecisao = p.t + BOT.reacaoS[dif] * (0.8 + 0.4 * p.rng.proximo());
     }
-    mover(j, c.alvoX, c.alvoZ, c.correr && j.corpo.energia > 25, BOT.velocidade[dif]);
+    mover(j, c.alvoX, c.alvoZ, BOT.velocidade[dif]);
   }
 
   private decidir(j: JogadorPartida): void {
@@ -210,7 +214,6 @@ export class Bots {
     const r = p.reinicio;
     const dif = p.dificuldadeDe(j.vaga.time);
 
-    c.correr = false;
     c.alvoX = c.baseX;
     c.alvoZ = c.baseZ;
 
@@ -234,7 +237,6 @@ export class Bots {
     if (timeComBola) {
       // Apoio: os da frente avançam um pouco junto com a jogada
       c.alvoX = limitar(c.baseX + a * 4, -p.campo.metadeComp + 2, p.campo.metadeComp - 2);
-      c.correr = Math.hypot(c.alvoX - j.corpo.x, c.alvoZ - j.corpo.z) > 8;
       return;
     }
 
@@ -244,7 +246,6 @@ export class Bots {
       const tChegada = Math.min(BOT.antecipacaoS[dif], distBola / BOT.velocidadeParaInterceptar);
       c.alvoX = b.x + b.vx * tChegada;
       c.alvoZ = b.z + b.vz * tChegada;
-      c.correr = true;
       this.tentarBote(j, dono, 1);
     } else if (c.papel === "fechar") {
       this.tentarBote(j, dono, 0.8); // se o portador passar perto, aproveita
@@ -256,10 +257,8 @@ export class Bots {
       const k = Math.min(1, 6 / d);
       c.alvoX = b.x + dx * k;
       c.alvoZ = b.z + dz * k;
-      c.correr = Math.hypot(c.alvoX - j.corpo.x, c.alvoZ - j.corpo.z) > 8;
     } else {
       this.tentarBote(j, dono, 0.7);
-      c.correr = Math.hypot(c.alvoX - j.corpo.x, c.alvoZ - j.corpo.z) > 10;
     }
   }
 
@@ -379,7 +378,6 @@ export class Bots {
     // Conduz para o gol
     c.alvoX = gol.x;
     c.alvoZ = j.corpo.z + (gol.z - j.corpo.z) * 0.5;
-    c.correr = j.corpo.energia > 40;
   }
 
   // --- cobranças -----------------------------------------------------------------

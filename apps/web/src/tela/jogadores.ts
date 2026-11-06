@@ -276,7 +276,7 @@ export class Jogadores {
       c.position.y = 0.8;
     } else {
       c.rotation.z = -Math.min(0.28, j.vel * 0.04); // inclina para a frente conforme a velocidade
-      c.scale.y = j.arrancando ? 0.94 : 1;
+      c.scale.y = 1;
     }
   }
 

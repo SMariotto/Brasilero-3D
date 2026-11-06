@@ -561,7 +561,7 @@ export class Sala {
 
     let msg: Voce;
     if (j.time === null) {
-      msg = { t: "voce", slot: -1, time: 0, numero: 0, cor: "#888888", comBola: false, energia: 0, situacao: "espera" };
+      msg = { t: "voce", slot: -1, time: 0, numero: 0, cor: "#888888", comBola: false, situacao: "espera" };
     } else if (j.slot === null) {
       return; // voltou da queda e ainda não recebeu um jogador (sai no próximo passo)
     } else {
@@ -575,7 +575,6 @@ export class Sala {
         numero: vaga.numero,
         cor: this.cores[j.time],
         comBola: estado.comBola,
-        energia: estado.energia,
         situacao: estado.situacao,
       };
     }

@@ -10,10 +10,6 @@ export interface Corpo {
   vz: number;
   /** Para onde o corpo olha, em radianos: dirX = cos(dir), dirZ = sin(dir). */
   dir: number;
-  energia: number;
-  /** Ficou sem energia (abaixo de 15) e só volta a arrancar quando recuperar até 30. */
-  exausto: boolean;
-  arrancando: boolean;
   goleiro: boolean;
 }
 
@@ -21,38 +17,49 @@ export interface EntradaMovimento {
   /** Direção desejada (vetor de comprimento 1 no plano XZ). */
   dx: number;
   dz: number;
-  /** Força do joystick, 0 a 1. */
+  /** Inclinação do joystick, 0 a 1: a velocidade segue essa inclinação (ver `fracaoDaInclinacao`). */
   mag: number;
-  correr: boolean;
   comBola: boolean;
 }
 
 export function novoCorpo(x: number, z: number, dir = 0, goleiro = false): Corpo {
-  return { x, z, vx: 0, vz: 0, dir, energia: JOGADOR.energiaMax, exausto: false, arrancando: false, goleiro };
+  return { x, z, vx: 0, vz: 0, dir, goleiro };
+}
+
+/**
+ * Que fração da velocidade máxima o jogador usa para uma inclinação do joystick (H3). Curva suave (smoothstep) entre
+ * `JOGADOR.inclinacaoAnda` e `JOGADOR.inclinacaoCorre`: inclinação leve anda, inclinação total corre, sem degrau no meio.
+ */
+export function fracaoDaInclinacao(mag: number): number {
+  const u = Math.min(1, Math.max(0, (mag - JOGADOR.inclinacaoAnda) / (JOGADOR.inclinacaoCorre - JOGADOR.inclinacaoAnda)));
+  return u * u * (3 - 2 * u);
+}
+
+/** A inclinação do joystick que dá uma fração da velocidade máxima (o inverso de `fracaoDaInclinacao`), para os bots. */
+export function inclinacaoParaFracao(fracao: number): number {
+  const f = Math.min(1, Math.max(0, fracao));
+  if (f <= 0) return 0;
+  let lo: number = JOGADOR.inclinacaoAnda;
+  let hi: number = JOGADOR.inclinacaoCorre;
+  for (let i = 0; i < 30; i++) {
+    const meio = (lo + hi) / 2;
+    if (fracaoDaInclinacao(meio) < f) lo = meio;
+    else hi = meio;
+  }
+  return (lo + hi) / 2;
 }
 
 export const velocidade = (c: Corpo): number => Math.hypot(c.vx, c.vz);
 
 /**
- * Um passo do movimento de um jogador (SPEC 6.2): acelera até a velocidade pedida pelo joystick (18 m/s²) e freia mais forte
- * (24 m/s²); CORRER dá a arrancada, que gasta energia; o corpo gira até 720°/s, mas a direção do movimento responde na hora.
+ * Um passo do movimento de um jogador (SPEC 6.2): acelera até a velocidade pedida pelo joystick e freia mais forte; o corpo gira até
+ * 720°/s, mas a direção do movimento responde na hora. H3: não há stamina nem botão de correr; a velocidade segue a inclinação
+ * do joystick (`fracaoDaInclinacao`) até `JOGADOR.velocidadeMax`.
  */
 export function passoJogador(c: Corpo, e: EntradaMovimento, dt: number): void {
-  // Energia: arrancada gasta 25/s, parado ou correndo normal recupera 12/s.
-  const quer = e.correr && e.mag > 0;
-  c.arrancando = quer && !c.exausto && c.energia > 0;
-  if (c.arrancando) {
-    c.energia = Math.max(0, c.energia - JOGADOR.energiaGasto * dt);
-    if (c.energia < JOGADOR.energiaMinimaParaArrancar) c.exausto = true;
-  } else {
-    c.energia = Math.min(JOGADOR.energiaMax, c.energia + JOGADOR.energiaRecupera * dt);
-    if (c.exausto && c.energia >= JOGADOR.energiaVoltaAArrancar) c.exausto = false;
-  }
-
-  // Velocidade pedida
-  const base = c.arrancando ? JOGADOR.arrancada : JOGADOR.velocidadeMax;
-  const fator = e.comBola ? (c.arrancando ? JOGADOR.fatorArrancadaComBola : JOGADOR.fatorVelocidadeComBola) : 1;
-  const alvo = e.mag * base * fator;
+  // Velocidade pedida: segue a inclinação do joystick (curva suave), com a bola um pouco mais devagar
+  const fator = e.comBola ? JOGADOR.fatorVelocidadeComBola : 1;
+  const alvo = fracaoDaInclinacao(e.mag) * JOGADOR.velocidadeMax * fator;
   const alvoX = e.dx * alvo;
   const alvoZ = e.dz * alvo;
 

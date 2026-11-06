@@ -15,7 +15,6 @@ export interface FonteDoComando {
   joystick: { ang: number; mag: number };
   chuteApertado(): boolean;
   passeApertado(): boolean;
-  correrApertado(): boolean;
 }
 
 /**
@@ -103,7 +102,7 @@ export class Envio {
     return {
       ang: anguloParaByte(f.joystick.ang),
       mag: magParaByte(f.joystick.mag),
-      seguros: (f.chuteApertado() ? BOTAO.chute : 0) | (f.passeApertado() ? BOTAO.passe : 0) | (f.correrApertado() ? BOTAO.correr : 0),
+      seguros: (f.chuteApertado() ? BOTAO.chute : 0) | (f.passeApertado() ? BOTAO.passe : 0),
       acao: this.acao,
       forca: this.forca,
       acaoSeq: this.acaoSeq,

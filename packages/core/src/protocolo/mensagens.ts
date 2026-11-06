@@ -186,8 +186,6 @@ export interface Voce {
   numero: number;
   cor: string;
   comBola: boolean;
-  /** 0 a 100. */
-  energia: number;
   situacao: SituacaoJogador;
 }
 
