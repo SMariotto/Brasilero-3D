@@ -56,19 +56,32 @@ export function passoJogador(c: Corpo, e: EntradaMovimento, dt: number): void {
   const alvoX = e.dx * alvo;
   const alvoZ = e.dz * alvo;
 
-  // Aceleração ou freada (freia mais forte quando a velocidade pedida é menor que a atual)
-  let dvx = alvoX - c.vx;
-  let dvz = alvoZ - c.vz;
-  const dv = Math.hypot(dvx, dvz);
-  if (dv > 0) {
-    const freando = alvo < velocidade(c);
-    const limite = (freando ? JOGADOR.freada : JOGADOR.aceleracao) * dt;
-    if (dv > limite) {
-      dvx = (dvx / dv) * limite;
-      dvz = (dvz / dv) * limite;
-    }
-    c.vx += dvx;
-    c.vz += dvz;
+  // Mudança de velocidade, separada em duas partes (H2): ao longo do movimento (acelera ou freia) e para o lado (curva).
+  // A curva tem a própria aceleração, maior que a da largada: sem isso o jogador deslizava de lado ao virar.
+  const dvx = alvoX - c.vx;
+  const dvz = alvoZ - c.vz;
+  const v = velocidade(c);
+  if (v < 0.1) {
+    // Quase parado: não há "ao longo do movimento"; vale a aceleração da largada em qualquer direção
+    const dv = Math.hypot(dvx, dvz);
+    const limite = JOGADOR.aceleracao * dt;
+    const k = dv > limite ? limite / dv : 1;
+    c.vx += dvx * k;
+    c.vz += dvz * k;
+  } else {
+    const ux = c.vx / v;
+    const uz = c.vz / v;
+    const par = dvx * ux + dvz * uz; // + acelera, - freia
+    const perpX = dvx - par * ux;
+    const perpZ = dvz - par * uz;
+    const perp = Math.hypot(perpX, perpZ);
+    const solto = e.mag <= 0.05;
+    const limitePar = (par >= 0 ? JOGADOR.aceleracao : solto ? JOGADOR.freadaSolto : JOGADOR.freada) * dt;
+    const limitePerp = JOGADOR.aceleracaoLateral * dt;
+    const dPar = Math.max(-limitePar, Math.min(limitePar, par));
+    const kPerp = perp > limitePerp ? limitePerp / perp : 1;
+    c.vx += ux * dPar + perpX * kPerp;
+    c.vz += uz * dPar + perpZ * kPerp;
   }
 
   // Giro do corpo (só se o joystick está empurrando)

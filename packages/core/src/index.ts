@@ -15,3 +15,4 @@ export * from "./regras/controle";
 export * from "./regras/donos";
 export type * from "./regras/tipos-partida";
 export * from "./regras/simulacao";
+export * from "./fisica/medidas";

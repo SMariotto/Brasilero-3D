@@ -39,12 +39,13 @@ describe("jogador: movimento", () => {
     expect(velocidade(c)).toBeCloseTo(3.25, 5);
   });
 
-  it("freia mais forte (24 m/s²) do que acelera (18 m/s²)", () => {
+  it("ao soltar o joystick freia mais forte (JOGADOR.freadaSolto) do que acelera (JOGADOR.aceleracao)", () => {
+    expect(JOGADOR.freadaSolto).toBeGreaterThan(JOGADOR.aceleracao);
     const c = novoCorpo(0, 0);
     rodar(c, direita, 2);
     const antes = velocidade(c);
     rodar(c, parado, 0.1);
-    expect(antes - velocidade(c)).toBeCloseTo(2.4, 1);
+    expect(antes - velocidade(c)).toBeCloseTo(JOGADOR.freadaSolto * 0.1, 1);
     rodar(c, parado, 1);
     expect(velocidade(c)).toBe(0);
   });

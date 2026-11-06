@@ -117,7 +117,15 @@ export const JOGADOR = {
   arrancada: 8.2,
   fatorArrancadaComBola: 0.85,
   aceleracao: 18,
-  freada: 24,
+  /** Freada (m/s²) ao diminuir a velocidade ou virar para trás (H2: era 24). */
+  freada: 28,
+  /** Freada (m/s²) ao SOLTAR o joystick: o jogador para mais firme, sem deslizar (H2). */
+  freadaSolto: 34,
+  /**
+   * Aceleração (m/s²) para o LADO, ao mudar de direção em movimento (H2). Antes a curva usava os mesmos 18 m/s² da largada, e o jogador
+   * derrapava de lado (parecia "no sabão"). Não mexe na velocidade máxima, só na rapidez de virar.
+   */
+  aceleracaoLateral: 30,
   /** Graus por segundo. */
   giroMax: 720,
   energiaMax: 100,

@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "carga": "tsx src/ferramentas/carga.ts",
-    "simular": "tsx src/ferramentas/simular-bots.ts"
+    "simular": "tsx src/ferramentas/simular-bots.ts",
+    "medir": "tsx src/ferramentas/medir-movimento.ts"
   },
   "dependencies": {
     "@b3d/core": "*",
