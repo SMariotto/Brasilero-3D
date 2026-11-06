@@ -15,7 +15,7 @@ import {
   type Comando,
 } from "../protocolo/binario";
 import type { Config } from "../protocolo/config";
-import type { DonoDeSlot, Destaque, EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
+import type { DonoDeSlot, Destaque, MiraDoPasse, EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
 import { criarRng, type Rng } from "../util/rng";
 import { calcularChute, calcularPasseAssistido, escolherAlvoDoPasse, type Alvo, type EntradaPasse, type Ponto } from "./acoes";
 import { Bots, posicoesDeSaida } from "./bots";
@@ -522,6 +522,22 @@ export class Partida {
   alvoDaMira(j: JogadorPartida, alto: boolean): number | null {
     const [dx, dz] = this.direcaoDe(j);
     return escolherAlvoDoPasse(this.entradaDoPasse(j, alto, dx, dz))?.slot ?? null;
+  }
+
+  /**
+   * As miras de passe ativas (H1): cada humano com PASSE apertado e a bola nos pés, com quem receberia o passe se soltasse agora.
+   * Para mostrar no telão e no celular só enquanto o passe está sendo mirado.
+   */
+  miras(): MiraDoPasse[] {
+    const lista: MiraDoPasse[] = [];
+    for (const j of this.jogadores) {
+      if (controladoPorBot(j) || !j.passe.apertado || !j.passe.comBola || !this.temBola(j)) continue;
+      const alto = this.t - j.passe.desde >= PASSE.lancamentoSegurarS;
+      const para = this.alvoDaMira(j, alto);
+      const alvo = para === null ? undefined : this.jogador(para);
+      if (alvo) lista.push({ de: j.vaga.slot, para: alvo.vaga.slot, numero: alvo.vaga.numero, alto });
+    }
+    return lista;
   }
 
   private soltarBola(j: JogadorPartida, vx: number, vy: number, vz: number, animS: number, anim: number): void {

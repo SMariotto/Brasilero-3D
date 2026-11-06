@@ -512,6 +512,38 @@ describe("com bots", () => {
     }
   }
 
+  it("mira do passe (H1): com PASSE apertado e a bola nos pés, todos recebem quem receberia o passe; ao soltar, a lista esvazia", () => {
+    const t = telaB();
+    const a = entrarB("Ana", "casa");
+    entrarB("Beto", "visitante");
+    comBots.tratarControle(a.j, { t: "comecar" });
+    passarB(7000); // pré-jogo e saída
+    comBots.posicionarParaTeste(a.j.id, 0, 0, 0.55, 0, 0);
+    passarB(200);
+    expect(comBots.partida!.dominante).toBe(a.j.slot);
+    const meuSlot = a.j.slot!;
+    const antes = t.ultimas("mira").length;
+
+    // Aperta PASSE (segura): a mira aparece com um companheiro do time dela
+    comBots.comandoControle(a.j, codificarComando({ ...comandoParado(), seguros: BOTAO.passe }));
+    passarB(150);
+    const durante = t.ultimas("mira").at(-1) as unknown as { miras: Array<{ de: number; para: number; numero: number; alto: boolean }> };
+    expect(t.ultimas("mira").length).toBeGreaterThan(antes);
+    expect(durante.miras).toHaveLength(1);
+    expect(durante.miras[0]!.de).toBe(meuSlot);
+    const alvo = comBots.partida!.jogador(durante.miras[0]!.para)!;
+    expect(alvo.vaga.time).toBe(0);
+    expect(alvo.vaga.slot).not.toBe(meuSlot);
+    expect(durante.miras[0]!.numero).toBe(alvo.vaga.numero);
+    // O celular dela e o do outro também recebem (é mensagem para todos)
+    expect((a.canal.ultimas("mira").at(-1) as unknown as { miras: unknown[] }).miras).toHaveLength(1);
+
+    // Solta (toque): o passe sai e a mira some
+    comBots.comandoControle(a.j, codificarComando({ ...comandoParado(), seguros: 0, acao: ACAO.passeToque, acaoSeq: 1 }));
+    passarB(100);
+    expect((t.ultimas("mira").at(-1) as unknown as { miras: unknown[] }).miras).toEqual([]);
+  });
+
   it("a partida vem com 12 jogadores: os 2 humanos e os bots completando, com goleiros", () => {
     const t = telaB();
     const a = entrarB("Ana", "casa");

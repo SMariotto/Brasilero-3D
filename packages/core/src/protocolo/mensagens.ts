@@ -243,7 +243,28 @@ export interface Fim {
   prorrogacao?: boolean;
 }
 
-export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg | DonosMsg;
+/** Quem vai receber o passe de um jogador que está mirando (PASSE apertado com a bola), H1. */
+export interface MiraDoPasse {
+  /** O jogador que está mirando. */
+  de: number;
+  /** O companheiro que receberia o passe se ele soltasse agora. */
+  para: number;
+  /** Número da camisa de quem recebe (para o celular mostrar sem ter o elenco). */
+  numero: number;
+  /** Lançamento por cima (PASSE segurado por mais de 0,25 s) em vez de rasteiro. */
+  alto: boolean;
+}
+
+/**
+ * Servidor para todos (H1): as miras de passe ativas AGORA (lista completa; vazia quando ninguém está mirando). Só sai quando a
+ * lista muda, e só existe enquanto PASSE está apertado com a bola.
+ */
+export interface MiraMsg {
+  t: "mira";
+  miras: MiraDoPasse[];
+}
+
+export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg | DonosMsg | MiraMsg;
 
 // ---------------------------------------------------------------------------
 // Validação

@@ -90,6 +90,8 @@ export class Sala {
   private fimEnviado = false;
   /** A última \`versaoControle\` da partida que os aparelhos já receberam (mensagem \`donos\`). */
   private versaoControleEnviada = 0;
+  /** As últimas miras de passe mandadas (texto), para só mandar `mira` quando mudam (H1). */
+  private ultimaMira = "[]";
   /** Tabela e estatísticas das partidas desta sala (só na memória; some quando a sala fecha). */
   readonly campeonato = new Campeonato();
   private relogioAnterior: number | null = null;
@@ -370,6 +372,7 @@ export class Sala {
     this.cores = coresDaPartida(config.casa, config.visitante);
     this.partida = new Partida({ config, elenco, semente, semBots: this.semBots, controleFifa: true });
     this.versaoControleEnviada = this.partida.versaoControle;
+    this.ultimaMira = "[]";
     this.partidaId++;
     this.fimEnviado = false;
     this.relogioAnterior = null;
@@ -497,6 +500,7 @@ export class Sala {
 
     const hora = p.tick % (TEMPO.tickHz / TEMPO.snapHz) === 0;
     if (hora || p.terminou) {
+      this.enviarMiras();
       const bytes = codificarSnapshot(p.snapshot());
       for (const tela of this.telas) tela.canal.enviarBinario(bytes);
       this.enviarVoces(false);
@@ -519,6 +523,17 @@ export class Sala {
 
   private enviarVoces(forcar: boolean): void {
     for (const j of this.jogadores) this.enviarVoz(j, forcar);
+  }
+
+  /** Manda a lista de miras de passe (quem receberia o passe de quem está com PASSE apertado) quando ela muda (H1). */
+  private enviarMiras(): void {
+    const p = this.partida;
+    if (!p) return;
+    const miras = p.terminou ? [] : p.miras();
+    const texto = JSON.stringify(miras);
+    if (texto === this.ultimaMira) return;
+    this.ultimaMira = texto;
+    this.transmitir({ t: "mira", miras });
   }
 
   /** Copia da partida para cada jogador o jogador que ele controla agora. */
