@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type DonoDeSlot, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
+import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type DonoDeSlot, type MiraDoPasse, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
 import { criarMaterialUniforme } from "./uniforme";
 import { ElencoProcedural } from "./corpos";
 import { FiguraModelo, type ModeloBase } from "./modelo";
@@ -88,6 +88,10 @@ export class Jogadores {
   /** O jogador feito por código (G3), ou `null` se não foi pedido (`?capsula=1`) ou há um modelo GLB. */
   private readonly procedural: ElencoProcedural | null;
   private leve = false;
+  /** Quem está mirando um passe agora e para quem (H1). */
+  private miras: MiraDoPasse[] = [];
+  /** Um anel no receptor e uma linha ligando quem passa a ele, para cada mira (no máximo 6 humanos mirando ao mesmo tempo). */
+  private readonly marcadoresDeMira: Array<{ anel: THREE.Mesh; linha: THREE.Line; pontos: THREE.BufferAttribute }> = [];
 
   /** `procedural`: usar o jogador feito por código (G3). Falso com `?capsula=1`. */
   constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null, procedural = true) {
@@ -156,6 +160,45 @@ export class Jogadores {
     this.anel.position.y = 0.04;
     this.anel.visible = false;
     this.grupo.add(this.anel);
+
+    for (let i = 0; i < 6; i++) {
+      const anelMira = new THREE.Mesh(
+        new THREE.RingGeometry(0.85, 1.05, 32),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false, depthTest: false }),
+      );
+      anelMira.rotation.x = -Math.PI / 2;
+      anelMira.position.y = 0.08;
+      anelMira.renderOrder = 8;
+      anelMira.visible = false;
+      const pontos = new THREE.BufferAttribute(new Float32Array(6), 3);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", pontos);
+      const linha = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false }));
+      linha.frustumCulled = false;
+      linha.renderOrder = 8;
+      linha.visible = false;
+      this.grupo.add(anelMira, linha);
+      this.marcadoresDeMira.push({ anel: anelMira, linha, pontos });
+    }
+  }
+
+  /**
+   * A mira do passe mudou (mensagem `mira`, H1): mostra, só enquanto PASSE está apertado, um anel no companheiro que receberia a
+   * bola e uma linha até ele. Branco para o passe rasteiro e amarelo para o lançamento por cima.
+   */
+  definirMiras(miras: MiraDoPasse[]): void {
+    this.miras = miras.slice(0, this.marcadoresDeMira.length);
+    for (let i = 0; i < this.marcadoresDeMira.length; i++) {
+      const m = this.marcadoresDeMira[i]!;
+      const mira = this.miras[i];
+      m.anel.visible = mira !== undefined;
+      m.linha.visible = mira !== undefined;
+      if (mira) {
+        const cor = mira.alto ? 0xffd54a : 0xffffff;
+        (m.anel.material as THREE.MeshBasicMaterial).color.set(cor);
+        (m.linha.material as THREE.LineBasicMaterial).color.set(cor);
+      }
+    }
   }
 
   /** Modo leve (SPEC 7.3): volta para as cápsulas; fora dele, o jogador feito por código. */
@@ -237,10 +280,35 @@ export class Jogadores {
     }
   }
 
+  private posicionarMiras(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>): void {
+    for (let i = 0; i < this.miras.length; i++) {
+      const mira = this.miras[i]!;
+      const m = this.marcadoresDeMira[i]!;
+      const de = jogadores.find((j) => j.slot === mira.de);
+      const para = jogadores.find((j) => j.slot === mira.para);
+      if (!de || !para) {
+        m.anel.visible = false;
+        m.linha.visible = false;
+        continue;
+      }
+      m.anel.position.set(para.x, 0.08, para.z);
+      m.anel.scale.setScalar(1 + 0.08 * Math.sin(performance.now() / 120)); // pulsa de leve
+      m.pontos.setXYZ(0, de.x, 0.15, de.z);
+      m.pontos.setXYZ(1, para.x, 0.15, para.z);
+      m.pontos.needsUpdate = true;
+    }
+  }
+
   /** Solta o que o modelo animado prendeu (mixers). A cena chama ao trocar de partida ou de elenco. */
   liberar(): void {
     for (const f of this.figuras.values()) f.modelo?.liberar();
     this.procedural?.liberar();
+    for (const m of this.marcadoresDeMira) {
+      m.anel.geometry.dispose();
+      (m.anel.material as THREE.Material).dispose();
+      m.linha.geometry.dispose();
+      (m.linha.material as THREE.Material).dispose();
+    }
     for (const e of this.etiquetas.values()) {
       e.material.map?.dispose();
       e.material.dispose();
@@ -254,6 +322,7 @@ export class Jogadores {
 
   atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0): void {
     this.anel.visible = false;
+    this.posicionarMiras(jogadores);
     if (this.usandoProcedural) this.procedural!.atualizar(jogadores, dtS);
     for (const j of jogadores) {
       const f = this.figuras.get(j.slot);

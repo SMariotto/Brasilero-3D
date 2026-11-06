@@ -1,4 +1,4 @@
-import { CHUTE, SERVIDOR, type Evento, type Fim, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
+import { CHUTE, SERVIDOR, type Evento, type Fim, type MiraDoPasse, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { Botao } from "./botoes";
 import { Envio } from "./envio";
@@ -31,6 +31,8 @@ export class JogoControle {
   private readonly ping = el("span", { class: "ping-jogo" });
   private readonly aviso = el("div", { class: "aviso-jogo" });
   private readonly deitado = el("div", { class: "fica-deitado" }, "Fica melhor deitado");
+  /** "Passe para #9": aparece só enquanto PASSE está apertado com a bola (H1). */
+  private readonly miraEl = el("div", { class: "mira-passe" });
   private readonly fimPainel = el("div", { class: "fim-painel" });
 
   private readonly joystick: Joystick;
@@ -64,12 +66,14 @@ export class JogoControle {
       zona,
       botoes,
       this.deitado,
+      this.miraEl,
       this.aviso,
       this.fimPainel,
     );
     trocar(this.faixa, this.numero, this.nome, this.energia, this.carga, this.ping);
     this.fimPainel.hidden = true;
     this.aviso.hidden = true;
+    this.miraEl.hidden = true;
 
     this.envio = new Envio(
       {
@@ -114,6 +118,7 @@ export class JogoControle {
   }
 
   parar(): void {
+    this.miraEl.hidden = true;
     this.rodando = false;
     this.partidaId = -1;
     this.envio.parar();
@@ -152,6 +157,13 @@ export class JogoControle {
     navigator.vibrate?.(12);
   }
 
+  /** Mensagem `mira` (H1): se é o meu jogador que está mirando, mostra quem vai receber o passe. */
+  mira(miras: MiraDoPasse[]): void {
+    const minha = miras.find((m) => m.de === this.meuSlot);
+    this.miraEl.hidden = minha === undefined;
+    this.miraEl.textContent = minha ? `${minha.alto ? "Lançamento" : "Passe"} para #${minha.numero}` : "";
+  }
+
   /** Aviso de conexão lenta na faixa de cima (só aparece acima de 150 ms). */
   definirPing(ms: number): void {
     this.ping.textContent = ms > SERVIDOR.pingAvisoMs ? `⚠ ${ms} ms` : "";
@@ -171,6 +183,7 @@ export class JogoControle {
   }
 
   fim(f: Fim, souDono: boolean): void {
+    this.miraEl.hidden = true;
     this.rodando = false;
     this.envio.parar();
     this.joystick.zerar();

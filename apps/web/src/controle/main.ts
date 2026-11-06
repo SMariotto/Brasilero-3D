@@ -126,6 +126,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "voce":
       jogoUI.voce(msg);
       return;
+    case "mira":
+      jogoUI.mira(msg.miras); // quem recebe o passe de quem está mirando (H1)
+      return;
     case "evento":
       jogoUI.evento(msg);
       return;

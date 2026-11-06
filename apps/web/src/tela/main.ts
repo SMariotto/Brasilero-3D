@@ -172,6 +172,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "donos":
       naCena((c) => c.donos(msg.donos)); // quem controla qual jogador mudou (G1)
       return;
+    case "mira":
+      naCena((c) => c.mira(msg.miras)); // quem recebe o passe de quem está mirando (H1)
+      return;
     case "evento":
       som.evento(msg);
       naCena((c) => c.evento(msg));

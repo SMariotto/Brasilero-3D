@@ -668,3 +668,26 @@ button {
   background: #b3261e;
   color: #fff;
 }
+
+/* Quem vai receber o passe, só enquanto PASSE está apertado com a bola (H1) */
+.mira-passe {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(30, 136, 229, 0.94);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mira-passe[hidden] {
+  display: none;
+}

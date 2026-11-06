@@ -3,7 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { FASE, SEM_DOMINANTE, aplicarDonos, uniformesDaPartida, type DonoDeSlot, type Evento, type Fim, type PartidaMsg, type Snapshot, type VagaElenco } from "@b3d/core";
+import { FASE, SEM_DOMINANTE, aplicarDonos, uniformesDaPartida, type DonoDeSlot, type MiraDoPasse, type Evento, type Fim, type PartidaMsg, type Snapshot, type VagaElenco } from "@b3d/core";
 import { criarBola3D, type Bola3D } from "./bola";
 import { CameraJogo } from "./camera";
 import { criarCampo3D, type Campo3D } from "./campo";
@@ -192,6 +192,11 @@ export class CenaJogo {
     this.jogadores?.definirDonos(donos);
     this.hud.definirElenco(this.elenco);
     this.mostrarSeguindo();
+  }
+
+  /** Mensagem `mira` (H1): quem está mirando um passe e para quem. */
+  mira(miras: MiraDoPasse[]): void {
+    this.jogadores?.definirMiras(miras);
   }
 
   evento(e: Evento): void {
