@@ -2,7 +2,9 @@
 
 O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova começa lendo daqui.
 
-## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodadas G1, G2, G3 e H1)
+## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodadas G1, G2, G3, H1 e H2)
+- **H2 (chute com tipo e chão menos escorregadio): FEITA**, tag `h2-ok`. **Chute:** continua um botão só; o servidor escolhe canudo, chapada, trivela ou cavadinha pelo lance, e o telão mostra o nome por 1 s ("Trivela!"). A bola **não tinha efeito**: criei a curva (`BOLA.giro`). **Cavadinha:** está pronta, mas contra o goleiro de hoje quase nunca é viável (ele recua rápido); decisão sua no item 20. **Chão:** o giro de 90° caiu de 0,47 s para 0,23 s e a derrapagem lateral de 4,8 para 2,7 m/s, sem mexer na velocidade máxima. Tabelas antes e depois mais abaixo. **Não testado no Render.**
+- Para voltar a antes da H2: `git checkout h1-ok` (e `git switch main`).
 - **H1 (domínio de bola e passe com mira): FEITA**, tag `h1-ok`. **Recepção:** a bola que chega perto do pé do jogador controlado é amortecida e puxada por 0,2 s (sem teleporte, só força na bola). **Passe:** mira onde o companheiro VAI ESTAR (tempo de voo com a física real da bola), com ajuda forte no Fácil e fraca no Difícil; sem joystick manda para o mais à frente e livre; o telão e o celular mostram quem vai receber enquanto PASSE está apertado. Testes e passos de teste abaixo (item "H1"). **Não testado no Render nem com amigos:** o sentimento da recepção e da ajuda do passe precisa de você.
 - Para voltar a antes da H1: `git checkout g3-ok` (e `git switch main` para voltar).
 - **G1 (controle estilo FIFA): FEITA**, tag `g1-ok`. Máx. 3 humanos por time, 6 controles por sala; cada humano controla um jogador de cada vez; o controle passa para quem recebe o passe; CHUTE sem a bola troca de jogador; carrinho agora é segurar PASSE por 0,3 s.
@@ -12,7 +14,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 - **Perguntas abertas para você** (seção "Dúvidas para o Samuel", itens 16, 17 e 18): o carrinho no PASSE segurado; 6 controles por sala; o `guia-manual/GUIA-MANUAL.html` ainda diz "até 10 controles" e o passo 7 (Mixamo) ficou obsoleto (não mexi, é seu); **posso apagar os arquivos do Mixamo e do Blender?** (item 18).
 - **Para subir tudo** (no PowerShell): `cd "C:\Users\Samuel\Documents\Jarvis\vault\projetos\Brasilero 3D\projeto"; git push; git push --tags`
 - Para voltar a uma fase (se uma ficar ruim): `git checkout g1-ok`, `g2-ok` ou `g3-ok` (e `git switch main` para voltar ao mais novo).
-- Os passos de teste no Render estão em "Testes que o Samuel precisa fazer", na ordem das fases: **G1, G2, G3** (e depois os das fases antigas).
+- Os passos de teste no Render estão em "Testes que o Samuel precisa fazer", na ordem das fases: **G1, G2, G3, H1, H2** (e depois os das fases antigas).
 
 ## Estado das fases
 | Fase | Estado | Último commit | Observação |
@@ -30,13 +32,14 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 | G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
 | G2 Bots (desarme, pressão, dificuldade) | pronta (falta o Samuel conferir) | tag `g2-ok` | Simulador de bots, diagnóstico, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, qualquer bot defensor dá o bote ao alcance |
+| H2 Chute com tipo e chão menos escorregadio | pronta (falta o Samuel conferir) | tag `h2-ok` | Efeito na bola (`BOLA.giro`), chute automático (canudo, chapada, trivela, cavadinha), nome do chute no telão, simuladores `npm run chutes` e `npm run medir`, freada e curva mais firmes |
 | H1 Recepção de bola e passe com mira | pronta (falta o Samuel conferir) | tag `h1-ok` | Recepção (amortece e puxa a bola ao pé), ajuda de mira do passe por dificuldade, joystick solto escolhe o mais à frente e livre, mira visível no telão e no celular |
 | G3 Jogador 3D por código | pronta (falta o Samuel conferir) | tag `g3-ok` | Corpo humanoide de peças articuladas por código (InstancedMesh), animações por conta sem patinar, uniforme pelo shader do clube, modo leve/`?capsula=1` com cápsulas, vitrine de poses |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F0 a F8b, G1, G2, G3 e H1 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
+F0 a F8b, G1, G2, G3, H1 e H2 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
 
 Para jogar pelo site sem rodar no PC: o plano é UM link só pelo Render (grátis), passo a passo em "F4 (publicar de verdade)" mais abaixo. Nada foi publicado; falta o Samuel criar a conta e dar o `git push`.
 
@@ -90,6 +93,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Não dei carrinho aos bots* (só bote): carrinho de bot gera falta e fica injusto para o humano. Posso liberar só no Difícil se você quiser.
    - *Não mexi no bote do humano* (alcance 0,8 m, avanço de 0,25 s), só na mira dos bots.
    - *Dificuldade por time* (`Partida.dificuldades`) existe só para o simulador e os testes; no jogo a dificuldade continua sendo uma só, a do Dono.
+20. **H2, o que eu completei (confirme ou mande mudar):**
+   - *O que existia de efeito na bola:* **nada** (só gravidade, arrasto do ar, quique e atrito rolando; a SPEC deixava a curva para "F6 ou depois"). *O que criei:* `giro` na bola (`BOLA.giro*` em `constantes.ts`), que gira o rumo da velocidade horizontal sem mudar a rapidez, com decaimento (2 s no ar, 0,25 s no chão). Não é Magnus de verdade; é o mínimo que faz a bola curvar. Os testes de física antigos passam sem mudança (bola sem giro = igual a antes).
+   - *Quem leva o tipo:* só o chute do **humano** com a bola em jogo. Bots, voleio, escanteio e falta chutam como antes (G2 intacta). **Toque rápido (carga abaixo de 0,3) continua o chute fraco de sempre**, para dar para colocar a bola; o tipo vale quando o jogador carrega o chute.
+   - *Regras de escolha* (todas em `TIPO_CHUTE`): só se o chute aponta para o gol e o jogador está a até 32 m. Abertura do gol vista do jogador: 26° ou mais e até 20 m = **canudo**; abaixo de 18° e até 20 m = **chapada**; entre 18° e 26° até 24 m = **trivela** (e também com marcador a menos de 2,5 m, gol aberto e mais de 10 m); **cavadinha** com jogador livre, 6 a 16 m, quando há trajetória viável por cima do goleiro; fora disso, o chute reto de sempre.
+   - *Medido no simulador* (ver tabela abaixo): a chapada é o tipo que mais ajuda (ângulo fechado perto: 33% contra 17% do reto, mira no canto). O automático rende o mesmo ou um pouco mais que o reto (+5, 0, +3 e −2 pontos nos quatro cenários); **a trivela não rende mais que o reto** (a ideia dela é o efeito e a variedade, não um chute melhor), e **de longe a curva não compensa** (o reto rende igual ou mais), por isso acima de 20 m o chute fica reto. A **chapada forçada perto do gol com o gol aberto rende 2 a 3 vezes o canudo** (64 a 75% contra 25 a 47%): é o tipo mais forte, mas o automático **não** a usa ali (a regra pede canudo, como você descreveu). Se quiser, é só mudar a regra em `escolherTipoDeChute`.
+   - **Cavadinha (decisão sua):** está implementada e testada na física (passa por cima do goleiro e entra, se ele estiver fora do lugar). Mas o goleiro atual fica de 1 a 2 m da linha e **recua a 2 a 4 m/s enquanto a bola voa**, e o travessão tem 2,2 m e o alcance dele é 2,0 m em pé e 2,4 mergulhando: contra ele a cavadinha só é viável com ele a **7 m ou mais da linha**, o que quase nunca acontece. Por isso ela é escolhida só quando é viável e, na prática, **quase não aparece**. Não mexi no goleiro (alteraria o equilíbrio da G2). Opções: (a) deixar assim; (b) o goleiro sair mais da área em lances 1 contra 1 (mexe na G2); (c) subir o travessão. Me diga.
+   - *Efeito e goleiro:* o goleiro prevê o chute simulando a bola com o mesmo giro, então ele "lê" a curva; a vantagem da chapada é geométrica (ângulo e tempo de reação), não um truque.
+   - *Chão escorregadio, o que medi:* a causa era a mudança de direção: a troca de velocidade usava só 18 m/s² nos dois eixos, então o jogador derrapava de lado a até 4,8 m/s depois de virar. Mudei para duas partes: ao longo do movimento (aceleração 18, freada 28, 34 ao soltar o joystick) e para o lado (30 m/s²). **A velocidade máxima (6,5) e a arrancada (8,2) não mudaram, nem a aceleração da largada, nem a física da bola.** Bots usam a mesma física: refiz o simulador da G2 e o equilíbrio se manteve (Difícil ainda domina o Fácil).
+   - *Patinação do pé na animação:* em corrida reta é zero por construção (a cadência vem da velocidade, G3); na curva o que "patinava" era a derrapagem lateral, que caiu de 4,8 para 2,7 m/s.
 19. **H1, o que eu completei (confirme ou mande mudar):**
    - *Recepção só para humanos.* Os bots ficam com o domínio de antes (mexer neles mudaria o equilíbrio que medi na G2). Efeito que já espero: o **adversário humano** também amortece e puxa a bola que passa perto dele, então interceptar um passe ficou mais fácil para ele também.
    - *Números da recepção* (`RECEPCAO` em `constantes.ts`): começa com a bola a até 1,6 m do centro do jogador, abaixo de 0,9 m de altura, chegando (ou quase parada) e a menos de 22 m/s em relação a ele; dura 0,2 s; recarga de 0,7 s; amortece a velocidade relativa com constante de 0,07 s e puxa com 38 m/s². Chute muito forte (acima de 22 m/s) ainda quica no corpo.
@@ -159,6 +171,13 @@ Bots de dificuldades diferentes (Casa:Visitante, gols por partida). Antes: Difí
 
 Qual parece mais divertido: o driblador de mentira é burro (corre em zigue-zague sem passar nem proteger a bola), então o humano de verdade perde menos que esse número. Mesmo assim, no Difícil ele perde a bola a cada ~1,7 s, o que é duro de propósito; no Médio, a cada ~3,5 s; no Fácil, a cada ~16 s. Minha recomendação: **Médio como padrão**, Fácil para quem nunca jogou. Se o Difícil estiver frustrante, baixe `BOT.chanceBote.dificil` (0,32) para 0,25.
 
+G3 (jogador feito por código; no site do Render):
+1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **14 jogadores fazendo cada animação** (de trás para a frente, da esquerda para a direita: parado, corrida, arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
+2. Jogue uma partida: os jogadores têm corpo, camisa com o padrão do clube, calção, meias e chuteiras. Olhe a **corrida**: as pernas têm que acompanhar a velocidade (sem "patinar") e acelerar quando o jogador usa CORRER. Chute, passe, carrinho, queda, gol (comemoração) e defesa do goleiro têm animação própria.
+3. Aperte **L** (modo leve): voltam as cápsulas. `tela.html?capsula=1` também. Aperte L de novo: voltam os jogadores.
+4. `?debug=1` mostra os draw calls (têm que ficar abaixo de 300; eu medi 82) e o fps do **seu** PC. Se o fps ficar baixo, me diga o número.
+5. Diga o que achou do visual (proporções, cor da pele, tamanho): é estilizado de propósito. Dá para ajustar tudo em `apps/web/src/tela/corpos.ts` (formas) e `pose.ts` (movimentos).
+
 H1 (recepção e passe com mira; no site do Render, o ideal é 2 celulares no mesmo time, o resto bots):
 1. **Recepção:** peça a um amigo (ou use um bot) passar a bola rasteira para perto de você, sem apontar o joystick exatamente para a bola. Quando ela chega a ~1,5 m do seu jogador, ela **desacelera e vai para o pé**, com um movimento curto de amortecer (0,2 s), e você fica com a bola. Antes, ela passava reto dependendo do ângulo.
 2. A bola **não teleporta**: dá para ver ela rolando até o pé. Uma bola que passa **longe** (mais de ~2 m), uma bola **alta** e um **chute muito forte** continuam como antes (passam, ou quicam no corpo).
@@ -167,12 +186,41 @@ H1 (recepção e passe com mira; no site do Render, o ideal é 2 celulares no me
 5. **Sem joystick** (solte o joystick e toque em PASSE): a bola vai para o companheiro **mais à frente e livre** de adversários.
 6. Diga se a recepção está forte ou fraca demais e se o Médio ajuda demais: os números estão em `RECEPCAO` e `PASSE.ajuda` no `constantes.ts`.
 
-G3 (jogador feito por código; no site do Render):
-1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **14 jogadores fazendo cada animação** (de trás para a frente, da esquerda para a direita: parado, corrida, arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
-2. Jogue uma partida: os jogadores têm corpo, camisa com o padrão do clube, calção, meias e chuteiras. Olhe a **corrida**: as pernas têm que acompanhar a velocidade (sem "patinar") e acelerar quando o jogador usa CORRER. Chute, passe, carrinho, queda, gol (comemoração) e defesa do goleiro têm animação própria.
-3. Aperte **L** (modo leve): voltam as cápsulas. `tela.html?capsula=1` também. Aperte L de novo: voltam os jogadores.
-4. `?debug=1` mostra os draw calls (têm que ficar abaixo de 300; eu medi 82) e o fps do **seu** PC. Se o fps ficar baixo, me diga o número.
-5. Diga o que achou do visual (proporções, cor da pele, tamanho): é estilizado de propósito. Dá para ajustar tudo em `apps/web/src/tela/corpos.ts` (formas) e `pose.ts` (movimentos).
+H2 (chute com tipo e chão; no site do Render, 1 celular, o resto é bot):
+1. **Chão:** corra e solte o joystick: o jogador **para firme** (uns 0,6 m). Corra e vire 90° ou 180° com o joystick: ele vira **bem mais rápido, sem deslizar de lado**. A velocidade máxima é a mesma. Se achar que ficou travado, ou ainda escorregadio, diga: os números estão em `JOGADOR` (`freada`, `freadaSolto`, `aceleracaoLateral`).
+2. **Canudo:** pertinho do gol, de frente, **segure CHUTE** (não só toque) e solte: sai reto e forte; aparece "Canudo!" no telão por 1 s.
+3. **Chapada:** vá para perto da linha de fundo, de lado (ângulo fechado), mire no gol e **segure CHUTE**: a bola **curva** para dentro do gol e aparece "Chapada!".
+4. **Trivela:** de uns 12 a 20 m, de frente ou meio de lado, segure CHUTE: a bola sai meio forte e curva para o lado contrário ao da chapada; aparece "Trivela!".
+5. **Cavadinha:** quase nunca aparece (ver item 20 em "Dúvidas"). Se aparecer "Cavadinha!", a bola sobe e cai por cima do goleiro.
+6. **Toque rápido** no CHUTE continua sendo o chute fraco de sempre (sem nome no telão). O CHUTE **sem a bola** continua trocando de jogador. Voleio, escanteio e falta não mudam.
+7. Me diga: a curva está forte ou fraca demais? Algum tipo está bom demais ou inútil? (`TIPO_CHUTE` e `BOLA.giro*` no `constantes.ts`; para ver as taxas de gol, rode `npm run chutes`.)
+
+Antes e depois do chão (`npm run medir`; joystick cheio, sem bola):
+
+| Medida | Antes | Depois |
+|---|---|---|
+| Aceleração de 0 a 90% da velocidade | 0,33 s | 0,33 s (igual) |
+| Velocidade máxima / arrancada | 6,5 / 8,2 m/s | 6,5 / 8,2 m/s (igual) |
+| Frenagem ao soltar o joystick | 0,28 s e 0,83 m | 0,20 s e 0,57 m |
+| Giro de 45°: alinha / derrapagem máx. | 0,22 s / 3,5 m/s | 0,13 s / 2,4 m/s |
+| Giro de 90°: alinha / derrapagem máx. / velocidade mínima | 0,47 s / 4,8 m/s / 4,6 m/s | 0,23 s / 2,7 m/s / 3,8 m/s |
+| Giro de 180° (inversão): alinha / derrapagem máx. | 0,70 s / 4,5 m/s | 0,57 s / 3,6 m/s |
+
+Taxa de gol por tipo (`npm run chutes -- --sementes 6`: 54 posições do campo contra um goleiro de verdade, Médio; entre parênteses o número de chutes; "AUTO" é o que o jogo faz de verdade):
+
+| Mira do jogador | Tipo | Perto aberto | Ângulo médio | Fechado perto | Longe | Geral |
+|---|---|---|---|---|---|---|
+| No canto | reto de antes | 36% (36) | 0% (72) | 17% (84) | 72% (132) | 38% |
+| No canto | canudo | 47% | 0% | 10% | 22% | 17% |
+| No canto | chapada | 67% | 0% | 33% | 59% | 40% |
+| No canto | trivela | 31% | 0% | 19% | 70% | 37% |
+| No canto | **AUTO** | 47% | 0% | 33% | 72% | **43%** |
+| No meio (impreciso) | reto de antes | 25% | 13% | 24% | 60% | 36% |
+| No meio (impreciso) | **AUTO** | 31% | 8% | 26% | 60% | **36%** |
+| No meio, com marcador | reto de antes / **AUTO** | 6% / 17% | 2% / 8% | 12% / 15% | 37% / 37% | 20% / **23%** |
+| No meio, Difícil | reto de antes / **AUTO** | 14% / 14% | 11% / 4% | 43% / 42% | 60% / 60% | 40% / **38%** |
+
+Leitura: os tipos forçados fora da sua zona (canudo "longe", chapada "longe") não são a regra do jogo: servem para ver o quanto cada um rende. Nenhum tipo passa de 80% no geral. A **chapada perto do gol com o gol aberto** (67 a 75%) é o mais forte; o automático não a usa ali.
 
 F8a e F8b (extras):
 1. **Campeonato:** jogue uma partida até o fim. Quando ela acaba, aparece no telão (lobby e fim) o botão **Tabela (T)**; a tecla **T** (ou clique) abre/fecha. Mostra a tabela dos clubes (3 pontos por vitória, 1 por empate; desempate por vitórias, saldo e gols) e o ranking dos jogadores humanos (gols, assistências, desarmes). Jogue a Revanche: os números somam. No celular do Dono, no fim do lobby: "Campeonato da sala: N partidas" e o botão "Zerar campeonato" (dois toques). Quem não é o Dono não vê o botão.
@@ -273,6 +321,7 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
+| 06/11/2026 | H2 | Chão menos escorregadio (frenagem e mudança de direção, `npm run medir`), efeito na bola (`BOLA.giro`), chute automático com 4 tipos (`chute-tipos.ts`, `TIPO_CHUTE`), nome do chute no telão, simulador `npm run chutes`, testes | ver git log (tag `h2-ok`) |
 | 06/11/2026 | H1 | Recepção de bola (`receberBola`, `RECEPCAO`, animação 14), ajuda de mira do passe (`PASSE.ajuda`, tempo de voo com a física real, joystick solto = mais à frente e livre), mensagem `mira`, anel e linha no telão, aviso no celular, testes | ver git log (tag `h1-ok`) |
 | 05/11/2026 | G3 | Jogador 3D por código: `pose.ts` (poses, cadência sem patinar), `corpos.ts` (peças articuladas em InstancedMesh, uniforme por shader), integração com o modo leve e `?capsula=1`, vitrine de poses, testes, Mixamo e Blender marcados obsoletos | ver git log (tag `g3-ok`) |
 | 05/11/2026 | G2 | Simulador de bots (`npm run simular`, laço no núcleo em `simulacao.ts`), dificuldade por time para medir, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, defensores oportunistas, testes de dificuldade | ver git log (tag `g2-ok`) |
