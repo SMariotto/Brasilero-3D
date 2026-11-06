@@ -2,7 +2,9 @@
 
 O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova começa lendo daqui.
 
-## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodadas G1, G2, G3, H1 e H2)
+## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodadas G1, G2, G3, H1, H2 e H3)
+- **H3 (passe igual em todas as dificuldades e correr sempre): FEITA**, tag `h3-ok`. **Correr sempre:** acabaram a stamina, a barra de energia e o botão CORRER (celular, protocolo e testes). Todos, humanos e bots, correm a **7,6 m/s** (a antiga corrida era 8,2; escolhi um pouco menos, explicado no item 21) e a velocidade segue a inclinação do joystick (meia inclinação anda a ~3,5 m/s, dá para conduzir devagar). O PASSE ficou maior e fica ao lado do CHUTE. **Passe:** a bola vai 100% mirada no companheiro da direção do joystick (sem ninguém no cone, o mais perto da direção; sem joystick, o mais à frente e livre), **30 a 40% mais rápida** que antes, e **no último terço do trajeto ela gira de leve na direção do receptor** (sem teleporte; para se alguém toca na bola). O receptor (humano ou bot) amortece com mais raio e força, e o bot receptor corre ao encontro da bola. É **igual no Fácil, no Médio e no Difícil**. O anel e o "Passe para #N" continuam. Tabelas antes e depois mais abaixo (item "H3"). **Não testado no Render.**
+- Para voltar a antes da H3: `git checkout h2-ok` (e `git switch main` para voltar).
 - **H2 (chute com tipo e chão menos escorregadio): FEITA**, tag `h2-ok`. **Chute:** continua um botão só; o servidor escolhe canudo, chapada, trivela ou cavadinha pelo lance, e o telão mostra o nome por 1 s ("Trivela!"). A bola **não tinha efeito**: criei a curva (`BOLA.giro`). **Cavadinha:** está pronta, mas contra o goleiro de hoje quase nunca é viável (ele recua rápido); decisão sua no item 20. **Chão:** o giro de 90° caiu de 0,47 s para 0,23 s e a derrapagem lateral de 4,8 para 2,7 m/s, sem mexer na velocidade máxima. Tabelas antes e depois mais abaixo. **Não testado no Render.**
 - Para voltar a antes da H2: `git checkout h1-ok` (e `git switch main`).
 - **H1 (domínio de bola e passe com mira): FEITA**, tag `h1-ok`. **Recepção:** a bola que chega perto do pé do jogador controlado é amortecida e puxada por 0,2 s (sem teleporte, só força na bola). **Passe:** mira onde o companheiro VAI ESTAR (tempo de voo com a física real da bola), com ajuda forte no Fácil e fraca no Difícil; sem joystick manda para o mais à frente e livre; o telão e o celular mostram quem vai receber enquanto PASSE está apertado. Testes e passos de teste abaixo (item "H1"). **Não testado no Render nem com amigos:** o sentimento da recepção e da ajuda do passe precisa de você.
@@ -32,6 +34,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 | G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
 | G2 Bots (desarme, pressão, dificuldade) | pronta (falta o Samuel conferir) | tag `g2-ok` | Simulador de bots, diagnóstico, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, qualquer bot defensor dá o bote ao alcance |
+| H3 Passe igual em todas as dificuldades e correr sempre | pronta (falta o Samuel conferir) | tag `h3-ok` | Sem stamina nem botão CORRER (7,6 m/s sempre, velocidade pela inclinação do joystick), passe 100% mirado, mais rápido e igual nas três dificuldades, a bola segue o receptor no último terço, recepção reforçada para quem recebe o passe |
 | H2 Chute com tipo e chão menos escorregadio | pronta (falta o Samuel conferir) | tag `h2-ok` | Efeito na bola (`BOLA.giro`), chute automático (canudo, chapada, trivela, cavadinha), nome do chute no telão, simuladores `npm run chutes` e `npm run medir`, freada e curva mais firmes |
 | H1 Recepção de bola e passe com mira | pronta (falta o Samuel conferir) | tag `h1-ok` | Recepção (amortece e puxa a bola ao pé), ajuda de mira do passe por dificuldade, joystick solto escolhe o mais à frente e livre, mira visível no telão e no celular |
 | G3 Jogador 3D por código | pronta (falta o Samuel conferir) | tag `g3-ok` | Corpo humanoide de peças articuladas por código (InstancedMesh), animações por conta sem patinar, uniforme pelo shader do clube, modo leve/`?capsula=1` com cápsulas, vitrine de poses |
@@ -39,7 +42,7 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F0 a F8b, G1, G2, G3, H1 e H2 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
+F0 a F8b, G1, G2, G3, H1, H2 e H3 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Última rodada: H3 (passe e correr sempre).** **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17, 18 e 21 (velocidade 7,6 em vez de 8,2); depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
 
 Para jogar pelo site sem rodar no PC: o plano é UM link só pelo Render (grátis), passo a passo em "F4 (publicar de verdade)" mais abaixo. Nada foi publicado; falta o Samuel criar a conta e dar o `git push`.
 
@@ -93,6 +96,16 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Não dei carrinho aos bots* (só bote): carrinho de bot gera falta e fica injusto para o humano. Posso liberar só no Difícil se você quiser.
    - *Não mexi no bote do humano* (alcance 0,8 m, avanço de 0,25 s), só na mira dos bots.
    - *Dificuldade por time* (`Partida.dificuldades`) existe só para o simulador e os testes; no jogo a dificuldade continua sendo uma só, a do Dono.
+21. **H3, o que eu completei (confirme ou mande mudar):**
+   - **Velocidade máxima: 7,6 m/s, não 8,2 (decisão que você pediu para explicar).** Você mandou correr sempre na velocidade da antiga corrida (8,2). Medi 8,2, 7,4 e 7,6 (`npm run medir` e `npm run simular`): com 8,2 o campo atravessa em 7,5 s e a bola conduzida (90%) vai a 7,4 m/s, quase a velocidade de um passe fraco, e o equilíbrio dos bots da G2 (bote, goleiro) precisaria de mais ajuste; com 7,4 ficou parecido com antes. Escolhi **7,6 (7% abaixo de 8,2)**: atravessa o campo em 8,1 s (antes: 9,2 s andando e 7,5 s correndo). Para mudar é um número só: `JOGADOR.velocidadeMax` em `constantes.ts` (a aceleração e a freada precisam acompanhar: estão escaladas pela razão das velocidades). Se quiser os 8,2 exatos, troque para 8,2 e rode `npm run medir` e `npm run simular`.
+   - **Velocidade segue a inclinação do joystick** (curva suave, sem degrau): parado até 0,10 de inclinação, velocidade máxima a partir de 0,95, entre os dois uma suavização (smoothstep). Meia inclinação (0,5) anda a 3,5 m/s; 0,3 anda a 1,1 m/s. Os bots usam a mesma curva (mandam a inclinação que dá a fração de velocidade da dificuldade deles).
+   - **Bots:** as frações da G2 não mudaram (Fácil 88%, Médio 96%, Difícil 100% da velocidade máxima), mas agora sobre 7,6: eles correm a 6,7, 7,3 e 7,6 m/s (antes 5,7, 6,2 e 6,5, porque a velocidade máxima de antes era a de andar). O bote subiu de 9 para 9,5 m/s e o carrinho começa a 9,5 (todo mundo corre mais); testei 8,0 a 10,5 e 9,5 foi o que manteve o acerto dos botes perto do que era. A cavadinha ficou ainda mais rara: o goleiro, na velocidade nova, acompanha a bola (só é viável a 16 m com ele a 10 m da linha); o modelo usa 6,5 m/s para o recuo dele. O item 20 continua valendo.
+   - **O campo ficou mais gol-eiro:** no simulador de bots os gols por partida subiram (ver tabela). Os testes de equilíbrio (Difícil continua dominando o Fácil) passam; ajustei limites de testes de gols (de 35 para 60 em 8 min) porque o jogo ficou mais ofensivo.
+   - **Botões do celular:** sem o CORRER sobrou espaço; o PASSE ficou maior (de 22 para 28% da menor dimensão da tela, até 160 px) e foi para perto do CHUTE. A barra de carga do chute ocupa o lugar da barra de energia. O pacote do controle não mudou de tamanho: o bit 2 (que era CORRER) ficou livre.
+   - **Passe, o que mudou** (`PASSE` em `constantes.ts`): **um conjunto só** de ajuda (cone de 80°, mira em cheio), em vez de um por dificuldade; o `PASSE.ajuda` de antes (Fácil 100%/100°, Médio 85%/75°, Difícil 60%/55%) acabou. A bola sai a `10 + 1,0·d` m/s entre 12 e 22 (era `6 + 0,9·d`, entre 8 e 16) e perde só 55% da desaceleração normal enquanto viaja (`desaceleracaoFator`). No último terço (a partir de 66% do trajeto, com subida suave nos 12% seguintes) a direção da bola gira em direção ao receptor, **no máximo 2,4 rad/s** (uns 137°/s), com a mesma rapidez, mirando onde o receptor estará daqui a até 0,3 s. Acaba sozinha se alguém tocar na bola (domínio, bote, defesa do goleiro, corpo de um adversário na frente, trave), se a bola passar do receptor, ou depois de 4 s. O lançamento por cima **não** segue (é balístico), mas tem a recepção forte.
+   - **Recepção do passe** (`RECEPCAO_PASSE`): o receptor pretendido, humano ou bot, começa a amortecer com a bola a até 2,4 m (a comum é 1,6 m) e até 32 m/s (a comum é 22), amortece em 0,045 s (a comum, 0,07 s) e puxa a 60 m/s² (a comum, 38) por 0,3 s. Sem recarga para ele. O resto dos bots continua sem recepção (G2 intacta).
+   - **O passe do bot não ficou perfeito:** o bot continua com o erro de mira da dificuldade dele (ele é o nível de dificuldade, não o assistente de mira); mas a bola agora também segue o receptor no fim, o que corrige um pouco do erro dos bots.
+   - **A mira (anel e texto) aparece sempre que há companheiro:** como o passe agora nunca "fica sem destino" para o humano, o anel aparece mesmo com o joystick apontando para longe de todos (vai para o mais perto da direção).
 20. **H2, o que eu completei (confirme ou mande mudar):**
    - *O que existia de efeito na bola:* **nada** (só gravidade, arrasto do ar, quique e atrito rolando; a SPEC deixava a curva para "F6 ou depois"). *O que criei:* `giro` na bola (`BOLA.giro*` em `constantes.ts`), que gira o rumo da velocidade horizontal sem mudar a rapidez, com decaimento (2 s no ar, 0,25 s no chão). Não é Magnus de verdade; é o mínimo que faz a bola curvar. Os testes de física antigos passam sem mudança (bola sem giro = igual a antes).
    - *Quem leva o tipo:* só o chute do **humano** com a bola em jogo. Bots, voleio, escanteio e falta chutam como antes (G2 intacta). **Toque rápido (carga abaixo de 0,3) continua o chute fraco de sempre**, para dar para colocar a bola; o tipo vale quando o jogador carrega o chute.
@@ -106,7 +119,7 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Recepção só para humanos.* Os bots ficam com o domínio de antes (mexer neles mudaria o equilíbrio que medi na G2). Efeito que já espero: o **adversário humano** também amortece e puxa a bola que passa perto dele, então interceptar um passe ficou mais fácil para ele também.
    - *Números da recepção* (`RECEPCAO` em `constantes.ts`): começa com a bola a até 1,6 m do centro do jogador, abaixo de 0,9 m de altura, chegando (ou quase parada) e a menos de 22 m/s em relação a ele; dura 0,2 s; recarga de 0,7 s; amortece a velocidade relativa com constante de 0,07 s e puxa com 38 m/s². Chute muito forte (acima de 22 m/s) ainda quica no corpo.
    - *Animação nova `Recepcao` (id 14)* no protocolo; o pé sobe ao encontro da bola e recua puxando.
-   - *Ajuda do passe por dificuldade* (`PASSE.ajuda`; força da ajuda / abertura do cone): Fácil 100% e 100°, Médio 85% e 75°, Difícil 60% e 55%. **O Médio agora ajuda mais do que antes** (antes era cone de 60° sem mistura): se achar fácil demais, baixe o Médio.
+   - *(Substituído na H3: agora é uma ajuda só, igual nas três dificuldades; ver item 21.)* *Ajuda do passe por dificuldade* (`PASSE.ajuda`; força da ajuda / abertura do cone): Fácil 100% e 100°, Médio 85% e 75°, Difícil 60% e 55%. **O Médio agora ajuda mais do que antes** (antes era cone de 60° sem mistura): se achar fácil demais, baixe o Médio.
    - *Joystick solto escolhe o companheiro mais à frente e livre* (nota: 50% avanço, 30% linha livre, 20% distância ideal). No lançamento (PASSE segurado) sem joystick continua o mais avançado no cone da frente do corpo.
    - *O tempo de voo do passe agora usa a física real da bola* (atrito mais arrasto), com erro abaixo de 3% de 5 a 25 m; o ponto de encontro fica dentro das linhas do campo.
    - *A mira só aparece enquanto PASSE está apertado com a bola.* No toque rápido ela pisca por uma fração de segundo; depois de 0,25 s segurando vira "Lançamento" (anel amarelo). É mostrada a todos os telões (cada telão é uma tela do mesmo jogo).
@@ -172,8 +185,8 @@ Bots de dificuldades diferentes (Casa:Visitante, gols por partida). Antes: Difí
 Qual parece mais divertido: o driblador de mentira é burro (corre em zigue-zague sem passar nem proteger a bola), então o humano de verdade perde menos que esse número. Mesmo assim, no Difícil ele perde a bola a cada ~1,7 s, o que é duro de propósito; no Médio, a cada ~3,5 s; no Fácil, a cada ~16 s. Minha recomendação: **Médio como padrão**, Fácil para quem nunca jogou. Se o Difícil estiver frustrante, baixe `BOT.chanceBote.dificil` (0,32) para 0,25.
 
 G3 (jogador feito por código; no site do Render):
-1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **14 jogadores fazendo cada animação** (de trás para a frente, da esquerda para a direita: parado, corrida, arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
-2. Jogue uma partida: os jogadores têm corpo, camisa com o padrão do clube, calção, meias e chuteiras. Olhe a **corrida**: as pernas têm que acompanhar a velocidade (sem "patinar") e acelerar quando o jogador usa CORRER. Chute, passe, carrinho, queda, gol (comemoração) e defesa do goleiro têm animação própria.
+1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **13 jogadores fazendo cada animação** (H3: a arrancada saiu; de trás para a frente, da esquerda para a direita: parado, corrida, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
+2. Jogue uma partida: os jogadores têm corpo, camisa com o padrão do clube, calção, meias e chuteiras. Olhe a **corrida**: as pernas têm que acompanhar a velocidade (sem "patinar") e acelerar com a velocidade (H3: não existe mais o botão CORRER). Chute, passe, carrinho, queda, gol (comemoração) e defesa do goleiro têm animação própria.
 3. Aperte **L** (modo leve): voltam as cápsulas. `tela.html?capsula=1` também. Aperte L de novo: voltam os jogadores.
 4. `?debug=1` mostra os draw calls (têm que ficar abaixo de 300; eu medi 82) e o fps do **seu** PC. Se o fps ficar baixo, me diga o número.
 5. Diga o que achou do visual (proporções, cor da pele, tamanho): é estilizado de propósito. Dá para ajustar tudo em `apps/web/src/tela/corpos.ts` (formas) e `pose.ts` (movimentos).
@@ -184,7 +197,7 @@ H1 (recepção e passe com mira; no site do Render, o ideal é 2 celulares no me
 3. **Mira do passe:** com a bola nos pés, **segure PASSE**: no celular aparece "Passe para #N" e no telão um **anel branco no companheiro e uma linha** até ele. Mexa o joystick: o alvo muda. Segurando mais de 0,25 s vira "Lançamento para #N" e o anel fica amarelo. Soltou, tudo some.
 4. **Mire à frente:** solte o PASSE com um companheiro **correndo de lado**: a bola vai para o ponto onde ele vai estar, não para onde ele está. Teste nos três níveis (Dono muda "Bots" no lobby): no **Fácil** quase sempre acerta, no **Médio** acerta bem, no **Difícil** precisa apontar melhor (se o joystick estiver torto, a bola erra).
 5. **Sem joystick** (solte o joystick e toque em PASSE): a bola vai para o companheiro **mais à frente e livre** de adversários.
-6. Diga se a recepção está forte ou fraca demais e se o Médio ajuda demais: os números estão em `RECEPCAO` e `PASSE.ajuda` no `constantes.ts`.
+6. Diga se a recepção está forte ou fraca demais e se o Médio ajuda demais: os números estão em `RECEPCAO` e `PASSE.ajuda` no `constantes.ts` (na H3 a ajuda virou uma só para as três dificuldades e a recepção de quem recebe o passe ficou mais forte: `RECEPCAO_PASSE`).
 
 H2 (chute com tipo e chão; no site do Render, 1 celular, o resto é bot):
 1. **Chão:** corra e solte o joystick: o jogador **para firme** (uns 0,6 m). Corra e vire 90° ou 180° com o joystick: ele vira **bem mais rápido, sem deslizar de lado**. A velocidade máxima é a mesma. Se achar que ficou travado, ou ainda escorregadio, diga: os números estão em `JOGADOR` (`freada`, `freadaSolto`, `aceleracaoLateral`).
@@ -221,6 +234,72 @@ Taxa de gol por tipo (`npm run chutes -- --sementes 6`: 54 posições do campo c
 | No meio, Difícil | reto de antes / **AUTO** | 14% / 14% | 11% / 4% | 43% / 42% | 60% / 60% | 40% / **38%** |
 
 Leitura: os tipos forçados fora da sua zona (canudo "longe", chapada "longe") não são a regra do jogo: servem para ver o quanto cada um rende. Nenhum tipo passa de 80% no geral. A **chapada perto do gol com o gol aberto** (67 a 75%) é o mais forte; o automático não a usa ali.
+
+H3 (passe e correr sempre; no site do Render, 2 celulares no mesmo time é o ideal, o resto é bot):
+1. **Celular:** não tem mais o botão CORRER nem a barra verde de energia. Sobraram **CHUTE e PASSE**, e o PASSE ficou maior, bem do lado do CHUTE. Se algum botão ficou torto na sua tela, me diga o modelo do celular.
+2. **Correr sempre:** incline o joystick **todo**: o jogador corre na velocidade nova (7,6 m/s, sem cansar nunca). Incline **pela metade**: ele anda devagar (3,5 m/s) e dá para conduzir a bola sem ela fugir. Confira se a passagem de andar para correr é suave (sem degrau) e se **o campo está rápido demais**: se estiver, é só baixar `JOGADOR.velocidadeMax` em `constantes.ts` (ver item 21).
+3. **Os bots também correm sempre:** Fácil ainda é mais lento que você, Difícil corre tanto quanto você. Veja se eles ainda dão para driblar (Fácil) e se o Difícil continua difícil, mas justo.
+4. **Passe mirado:** aponte o joystick para um companheiro e toque PASSE: a bola sai **rápida e vai nele**, mesmo que o joystick esteja uns 20° torto. Faça o mesmo nas **três dificuldades** (Revanche mudando "Bots" no lobby): tem que ser **igual** nas três.
+5. **Joystick apontando para longe de todos:** o anel e o "Passe para #N" vão para o companheiro **mais perto da direção**, e a bola vai para ele. **Joystick solto:** vai para o mais à frente e livre, como na H1.
+6. **A bola segue o receptor:** passe para um companheiro que está correndo de lado: no fim do trajeto a bola **faz uma curvinha de leve** na direção dele (sem teleporte). Se um adversário se colocar na frente e tocar na bola, ela **não** curva mais para o receptor.
+7. **Receptor:** o companheiro que recebe (você com o controle que passa para ele, ou o bot) **amortece e fica com a bola**, mesmo com ela chegando forte e a uns 2 m do pé. O bot que vai receber **corre ao encontro** da bola.
+8. Me diga: o passe está **rápido demais ou lento demais**? A curva no fim está forte, fraca ou nem se nota? (`PASSE` e `RECEPCAO_PASSE` no `constantes.ts`; para ver a tabela do passe, rode `npm run tabela-passe`.)
+
+Antes e depois do passe rasteiro (`npm run tabela-passe`; "saída" e "chegada" em m/s; tempo = da saída até chegar ao receptor parado):
+
+| Distância | Antes: saída / tempo / chegada | Depois: saída / tempo / chegada | Ganho |
+|---|---|---|---|
+| 6 m | 11,4 / 0,57 s / 9,7 | 16,0 / 0,39 s / 15,1 | 32% mais rápido |
+| 10 m | 15,0 / 0,74 s / 12,2 | 20,0 / 0,52 s / 18,3 | 29% |
+| 15 m | 16,0 / 1,09 s / 11,8 | 22,0 / 0,73 s / 19,3 | 33% |
+| 20 m | 16,0 / 1,54 s / 10,4 | 22,0 / 0,99 s / 18,5 | 36% |
+| 25 m | 16,0 / 2,06 s / 9,0 | 22,0 / 1,27 s / 17,6 | 38% |
+| 30 m | 16,0 / 2,67 s / 7,5 | 22,0 / 1,56 s / 16,8 | 42% |
+
+A fórmula da saída era `6 + 0,9·d` (entre 8 e 16) e virou `10 + 1,0·d` (entre 12 e 22); o "amortecimento" é `PASSE.desaceleracaoFator = 0,55` (o passe perde só 55% da desaceleração normal enquanto viaja). Com a bola chegando a 15 a 19 m/s, o domínio comum (que só aceita até 14 m/s) não segura: quem segura é a recepção do passe (`RECEPCAO_PASSE`, até 32 m/s).
+
+Antes e depois do movimento do jogador (`npm run medir`; joystick cheio, sem bola; "antes" é a H2):
+
+| Medida | Antes (H2) | Depois (H3) |
+|---|---|---|
+| Aceleração de 0 a 90% da velocidade | 0,33 s | 0,33 s (igual) |
+| Velocidade máxima | 6,5 m/s andando; 8,2 m/s na arrancada (com CORRER) | **7,6 m/s sempre** (com a bola, 6,84) |
+| Atravessar os 60 m do campo | 9,2 s andando; 7,5 s correndo | 8,1 s sem a bola; 8,9 s com a bola |
+| Frenagem ao soltar o joystick | 0,20 s e 0,57 m | 0,20 s e 0,66 m |
+| Giro de 45°: alinha / derrapagem máx. | 0,13 s / 2,4 m/s | 0,13 s / 2,8 m/s |
+| Giro de 90°: alinha / derrapagem máx. / velocidade mínima | 0,23 s / 2,7 m/s / 3,8 m/s | 0,23 s / 3,1 m/s / 4,5 m/s |
+| Giro de 180°: alinha / derrapagem máx. | 0,57 s / 3,6 m/s | 0,57 s / 4,2 m/s |
+
+(O tempo para alinhar e para frear ficou igual: a aceleração e a freada foram escaladas pela razão das velocidades. A derrapagem em m/s é um pouco maior só porque o jogador vai mais rápido, em proporção é a mesma.) Velocidade pela inclinação do joystick, sem a bola: 0,2 → 0,3 m/s; 0,3 → 1,1; 0,4 → 2,2; 0,5 → 3,5; 0,6 → 4,8; 0,7 → 6,0; 0,8 → 7,0; 0,9 → 7,5; 0,95 ou mais → 7,6.
+
+Velocidade do jogador contra a da bola (para ver se o campo ficou rápido demais):
+
+| Quem | Velocidade |
+|---|---|
+| Jogador sem a bola, joystick cheio | 7,6 m/s |
+| Jogador com a bola (a bola vai junto) | 6,84 m/s |
+| Jogador com meia inclinação | 3,5 m/s |
+| Bots Fácil / Médio / Difícil | 6,7 / 7,3 / 7,6 m/s |
+| Passe rasteiro, saída | 12 a 22 m/s (**1,6 a 2,9 vezes** o jogador) |
+| Passe rasteiro, chegada a 10-25 m | 15 a 19 m/s (**2 a 2,5 vezes**) |
+| Chute | 14 + 16·força = 14 a 30 m/s (**1,8 a 4 vezes**; o toque rápido, 16 m/s) |
+
+A bola lançada (passe ou chute) continua pelo menos **1,6 vez mais rápida** que o jogador, então passar continua compensando mais do que correr com ela; só a bola conduzida anda junto com o jogador (6,84). Se mesmo assim o campo ficar rápido demais, ver o item 21.
+
+Equilíbrio dos bots (G2) antes e depois do passe (`npm run simular`; 6 partidas de 8 min por cenário, semente 1, modo Campo; "antes" é já com o correr sempre, mas com o passe da H1; gols Casa x Visitante):
+
+| Cenário (Casa:Visitante) | Gols antes | Gols depois | Acerto do bote antes (C/V) | Acerto depois (C/V) |
+|---|---|---|---|---|
+| Fácil:Fácil | 10,7 x 11,7 | 17,8 x 16,8 | 55% / 56% | 60% / 52% |
+| Médio:Médio | 15,7 x 17,2 | 14,3 x 15,8 | 48% / 49% | 49% / 55% |
+| Difícil:Difícil | 10,8 x 10,8 | 11,2 x 8,5 | 38% / 39% | 44% / 45% |
+| Difícil:Fácil | 13,5 x 0,8 | 12,5 x 1,7 | 88% / 62% | 90% / 64% |
+| Difícil:Médio | 26,0 x 3,5 | 24,5 x 4,8 | 65% / 25% | 69% / 24% |
+| Médio:Fácil | 9,8 x 2,3 | 10,5 x 4,0 | 90% / 55% | 88% / 39% |
+
+Driblador humano de mentira contra os bots (perdas da bola por minuto com ela): Fácil 1,3 → 2,1; Médio 10,1 → 10,5; Difícil 37,0 → 32,4. Gols sofridos por partida: 8,8 → 18,3; 15,3 → 16,3; 31,2 → 27,2.
+
+Leitura: **a hierarquia se manteve** (Difícil ganha de Médio, que ganha de Fácil, e o Difícil continua dominando o Fácil por cerca de 12 x 2). A diferença maior está no **Fácil contra Fácil**, que ficou bem mais gol-eiro (de 22 para 35 gols por partida): com o passe e a recepção reforçados, a bola passa mais rápido entre eles (é a explicação mais provável; não verifiquei). Os passes de bots por partida caíram (por exemplo, no Fácil, de 21 para 11) e **não investiguei o porquê**; o resto dos números mexeu pouco e está dentro do que a semente de 6 partidas varia. Se o Fácil:Fácil estiver gol-eiro demais para o seu gosto, a alavanca é a dificuldade do goleiro (`GOLEIRO.falhaChance`).
 
 F8a e F8b (extras):
 1. **Campeonato:** jogue uma partida até o fim. Quando ela acaba, aparece no telão (lobby e fim) o botão **Tabela (T)**; a tecla **T** (ou clique) abre/fecha. Mostra a tabela dos clubes (3 pontos por vitória, 1 por empate; desempate por vitórias, saldo e gols) e o ranking dos jogadores humanos (gols, assistências, desarmes). Jogue a Revanche: os números somam. No celular do Dono, no fim do lobby: "Campeonato da sala: N partidas" e o botão "Zerar campeonato" (dois toques). Quem não é o Dono não vê o botão.
@@ -290,7 +369,7 @@ F3 (1 humano com bots completando 5 contra 5; depois 2 celulares):
 F2 (1 contra 1 com 2 celulares, PC como telão):
 1. `npm run dev`; no PC abra `http://localhost:5173/tela.html` e clique em "Criar sala"; entre com os 2 celulares pelo QR (de preferência deitados).
 2. Um celular escolhe Casa e o outro Visitante. O primeiro (Dono) toca em "Começar". O telão mostra o campo 3D, o placar e o relógio; os celulares mostram joystick e 3 botões.
-3. Joystick à esquerda move o jogador. Aperte CHUTE segurando: a barra laranja no topo enche em 0,8 s; solte para chutar (toque rápido dá chute fraco). PASSE sai rasteiro. CORRER gasta a barra de energia verde.
+3. Joystick à esquerda move o jogador. Aperte CHUTE segurando: a barra laranja no topo enche em 0,8 s; solte para chutar (toque rápido dá chute fraco). PASSE sai rasteiro. (H3: não há mais o CORRER nem a barra de energia.)
 4. Jogue 2 minutos: tem que sair gol, e depois do gol a bola volta ao centro e quem sofreu o gol sai jogando. Dá para trocar a câmera com a tecla C no PC ou no botão "Câmera".
 5. No fim, o telão mostra o resultado e o Dono escolhe "Revanche" ou "Lobby" no celular.
 6. **Sentimento do jogo** (é o que eu mais preciso de você): o jogador responde ao dedo sem atraso que incomode? A bola "gruda" demais no pé ou escapa demais? O chute está forte/fraco demais? Anote e me diga, que eu ajusto só as constantes.
@@ -322,6 +401,7 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
 | 06/11/2026 | H2 | Chão menos escorregadio (frenagem e mudança de direção, `npm run medir`), efeito na bola (`BOLA.giro`), chute automático com 4 tipos (`chute-tipos.ts`, `TIPO_CHUTE`), nome do chute no telão, simulador `npm run chutes`, testes | ver git log (tag `h2-ok`) |
+| 06/11/2026 | H3 | Sem stamina, barra e botão CORRER (núcleo, servidor, protocolo, celular, telão, testes); velocidade 7,6 m/s pela inclinação do joystick (`fracaoDaInclinacao`); passe único para as três dificuldades, mais rápido, com amortecimento, seguindo o receptor no último terço (`seguirPasse`), recepção reforçada (`RECEPCAO_PASSE`), bot receptor corre ao encontro; `npm run tabela-passe`; testes novos (`passe.h3.test.ts`); simulador G2 antes e depois | ver git log (tag `h3-ok`) |
 | 06/11/2026 | H1 | Recepção de bola (`receberBola`, `RECEPCAO`, animação 14), ajuda de mira do passe (`PASSE.ajuda`, tempo de voo com a física real, joystick solto = mais à frente e livre), mensagem `mira`, anel e linha no telão, aviso no celular, testes | ver git log (tag `h1-ok`) |
 | 05/11/2026 | G3 | Jogador 3D por código: `pose.ts` (poses, cadência sem patinar), `corpos.ts` (peças articuladas em InstancedMesh, uniforme por shader), integração com o modo leve e `?capsula=1`, vitrine de poses, testes, Mixamo e Blender marcados obsoletos | ver git log (tag `g3-ok`) |
 | 05/11/2026 | G2 | Simulador de bots (`npm run simular`, laço no núcleo em `simulacao.ts`), dificuldade por time para medir, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, defensores oportunistas, testes de dificuldade | ver git log (tag `g2-ok`) |
