@@ -2,7 +2,9 @@
 
 O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova começa lendo daqui.
 
-## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodada G1, G2, G3)
+## RESUMO PARA QUANDO O SAMUEL VOLTAR (rodadas G1, G2, G3 e H1)
+- **H1 (domínio de bola e passe com mira): FEITA**, tag `h1-ok`. **Recepção:** a bola que chega perto do pé do jogador controlado é amortecida e puxada por 0,2 s (sem teleporte, só força na bola). **Passe:** mira onde o companheiro VAI ESTAR (tempo de voo com a física real da bola), com ajuda forte no Fácil e fraca no Difícil; sem joystick manda para o mais à frente e livre; o telão e o celular mostram quem vai receber enquanto PASSE está apertado. Testes e passos de teste abaixo (item "H1"). **Não testado no Render nem com amigos:** o sentimento da recepção e da ajuda do passe precisa de você.
+- Para voltar a antes da H1: `git checkout g3-ok` (e `git switch main` para voltar).
 - **G1 (controle estilo FIFA): FEITA**, tag `g1-ok`. Máx. 3 humanos por time, 6 controles por sala; cada humano controla um jogador de cada vez; o controle passa para quem recebe o passe; CHUTE sem a bola troca de jogador; carrinho agora é segurar PASSE por 0,3 s.
 - **G2 (bots: desarme, pressão, dificuldade): FEITA**, tag `g2-ok`. Simulador `npm run simular`; Fácil, Médio e Difícil agora são bem diferentes (velocidade, alcance e mira do bote, antecipação). Tabela antes e depois em "Testes que o Samuel precisa fazer", G2.
 - **G3 (jogador 3D feito por código): FEITA**, tag `g3-ok`. Corpo humanoide de peças articuladas (InstancedMesh, 82 draw calls no jogo), animações por código, vitrine `tela.html?poses=1`. Mixamo e Blender marcados **obsoletos, nada apagado: posso apagar? (item 18)**.
@@ -28,12 +30,13 @@ O Claude Code atualiza este arquivo no fim de toda sessão. Uma sessão nova com
 | F8b Gol de ouro e câmera "segue jogador" | pronta (falta o Samuel conferir) | 718288c | Empate pode ir para prorrogação de 2 min em que o primeiro gol decide (opção no lobby); câmera que segue um jogador (tecla N, `?segue=Apelido`) |
 | G1 Controle estilo FIFA | pronta (falta o Samuel conferir) | tag `g1-ok` | 3 humanos por time, um jogador de cada vez, fila rotativa, troca por passe, sozinha (histerese) e à mão (CHUTE sem a bola), carrinho no PASSE segurado, seta/anel/apelido que seguem o humano |
 | G2 Bots (desarme, pressão, dificuldade) | pronta (falta o Samuel conferir) | tag `g2-ok` | Simulador de bots, diagnóstico, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, qualquer bot defensor dá o bote ao alcance |
+| H1 Recepção de bola e passe com mira | pronta (falta o Samuel conferir) | tag `h1-ok` | Recepção (amortece e puxa a bola ao pé), ajuda de mira do passe por dificuldade, joystick solto escolhe o mais à frente e livre, mira visível no telão e no celular |
 | G3 Jogador 3D por código | pronta (falta o Samuel conferir) | tag `g3-ok` | Corpo humanoide de peças articuladas por código (InstancedMesh), animações por conta sem patinar, uniforme pelo shader do clube, modo leve/`?capsula=1` com cápsulas, vitrine de poses |
 
 Estados possíveis: não começou, em andamento, pronta (falta o Samuel conferir), conferida.
 
 ## Onde parou
-F0 a F8b, G1, G2 e G3 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
+F0 a F8b, G1, G2, G3 e H1 prontas (esperando o Samuel conferir; só os testes automáticos e capturas de tela no Edge sem placa de vídeo foram feitos por mim). A rodada de 05/11 foi G1 (controle estilo FIFA), G2 (bots) e G3 (jogador 3D por código), cada uma com a sua tag (`g1-ok`, `g2-ok`, `g3-ok`). **Próximo passo exato:** o Samuel testa no site do Render (passos em "Testes que o Samuel precisa fazer") e responde as perguntas 16, 17 e 18; depois, se ele pedir, o que sobrou da SPEC 10 (goleiro humano, cabeceio com botão, chute com efeito, modo "celular único", número nas costas da camisa, chuva, pênalti). Nada pela metade; o repositório compila e passa nos testes.
 
 Para jogar pelo site sem rodar no PC: o plano é UM link só pelo Render (grátis), passo a passo em "F4 (publicar de verdade)" mais abaixo. Nada foi publicado; falta o Samuel criar a conta e dar o `git push`.
 
@@ -87,6 +90,15 @@ Decisões provisórias (regra do jogo) que o guia não cobria. Sigo com a opçã
    - *Não dei carrinho aos bots* (só bote): carrinho de bot gera falta e fica injusto para o humano. Posso liberar só no Difícil se você quiser.
    - *Não mexi no bote do humano* (alcance 0,8 m, avanço de 0,25 s), só na mira dos bots.
    - *Dificuldade por time* (`Partida.dificuldades`) existe só para o simulador e os testes; no jogo a dificuldade continua sendo uma só, a do Dono.
+19. **H1, o que eu completei (confirme ou mande mudar):**
+   - *Recepção só para humanos.* Os bots ficam com o domínio de antes (mexer neles mudaria o equilíbrio que medi na G2). Efeito que já espero: o **adversário humano** também amortece e puxa a bola que passa perto dele, então interceptar um passe ficou mais fácil para ele também.
+   - *Números da recepção* (`RECEPCAO` em `constantes.ts`): começa com a bola a até 1,6 m do centro do jogador, abaixo de 0,9 m de altura, chegando (ou quase parada) e a menos de 22 m/s em relação a ele; dura 0,2 s; recarga de 0,7 s; amortece a velocidade relativa com constante de 0,07 s e puxa com 38 m/s². Chute muito forte (acima de 22 m/s) ainda quica no corpo.
+   - *Animação nova `Recepcao` (id 14)* no protocolo; o pé sobe ao encontro da bola e recua puxando.
+   - *Ajuda do passe por dificuldade* (`PASSE.ajuda`; força da ajuda / abertura do cone): Fácil 100% e 100°, Médio 85% e 75°, Difícil 60% e 55%. **O Médio agora ajuda mais do que antes** (antes era cone de 60° sem mistura): se achar fácil demais, baixe o Médio.
+   - *Joystick solto escolhe o companheiro mais à frente e livre* (nota: 50% avanço, 30% linha livre, 20% distância ideal). No lançamento (PASSE segurado) sem joystick continua o mais avançado no cone da frente do corpo.
+   - *O tempo de voo do passe agora usa a física real da bola* (atrito mais arrasto), com erro abaixo de 3% de 5 a 25 m; o ponto de encontro fica dentro das linhas do campo.
+   - *A mira só aparece enquanto PASSE está apertado com a bola.* No toque rápido ela pisca por uma fração de segundo; depois de 0,25 s segurando vira "Lançamento" (anel amarelo). É mostrada a todos os telões (cada telão é uma tela do mesmo jogo).
+   - *Só o passe do humano leva a ajuda* (bots e cobrança automática de 5 s não).
 18. **G3, o que eu completei (confirme ou mande mudar):**
    - *O jogador:* cabeça, tronco, calção, coxa, canela, chuteira, braço e antebraço em formas básicas do Three.js (cilindros, esferas, caixas). Pele em 5 tons, escolhidos pelo número do jogador (só enfeite). A camisa leva o padrão e as cores do clube pelo shader da F5 (listras, faixa diagonal etc.); o goleiro usa a cor fixa (amarelo ou laranja), calção preto.
    - *Animações por código* (`pose.ts`): parado (respira), corrida e arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola e goleiro mergulhando (esquerda e direita). A passagem de uma para outra é suave. **A cadência da corrida sai da velocidade real** (`ω = v / (comprimento da perna × amplitude)`), então o pé de apoio anda para trás à mesma velocidade que o jogador corre (testado de 1 a 9 m/s).
@@ -146,6 +158,14 @@ Números do simulador (`npm run simular -- --partidas 6`; média por partida de 
 Bots de dificuldades diferentes (Casa:Visitante, gols por partida). Antes: Difícil:Fácil 16,3 x 4,5; Difícil:Médio 12,0 x 5,8; Médio:Fácil 11,5 x 4,8. Depois: **Difícil:Fácil 14,2 x 0,8; Difícil:Médio 13,7 x 3,2; Médio:Fácil 10,3 x 3,3.** O Difícil agora ganha de forma clara e o Fácil quase não marca.
 
 Qual parece mais divertido: o driblador de mentira é burro (corre em zigue-zague sem passar nem proteger a bola), então o humano de verdade perde menos que esse número. Mesmo assim, no Difícil ele perde a bola a cada ~1,7 s, o que é duro de propósito; no Médio, a cada ~3,5 s; no Fácil, a cada ~16 s. Minha recomendação: **Médio como padrão**, Fácil para quem nunca jogou. Se o Difícil estiver frustrante, baixe `BOT.chanceBote.dificil` (0,32) para 0,25.
+
+H1 (recepção e passe com mira; no site do Render, o ideal é 2 celulares no mesmo time, o resto bots):
+1. **Recepção:** peça a um amigo (ou use um bot) passar a bola rasteira para perto de você, sem apontar o joystick exatamente para a bola. Quando ela chega a ~1,5 m do seu jogador, ela **desacelera e vai para o pé**, com um movimento curto de amortecer (0,2 s), e você fica com a bola. Antes, ela passava reto dependendo do ângulo.
+2. A bola **não teleporta**: dá para ver ela rolando até o pé. Uma bola que passa **longe** (mais de ~2 m), uma bola **alta** e um **chute muito forte** continuam como antes (passam, ou quicam no corpo).
+3. **Mira do passe:** com a bola nos pés, **segure PASSE**: no celular aparece "Passe para #N" e no telão um **anel branco no companheiro e uma linha** até ele. Mexa o joystick: o alvo muda. Segurando mais de 0,25 s vira "Lançamento para #N" e o anel fica amarelo. Soltou, tudo some.
+4. **Mire à frente:** solte o PASSE com um companheiro **correndo de lado**: a bola vai para o ponto onde ele vai estar, não para onde ele está. Teste nos três níveis (Dono muda "Bots" no lobby): no **Fácil** quase sempre acerta, no **Médio** acerta bem, no **Difícil** precisa apontar melhor (se o joystick estiver torto, a bola erra).
+5. **Sem joystick** (solte o joystick e toque em PASSE): a bola vai para o companheiro **mais à frente e livre** de adversários.
+6. Diga se a recepção está forte ou fraca demais e se o Médio ajuda demais: os números estão em `RECEPCAO` e `PASSE.ajuda` no `constantes.ts`.
 
 G3 (jogador feito por código; no site do Render):
 1. Abra `SEU-LINK/tela.html?poses=1`: aparecem **14 jogadores fazendo cada animação** (de trás para a frente, da esquerda para a direita: parado, corrida, arrancada, chute, passe, carrinho, queda, comemoração, cabeceio, cobrança, goleiro parado, goleiro com a bola, mergulho esquerdo e direito). Os golpes repetem em laço. `?poses=1&vel=7` muda a velocidade da corrida.
@@ -253,6 +273,7 @@ F1 (PC como telão + 2 celulares na mesma Wi-Fi):
 | 05/11/2026 | F7 | Sons (Web Audio), menus com identidade própria, manifest e ícones, Wake Lock, dica do iPhone, tela de fim, revisão de textos | 3b53bc1, ba3d769, 0385705, 1d3ae63, b520fa7 |
 | 05/11/2026 | F8a | Campeonato da sala: núcleo (campeonato.ts), mensagem `campeonato`, `zerar`, painel do telão, linha no lobby do celular | 4ba83b8 |
 | 05/11/2026 | F8b | Gol de ouro (config, regra, lobby, aviso) e câmera que segue um jogador | e1b5c41, 718288c |
+| 06/11/2026 | H1 | Recepção de bola (`receberBola`, `RECEPCAO`, animação 14), ajuda de mira do passe (`PASSE.ajuda`, tempo de voo com a física real, joystick solto = mais à frente e livre), mensagem `mira`, anel e linha no telão, aviso no celular, testes | ver git log (tag `h1-ok`) |
 | 05/11/2026 | G3 | Jogador 3D por código: `pose.ts` (poses, cadência sem patinar), `corpos.ts` (peças articuladas em InstancedMesh, uniforme por shader), integração com o modo leve e `?capsula=1`, vitrine de poses, testes, Mixamo e Blender marcados obsoletos | ver git log (tag `g3-ok`) |
 | 05/11/2026 | G2 | Simulador de bots (`npm run simular`, laço no núcleo em `simulacao.ts`), dificuldade por time para medir, bote mais esperto (alcance, mira, antecipação), bots lentos no Fácil, defensores oportunistas, testes de dificuldade | ver git log (tag `g2-ok`) |
 | 05/11/2026 | G1 | Controle estilo FIFA: gestor de controle no núcleo (`controle.ts`), 3 humanos por time e 6 por sala, troca por passe/sozinha/à mão, carrinho no PASSE segurado, mensagem `donos`, créditos por humano, seta/anel/apelido no telão, faixa que pisca no celular, SPEC/PROTOCOLO atualizados | ver git log (tag `g1-ok`) |
