@@ -83,6 +83,8 @@ export interface JogadorPartida {
   /** Recepção da bola (H1): até quando a recepção em andamento puxa a bola, e a partir de quando pode começar outra. */
   recepcaoAte: number;
   recepcaoProntaEm: number;
+  /** A recepção em andamento é a do passe (H3): raio e força maiores. */
+  recepcaoForte: boolean;
   bote: Bote | null;
   boteProntoEm: number;
   mergulho: Mergulho | null;
@@ -90,6 +92,17 @@ export interface JogadorPartida {
   /** Humano sem conexão: um bot joga por ele enquanto isso (SPEC 4.1). */
   ausente: boolean;
   cerebro: CerebroEstado;
+}
+
+/** Um passe que está no ar (H3): para quem vai, de onde saiu, o tamanho do trajeto mirado e se é lançamento por cima. */
+export interface PasseEmVoo {
+  para: number;
+  time: 0 | 1;
+  x0: number;
+  z0: number;
+  total: number;
+  alto: boolean;
+  desde: number;
 }
 
 export type TipoReinicio = "saida" | "lateral" | "escanteio" | "tiroDeMeta" | "falta";

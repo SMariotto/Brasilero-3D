@@ -1,4 +1,4 @@
-import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, PASSE, RECEPCAO, TEMPO, type Dificuldade } from "../constantes";
+import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, PASSE, RECEPCAO, RECEPCAO_PASSE, TEMPO, type Dificuldade } from "../constantes";
 import { criarCampo, type Campo } from "../fisica/campo";
 import { golMarcado, novaBola, passoBola, type Bola } from "../fisica/bola";
 import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade } from "../fisica/jogador";
@@ -27,6 +27,7 @@ import {
   controladoPorBot,
   type CerebroEstado,
   type JogadorPartida,
+  type PasseEmVoo,
   type Reinicio,
   type TipoReinicio,
   type VagaPartida,
@@ -133,6 +134,8 @@ export class Partida {
   private fimAposGol = false;
   private ultimoToque: Toque | null = null;
   private penultimoToque: Toque | null = null;
+  /** O passe que está no ar (H3): quem deve receber, de onde saiu e quanto devia andar. Some quando alguém toca na bola. */
+  passeEmVoo: PasseEmVoo | null = null;
 
   constructor(op: OpcoesPartida) {
     this.config = op.config;
@@ -159,6 +162,7 @@ export class Partida {
       carrinhoProntoEm: 0,
       recepcaoAte: 0,
       recepcaoProntaEm: 0,
+      recepcaoForte: false,
       bote: null,
       boteProntoEm: 0,
       mergulho: null,
@@ -353,8 +357,12 @@ export class Partida {
     if (jogando) {
       this.receberBola();
       this.atualizarDominio();
+      this.seguirPasse();
     }
-    else this.dominante = null;
+    else {
+      this.dominante = null;
+      this.passeEmVoo = null;
+    }
 
     const r = this.reinicio;
     const congelada = r !== null && r.tipo !== "saida" && !r.pronto;
@@ -364,6 +372,8 @@ export class Partida {
     } else {
       const ev = passoBola(this.bola, this.campo, DT, { conduzida: this.dominante !== null });
       if (ev.trave && this.fase !== FASE.gol) this.evento({ tipo: "trave", dados: ev.trave });
+      if (ev.trave || ev.parede) this.passeEmVoo = null;
+      this.amortecerPasse();
     }
 
     if (jogando) {
@@ -520,14 +530,19 @@ export class Partida {
   /** Passe (SPEC 6.4): rasteiro, ou lançamento por cima; mira no melhor companheiro do cone. */
   passarComo(j: JogadorPartida, alto: boolean, dirX: number, dirZ: number, opcoes: { cone?: number; erroGraus?: number } = {}): void {
     const v = calcularPasseAssistido(this.entradaDoPasse(j, alto, dirX, dirZ, opcoes));
+    const x0 = this.bola.x;
+    const z0 = this.bola.z;
     this.soltarBola(j, v.vx, v.vy, v.vz, ANIMACAO.passeS, ANIM.passe);
+    // H3: o passe com destino fica "no ar" até alguém tocar na bola: a bola segue o receptor e ele a recebe com força maior
+    this.passeEmVoo = v.para === undefined ? null : { para: v.para, time: j.vaga.time, x0, z0, total: Math.max(1, v.distancia ?? 1), alto: v.alto, desde: this.t };
     this.evento({ tipo: "passe", dados: { de: j.vaga.slot, ...(v.para !== undefined ? { para: v.para } : {}), alto: v.alto } });
     this.controle.aoPassar(j.vaga.slot, v.para); // o controle vai para quem recebe (G1)
   }
 
   /**
-   * Tudo que a escolha e a mira do passe precisam (H1). O passe do humano usa a ajuda da dificuldade (`PASSE.ajuda`: cone de busca
-   * e força da mira) e, com o joystick solto, escolhe o companheiro mais à frente e livre. Bots e cobranças automáticas passam o
+   * Tudo que a escolha e a mira do passe precisam (H1, refeito na H3). O passe do humano usa a mesma ajuda em todas as dificuldades
+   * (`PASSE.ajuda`: cone de busca e mira em cheio; sem ninguém no cone, o mais perto da direção) e, com o joystick solto, escolhe o
+   * companheiro mais à frente e livre. Bots e cobranças automáticas passam o
    * próprio cone e não levam a ajuda.
    */
   private entradaDoPasse(j: JogadorPartida, alto: boolean, dirX: number, dirZ: number, opcoes: { cone?: number; erroGraus?: number } = {}): EntradaPasse {
@@ -536,7 +551,6 @@ export class Partida {
       .map((o) => ({ slot: o.vaga.slot, x: o.corpo.x, z: o.corpo.z, vx: o.corpo.vx, vz: o.corpo.vz }));
     const adversarios: Ponto[] = this.adversariosDe(j).map((o) => ({ x: o.corpo.x, z: o.corpo.z }));
     const humano = !controladoPorBot(j) && opcoes.cone === undefined;
-    const ajuda = PASSE.ajuda[this.dificuldadeDe(j.vaga.time)];
     return {
       de: { x: j.corpo.x, z: j.corpo.z },
       dirX,
@@ -548,7 +562,7 @@ export class Partida {
       campo: { metadeComp: this.campo.metadeComp, metadeLarg: this.campo.metadeLarg },
       ...(opcoes.cone !== undefined ? { coneGraus: opcoes.cone } : {}),
       ...(opcoes.erroGraus !== undefined ? { erroGraus: opcoes.erroGraus } : {}),
-      ...(humano ? { coneGraus: ajuda.coneGraus, forcaDaAjuda: ajuda.forca, semDirecao: j.cmd.mag === 0 } : {}),
+      ...(humano ? { coneGraus: PASSE.ajuda.coneGraus, forcaDaAjuda: PASSE.ajuda.forca, semDirecao: j.cmd.mag === 0, maisProximoDaDirecao: true } : {}),
     };
   }
 
@@ -891,7 +905,9 @@ export class Partida {
     if (this.reinicio || b.naRede !== 0) return;
     const t = this.t;
     for (const j of this.jogadores) {
-      if (controladoPorBot(j) || j.vaga.goleiro) continue;
+      // H3: o receptor pretendido de um passe (humano ou bot) recebe com mais raio e força; os outros só se forem humanos
+      const recebePasse = this.passeEmVoo?.para === j.vaga.slot;
+      if ((controladoPorBot(j) && !recebePasse && !(t < j.recepcaoAte)) || j.vaga.goleiro) continue;
       if (this.noChao(j) || j.mergulho || t < j.bloqueioAte || this.dominante === j.vaga.slot) {
         j.recepcaoAte = 0;
         continue;
@@ -903,25 +919,29 @@ export class Partida {
 
       if (t >= j.recepcaoAte) {
         // Começa? Só com a bola solta, perto, baixa, não rápida demais e chegando (ou quase parada)
-        if (t < j.recepcaoProntaEm || this.dominante !== null) continue;
-        if (d > RECEPCAO.raio || b.y > RECEPCAO.alturaMax) continue;
+        const R = recebePasse ? RECEPCAO_PASSE : RECEPCAO;
+        if (t < j.recepcaoProntaEm && !recebePasse) continue;
+        if (this.dominante !== null) continue;
+        if (d > R.raio || b.y > R.alturaMax) continue;
         const rvx = b.vx - c.vx;
         const rvz = b.vz - c.vz;
         const vr = Math.hypot(rvx, b.vy, rvz);
-        if (vr > RECEPCAO.velocidadeMax) continue;
+        if (vr > R.velocidadeMax) continue;
         const aproxima = -(rvx * dx + rvz * dz) / d;
-        if (aproxima < RECEPCAO.aproximacaoMin && vr > RECEPCAO.velocidadeParada) continue;
-        j.recepcaoAte = t + RECEPCAO.duracaoS;
-        j.recepcaoProntaEm = t + RECEPCAO.recargaS;
+        if (aproxima < R.aproximacaoMin && vr > R.velocidadeParada) continue;
+        j.recepcaoForte = recebePasse;
+        j.recepcaoAte = t + R.duracaoS;
+        j.recepcaoProntaEm = t + R.recargaS;
         j.anim = ANIM.recepcao;
         j.animAte = j.recepcaoAte;
-      } else if ((this.dominante !== null && this.dominante !== j.vaga.slot) || d > RECEPCAO.raioDesiste) {
+      } else if ((this.dominante !== null && this.dominante !== j.vaga.slot) || d > (j.recepcaoForte ? RECEPCAO_PASSE : RECEPCAO).raioDesiste) {
         j.recepcaoAte = 0; // alguém pegou a bola, ou ela se afastou demais
         continue;
       }
 
       // Amortece: a velocidade da bola em relação ao jogador cai (como o pé recuando para tirar a força da bola)
-      const k = Math.exp(-DT / RECEPCAO.amortecimentoS);
+      const R = j.recepcaoForte ? RECEPCAO_PASSE : RECEPCAO;
+      const k = Math.exp(-DT / R.amortecimentoS);
       b.vx = c.vx + (b.vx - c.vx) * k;
       b.vz = c.vz + (b.vz - c.vz) * k;
       b.vy *= k;
@@ -931,12 +951,69 @@ export class Partida {
       const ez = tz - b.z;
       const e = Math.hypot(ex, ez);
       if (e > 1e-3) {
-        const a = RECEPCAO.puxao * Math.min(1, e / 0.5);
+        const a = R.puxao * Math.min(1, e / 0.5);
         b.vx += (ex / e) * a * DT;
         b.vz += (ez / e) * a * DT;
       }
       break; // uma recepção por vez
     }
+  }
+
+  /**
+   * A bola do passe segue o receptor (H3): no último terço do trajeto a direção da bola gira em direção a ele, no máximo
+   * `PASSE.seguir.giroMaxRadS` por segundo, com a mesma velocidade (nada de teleporte). Acaba sozinha quando alguém toca na bola
+   * (`registrarToque`, corpo, trave), quando ela passa do receptor, para ou sai do chão.
+   */
+  private seguirPasse(): void {
+    const voo = this.passeEmVoo;
+    if (!voo) return;
+    const b = this.bola;
+    const S = PASSE.seguir;
+    const rec = this.jogador(voo.para);
+    const h = Math.hypot(b.vx, b.vz);
+    if (!rec || this.noChao(rec) || this.dominante !== null || this.reinicio || b.naRede !== 0 || this.t - voo.desde > S.tempoMaxS || rec.recepcaoAte > this.t) {
+      this.passeEmVoo = null;
+      return;
+    }
+    if (voo.alto) return; // o lançamento é balístico: só a recepção forte vale
+    if (h < S.velocidadeMin || b.y > S.alturaMax) {
+      this.passeEmVoo = null;
+      return;
+    }
+    const prog = Math.hypot(b.x - voo.x0, b.z - voo.z0) / voo.total;
+    const q = Math.min(1, Math.max(0, (prog - S.inicioFracao) / S.rampaFracao));
+    if (q <= 0) return;
+    const rampa = q * q * (3 - 2 * q);
+    const dx = rec.corpo.x - b.x;
+    const dz = rec.corpo.z - b.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.05) return;
+    if ((dx * b.vx + dz * b.vz) / (d * h) < 0) {
+      this.passeEmVoo = null; // a bola já passou do receptor: não volta atrás
+      return;
+    }
+    const lead = Math.min(d / h, S.antecipacaoMaxS);
+    const alvoAng = Math.atan2(dz + rec.corpo.vz * lead, dx + rec.corpo.vx * lead);
+    const atual = Math.atan2(b.vz, b.vx);
+    let dif = alvoAng - atual;
+    while (dif > Math.PI) dif -= Math.PI * 2;
+    while (dif < -Math.PI) dif += Math.PI * 2;
+    const passo = Math.max(-S.giroMaxRadS * rampa * DT, Math.min(S.giroMaxRadS * rampa * DT, dif));
+    b.vx = Math.cos(atual + passo) * h;
+    b.vz = Math.sin(atual + passo) * h;
+  }
+
+  /** O amortecimento do passe (H3): enquanto o passe rasteiro viaja, a bola perde só uma fração da perda normal de velocidade. */
+  private amortecerPasse(): void {
+    const voo = this.passeEmVoo;
+    const b = this.bola;
+    if (!voo || voo.alto || b.y > PASSE.seguir.alturaMax) return;
+    const h = Math.hypot(b.vx, b.vz);
+    if (h < BOLA.velocidadeParada) return;
+    const devolve = (1 - PASSE.desaceleracaoFator) * (BOLA.atritoChao + BOLA.arrasto * h * h) * DT;
+    const k = (h + devolve) / h;
+    b.vx *= k;
+    b.vz *= k;
   }
 
   private atualizarDominio(): void {
@@ -1044,6 +1121,7 @@ export class Partida {
         b.vz -= k * nz;
         // Levou a bola no corpo: não consegue dominar o rebote na hora (senão não parece um bloqueio).
         j.bloqueioAte = Math.max(j.bloqueioAte, this.t + DOMINIO.bloqueioAposChuteS);
+        this.passeEmVoo = null; // o passe foi bloqueado (H3): a bola não "segue" mais ninguém
       }
     }
   }
@@ -1063,6 +1141,7 @@ export class Partida {
     };
     if (this.ultimoToque && this.ultimoToque.slot !== novo.slot) this.penultimoToque = this.ultimoToque;
     this.ultimoToque = novo;
+    this.passeEmVoo = null; // qualquer toque na bola (chute, bote, defesa, domínio) acaba com o passe no ar (H3)
   }
 
   private registrarGol(lado: 1 | -1): void {

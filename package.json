@@ -22,6 +22,7 @@
     "boneco-teste": "node ferramentas/gerar-boneco-teste.mjs",
     "simular": "npm run simular -w @b3d/server --",
     "medir": "npm run medir -w @b3d/server --",
+    "tabela-passe": "npm run tabela-passe -w @b3d/server --",
     "chutes": "npm run chutes -w @b3d/server --"
   },
   "devDependencies": {

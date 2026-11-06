@@ -4,8 +4,8 @@ import { criarCampo } from "../fisica/campo";
 import { novaBola, passoBola } from "../fisica/bola";
 import { calcularPasseAssistido, escolherAlvoDoPasse, tempoDeVoo, type Alvo, type EntradaPasse } from "./acoes";
 
-// H1: passe com ajuda de mira. Escolhe o companheiro mais alinhado (ou, sem joystick, o mais à frente e livre) e mira onde ele
-// VAI ESTAR quando a bola chegar; a força da ajuda depende da dificuldade.
+// H1/H3: passe com ajuda de mira. Escolhe o companheiro mais alinhado (ou, sem joystick, o mais à frente e livre) e mira onde ele
+// VAI ESTAR quando a bola chegar; a ajuda é a mesma em todas as dificuldades.
 
 const DT = 1 / 60;
 const campo = criarCampo(5, "campo");
@@ -112,34 +112,41 @@ describe("passe: mira para onde o companheiro vai estar", () => {
   });
 });
 
-describe("passe: a força da ajuda depende da dificuldade", () => {
-  it("Fácil ajuda mais que Médio, que ajuda mais que Difícil (a mira de quem erra o joystick fica mais perto em Fácil)", () => {
-    expect(PASSE.ajuda.facil.forca).toBeGreaterThan(PASSE.ajuda.medio.forca);
-    expect(PASSE.ajuda.medio.forca).toBeGreaterThan(PASSE.ajuda.dificil.forca);
-    expect(PASSE.ajuda.facil.coneGraus).toBeGreaterThan(PASSE.ajuda.medio.coneGraus);
-    expect(PASSE.ajuda.medio.coneGraus).toBeGreaterThan(PASSE.ajuda.dificil.coneGraus);
-
-    // O joystick aponta 20° para fora do companheiro (que está parado a 14 m)
-    const alvo: Alvo = { slot: 2, x: 14, z: 0, vx: 0, vz: 0 };
-    const erro = (dif: "facil" | "medio" | "dificil"): number => {
-      const a = (20 * Math.PI) / 180;
-      const e = base(alvo, { dirX: Math.cos(a), dirZ: Math.sin(a), coneGraus: 120, forcaDaAjuda: PASSE.ajuda[dif].forca });
-      return simular(e, alvo).menorDistancia;
-    };
-    const [f, m, d] = [erro("facil"), erro("medio"), erro("dificil")];
-    expect(f).toBeLessThan(0.5); // Fácil: vai em cheio no companheiro
-    expect(f).toBeLessThan(m);
-    expect(m).toBeLessThan(d);
-    expect(d).toBeGreaterThan(1.5); // Difícil: ainda erra bastante se o joystick estiver torto (a habilidade conta)
+describe("passe: a mesma ajuda em todas as dificuldades (H3)", () => {
+  it("existe um conjunto único de ajuda (sem 'facil', 'medio' e 'dificil') e ele mira em cheio", () => {
+    expect(PASSE.ajuda.forca).toBe(1);
+    expect(PASSE.ajuda.coneGraus).toBeGreaterThanOrEqual(60);
+    expect("facil" in PASSE.ajuda).toBe(false);
   });
 
-  it("o cone de busca abre mais no Fácil: um companheiro a 30° do joystick só é escolhido no Fácil e no Médio", () => {
-    const a = (30 * Math.PI) / 180;
-    const alvo: Alvo = { slot: 2, x: Math.cos(a) * 12, z: Math.sin(a) * 12, vx: 0, vz: 0 };
-    const acha = (dif: "facil" | "medio" | "dificil"): boolean => escolherAlvoDoPasse(base(alvo, { coneGraus: PASSE.ajuda[dif].coneGraus })) !== null;
-    expect(acha("facil")).toBe(true);
-    expect(acha("medio")).toBe(true);
-    expect(acha("dificil")).toBe(false);
+  it("o joystick 20° torto para fora do companheiro parado a 14 m: a bola vai em cheio nele (menos de 0,5 m)", () => {
+    const alvo: Alvo = { slot: 2, x: 14, z: 0, vx: 0, vz: 0 };
+    const a = (20 * Math.PI) / 180;
+    const e = base(alvo, { dirX: Math.cos(a), dirZ: Math.sin(a), coneGraus: PASSE.ajuda.coneGraus, forcaDaAjuda: PASSE.ajuda.forca });
+    expect(simular(e, alvo).menorDistancia).toBeLessThan(0.5);
+  });
+
+  it("o cone de busca é um só: um companheiro a 30° do joystick é escolhido, um a 70° (fora do cone) só pelo 'mais perto da direção'", () => {
+    const pos = (graus: number): Alvo => ({ slot: 2, x: Math.cos((graus * Math.PI) / 180) * 12, z: Math.sin((graus * Math.PI) / 180) * 12, vx: 0, vz: 0 });
+    expect(escolherAlvoDoPasse(base(pos(30), { coneGraus: PASSE.ajuda.coneGraus }))?.slot).toBe(2);
+    expect(escolherAlvoDoPasse(base(pos(70), { coneGraus: PASSE.ajuda.coneGraus }))).toBeNull();
+    expect(escolherAlvoDoPasse(base(pos(70), { coneGraus: PASSE.ajuda.coneGraus, maisProximoDaDirecao: true }))?.slot).toBe(2);
+  });
+
+  it("sem ninguém no cone, vai para o mais perto da direção do joystick (e não para o mais bem posicionado)", () => {
+    // Joystick para +Z; um companheiro a 100° (perto da direção) e outro a 170° (de costas); o de 100° ganha
+    const pos = (slot: number, graus: number): Alvo => ({ slot, x: Math.cos((graus * Math.PI) / 180) * 12, z: Math.sin((graus * Math.PI) / 180) * 12, vx: 0, vz: 0 });
+    const e = base(pos(2, 170), { dirX: 0, dirZ: 1, coneGraus: PASSE.ajuda.coneGraus, maisProximoDaDirecao: true, companheiros: [pos(2, 170), pos(3, 100)] });
+    expect(escolherAlvoDoPasse(e)?.slot).toBe(3);
+  });
+
+  it("o passe é bem mais rápido que o da H1 (6 + 0,9·d, de 8 a 16 m/s): em 15 m sai a mais de 22 m/s ou no teto, e chega mais depressa", () => {
+    const velAntes = (d: number): number => Math.min(16, Math.max(8, 6 + 0.9 * d));
+    for (const d of [8, 12, 18, 25]) {
+      const agora = Math.min(PASSE.velocidadeMax, Math.max(PASSE.velocidadeMin, PASSE.velocidadeBase + PASSE.velocidadePorMetro * d));
+      expect(agora, `d=${d}`).toBeGreaterThan(velAntes(d) * 1.25);
+      expect(tempoDeVoo(d, agora, PASSE.desaceleracaoFator), `d=${d}`).toBeLessThan(tempoDeVoo(d, velAntes(d)) * 0.8);
+    }
   });
 });
 
@@ -238,8 +245,8 @@ function passar(p: Partida, comJoystick = true): { para: number | undefined; dom
 }
 
 describe("passe na partida: mira à frente de um companheiro em movimento", () => {
-  it("Fácil e Médio: o passe mirado onde a Bia está chega a ela correndo de lado, e ela domina a bola (recepção)", () => {
-    for (const dif of ["facil", "medio"] as const) {
+  it("em todas as dificuldades: o passe mirado onde a Bia está chega a ela correndo de lado, e ela domina a bola (recepção)", () => {
+    for (const dif of ["facil", "medio", "dificil"] as const) {
       const r = passar(partidaDePasse(dif));
       expect(r.para, dif).toBe(2);
       expect(r.dominou, dif).toBe(true);
@@ -257,9 +264,9 @@ describe("passe na partida: mira à frente de um companheiro em movimento", () =
     const ana = p.jogador(1)!;
     ana.cmd = joy(14, -6, 0, 0);
     expect(p.alvoDaMira(ana, false)).toBe(2);
-    // Joystick para trás (a Bia está à frente): fora do cone de 75°, ninguém
+    // Joystick para trás (a Bia está à frente): fora do cone, mas o passe do humano vai para o mais perto da direção (H3)
     ana.cmd = joy(-14, 0, 0, 0);
-    expect(p.alvoDaMira(ana, false)).toBeNull();
+    expect(p.alvoDaMira(ana, false)).toBe(2);
     // Joystick solto: o mais à frente
     ana.cmd = comandoParado();
     expect(p.alvoDaMira(ana, false)).toBe(2);

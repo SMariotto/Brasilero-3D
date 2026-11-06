@@ -88,6 +88,8 @@ export interface ResultadoPasse extends VelocidadeBola {
   /** Companheiro escolhido (ou `undefined` se foi sem alvo). */
   para?: number;
   alto: boolean;
+  /** Distância (m) do ponto de onde a bola saiu até o ponto de encontro mirado (H3): serve para saber o "último terço" do trajeto. */
+  distancia?: number;
 }
 
 const dist = (ax: number, az: number, bx: number, bz: number): number => Math.hypot(ax - bx, az - bz);
@@ -142,19 +144,21 @@ export interface EntradaPasse {
   forcaDaAjuda?: number;
   /** Metades do campo, para a mira não sair das linhas (H1). */
   campo?: { metadeComp: number; metadeLarg: number };
+  /** Sem ninguém no cone, vai para o companheiro mais perto da direção do joystick em vez de sair reto (H3, passe do humano). */
+  maisProximoDaDirecao?: boolean;
 }
 
 /**
  * Em quanto tempo uma bola rasteira lançada a `v0` percorre `d` (H1), integrando a mesma desaceleração da física da bola (atrito da
  * grama mais arrasto do ar, que cresce com o quadrado da velocidade). Se a bola para antes de chegar, devolve o tempo até parar.
  */
-export function tempoDeVoo(d: number, v0: number): number {
+export function tempoDeVoo(d: number, v0: number, fator = 1): number {
   const dt = 1 / 60;
   let v = v0;
   let x = 0;
   let t = 0;
   while (v > BOLA.velocidadeParada && t < 10) {
-    const v1 = Math.max(0, v - (BOLA.atritoChao + BOLA.arrasto * v * v) * dt);
+    const v1 = Math.max(0, v - (BOLA.atritoChao + BOLA.arrasto * v * v) * fator * dt);
     const passo = ((v + v1) / 2) * dt;
     if (x + passo >= d) return t + (passo > 0 ? ((d - x) / passo) * dt : 0); // acerta o último passo
     x += passo;
@@ -205,6 +209,18 @@ export function escolherAlvoDoPasse(e: EntradaPasse): Alvo | null {
       melhorValor = valor;
     }
   }
+  if (melhor || !e.maisProximoDaDirecao) return melhor;
+  // H3: ninguém no cone, mas o passe do humano nunca sai sem destino: o companheiro mais perto da direção do joystick
+  let menorAngulo = Infinity;
+  for (const c of e.companheiros) {
+    const d = dist(e.de.x, e.de.z, c.x, c.z);
+    if (d < 1) continue;
+    const angulo = Math.acos(limitar(((c.x - e.de.x) * e.dirX + (c.z - e.de.z) * e.dirZ) / d, -1, 1));
+    if (angulo < menorAngulo) {
+      melhor = c;
+      menorAngulo = angulo;
+    }
+  }
   return melhor;
 }
 
@@ -220,6 +236,7 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
   let dirZ = e.dirZ;
   let rapidez: number = PASSE.velocidadeSemAlvo;
   let vy = 0;
+  let distancia: number | undefined;
 
   if (alvo) {
     // Onde o companheiro estará quando a bola chegar: refina o ponto de encontro (ele anda enquanto a bola viaja)
@@ -234,7 +251,7 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
         rapidez = Math.min(24, (d / tempo) * 1.06);
       } else {
         rapidez = limitar(PASSE.velocidadeBase + PASSE.velocidadePorMetro * d, PASSE.velocidadeMin, PASSE.velocidadeMax);
-        tempo = tempoDeVoo(d, rapidez); // a bola vai perdendo velocidade: demora mais que d / rapidez
+        tempo = tempoDeVoo(d, rapidez, PASSE.desaceleracaoFator); // a bola vai perdendo velocidade: demora mais que d / rapidez
       }
       px = alvo.x + alvo.vx * tempo;
       pz = alvo.z + alvo.vz * tempo;
@@ -244,6 +261,7 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
       }
     }
     const d = dist(e.de.x, e.de.z, px, pz);
+    distancia = d;
     if (d > 0.01) {
       // A ajuda mistura a direção do joystick com a da mira: força 1 vai em cheio no ponto de encontro
       const forca = limitar(e.forcaDaAjuda ?? 1, 0, 1);
@@ -273,5 +291,6 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
     vz: dirZ * rapidez,
     ...(alvo ? { para: alvo.slot } : {}),
     alto: e.alto,
+    ...(distancia !== undefined ? { distancia } : {}),
   };
 }

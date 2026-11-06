@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BOLA, CAMPOS, CHUTE, DOMINIO, GOLEIRO, JOGADOR, PASSE, PARTIDA, SERVIDOR, TEMPO } from "./constantes";
+import { BOLA, CAMPOS, CHUTE, DOMINIO, GOLEIRO, JOGADOR, PASSE, PARTIDA, RECEPCAO, RECEPCAO_PASSE, SERVIDOR, TEMPO } from "./constantes";
 
 // Travas simples: pegam erro de digitação ao mexer nos números.
 describe("constantes", () => {
@@ -18,9 +18,14 @@ describe("constantes", () => {
     expect(TEMPO.tickHz / TEMPO.snapHz).toBe(2);
   });
 
-  it("o domínio aceita a velocidade com que um passe chega (correção da R0)", () => {
-    expect(DOMINIO.velocidadeRelativaMax).toBeGreaterThan(PASSE.velocidadeMax * 0.8);
-    expect(PASSE.velocidadeMax).toBeLessThanOrEqual(DOMINIO.velocidadeRelativaMax + 2);
+  it("H3: o passe é mais rápido que o domínio comum aceita, mas a recepção do passe segura qualquer passe (e é mais forte que a comum)", () => {
+    expect(RECEPCAO_PASSE.velocidadeMax).toBeGreaterThanOrEqual(PASSE.velocidadeMax);
+    expect(DOMINIO.velocidadeRelativaMax).toBeLessThan(PASSE.velocidadeMax);
+    expect(RECEPCAO_PASSE.raio).toBeGreaterThan(RECEPCAO.raio);
+    expect(RECEPCAO_PASSE.puxao).toBeGreaterThan(RECEPCAO.puxao);
+    expect(RECEPCAO_PASSE.amortecimentoS).toBeLessThan(RECEPCAO.amortecimentoS);
+    expect(PASSE.desaceleracaoFator).toBeLessThan(1);
+    expect(PASSE.seguir.inicioFracao).toBeGreaterThanOrEqual(0.6); // só no último terço
   });
 
   it("o chute mais fraco é mais lento que o limite de encaixe do goleiro", () => {

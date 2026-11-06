@@ -199,7 +199,8 @@ export class Bots {
       return;
     }
 
-    if (p.t >= c.proximaDecisao) {
+    // H3: quem vai receber um passe vê a bola vindo e reage na hora, sem esperar o tempo de reação da dificuldade
+    if (p.t >= c.proximaDecisao || p.passeEmVoo?.para === j.vaga.slot) {
       this.decidir(j);
       c.proximaDecisao = p.t + BOT.reacaoS[dif] * (0.8 + 0.4 * p.rng.proximo());
     }
@@ -230,6 +231,16 @@ export class Bots {
     }
 
     if (r) return; // outro reinício: quem não cobra espera na formação
+
+    // H3: o receptor de um passe (bot) vai ao encontro da bola, onde ela vai estar quando ele chegar
+    const voo = p.passeEmVoo;
+    if (voo && voo.para === j.vaga.slot) {
+      const distBola = Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z);
+      const tChegada = Math.min(0.6, distBola / BOT.velocidadeParaInterceptar);
+      c.alvoX = b.x + b.vx * tChegada;
+      c.alvoZ = b.z + b.vz * tChegada;
+      return;
+    }
 
     const dono = p.dominante !== null ? p.jogador(p.dominante) : undefined;
     const timeComBola = dono?.vaga.time === j.vaga.time;

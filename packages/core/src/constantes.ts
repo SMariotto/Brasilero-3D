@@ -279,6 +279,23 @@ export const RECEPCAO = {
   raioDesiste: 2.2,
 } as const;
 
+/**
+ * Recepção do passe (H3): quem foi escolhido para receber um passe (humano ou bot) amortece e controla a bola com mais raio e mais
+ * força que a recepção comum acima. Mesma ideia (só força na bola, nada de teleporte), números maiores.
+ */
+export const RECEPCAO_PASSE = {
+  raio: 2.4,
+  alturaMax: 1.1,
+  velocidadeMax: 32,
+  aproximacaoMin: 0.3,
+  velocidadeParada: 3,
+  duracaoS: 0.3,
+  recargaS: 0.4,
+  amortecimentoS: 0.045,
+  puxao: 60,
+  raioDesiste: 3.2,
+} as const;
+
 // ---------------------------------------------------------------------------
 // Passe (SPEC 6.4)
 // ---------------------------------------------------------------------------
@@ -290,11 +307,19 @@ export const PASSE = {
   pesoLinhaLivre: 0.15,
   distanciaIdealMin: 8,
   distanciaIdealMax: 18,
-  /** Velocidade rasteira: limitar(base + porMetro · distância, min, max). A R0 baixou o máximo de 20 para 16. */
-  velocidadeBase: 6,
-  velocidadePorMetro: 0.9,
-  velocidadeMin: 8,
-  velocidadeMax: 16,
+  /**
+   * Velocidade rasteira: limitar(base + porMetro · distância, min, max). H3: bem mais rápida que a da R0/H1 (era 6 + 0,9·d, entre 8
+   * e 16 m/s), porque todo o campo corre mais e o passe lento era interceptado. Vale para todas as dificuldades.
+   */
+  velocidadeBase: 10,
+  velocidadePorMetro: 1,
+  velocidadeMin: 12,
+  velocidadeMax: 22,
+  /**
+   * Amortecimento do passe (H3): enquanto a bola de um passe rasteiro viaja, ela perde velocidade só esta fração da perda normal
+   * (atrito + arrasto). 1 = como uma bola qualquer; menor = o passe "corre" mais e chega firme.
+   */
+  desaceleracaoFator: 0.55,
   /** Segurar PASSE mais que isso vira lançamento por cima. */
   lancamentoSegurarS: 0.25,
   lancamentoVzMin: 5,
@@ -302,14 +327,28 @@ export const PASSE = {
   /** Provisório (F2): velocidade do passe sem mira em alvo. Na F3 vira a fórmula por distância. */
   velocidadeSemAlvo: 12,
   /**
-   * Ajuda de mira do passe do humano (H1, provisório), por dificuldade: `coneGraus` é a abertura em que o jogo procura o
-   * companheiro (em volta da direção do joystick) e `forca` é o quanto a bola vai para onde o companheiro VAI ESTAR (1 = em cheio,
-   * 0 = onde o joystick aponta). Fácil ajuda muito; Difícil só um pouco, para a habilidade do jogador ainda contar.
+   * Ajuda de mira do passe do humano (H3), IGUAL em todas as dificuldades: `coneGraus` é a abertura em que o jogo procura o companheiro
+   * (em volta da direção do joystick); sem ninguém no cone, vai para o mais perto da direção. `forca` 1 = a bola vai em cheio para
+   * onde o companheiro vai estar (100% mirada).
    */
-  ajuda: {
-    facil: { coneGraus: 100, forca: 1 },
-    medio: { coneGraus: 75, forca: 0.85 },
-    dificil: { coneGraus: 55, forca: 0.6 },
+  ajuda: { coneGraus: 80, forca: 1 },
+  /**
+   * A bola do passe rasteiro "segue" o receptor (H3): no último terço do trajeto a direção da bola gira devagar na direção dele.
+   * Nada de teleporte: só a direção muda, no máximo `giroMaxRadS` por segundo, com a mesma velocidade. Para se alguém toca na bola.
+   */
+  seguir: {
+    /** Começa depois desta fração do trajeto (2/3 = o último terço)... */
+    inicioFracao: 0.66,
+    /** ...e a força da correção sobe suave ao longo desta fração do trajeto (sem solavanco). */
+    rampaFracao: 0.12,
+    /** Curvatura máxima: quanto a direção da bola pode girar por segundo (rad/s). */
+    giroMaxRadS: 2.4,
+    /** Mira onde o receptor estará daqui a no máximo isto (s). */
+    antecipacaoMaxS: 0.3,
+    /** Desiste se a bola foi mais devagar que isto (m/s), ou depois de tanto tempo (s), ou se subiu mais que esta altura (m). */
+    velocidadeMin: 3,
+    tempoMaxS: 4,
+    alturaMax: 0.6,
   },
   /** Quantas vezes se refina o ponto de encontro (o companheiro anda enquanto a bola viaja). */
   iteracoesDeMira: 3,

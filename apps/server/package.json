@@ -9,6 +9,7 @@
     "carga": "tsx src/ferramentas/carga.ts",
     "simular": "tsx src/ferramentas/simular-bots.ts",
     "medir": "tsx src/ferramentas/medir-movimento.ts",
+    "tabela-passe": "tsx src/ferramentas/tabela-passe.ts",
     "chutes": "tsx src/ferramentas/simular-chutes.ts"
   },
   "dependencies": {

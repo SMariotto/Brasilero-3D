@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PASSE } from "../constantes";
 import { criarCampo } from "../fisica/campo";
 import { criarRng } from "../util/rng";
 import { grausParaRad, radParaGraus } from "../util/vetor";
@@ -126,13 +127,13 @@ describe("passe com mira assistida", () => {
     expect(alvo?.slot).toBe(3);
   });
 
-  it("rasteiro: velocidade 6 + 0,9·d, entre 8 e 16 m/s", () => {
+  it("rasteiro (H3): velocidade base + porMetro·d, entre o mínimo e o máximo do PASSE", () => {
     const perto = calcularPasseAssistido({ de, dirX: 1, dirZ: 0, companheiros: [parado(2, 5, 0)], adversarios: [], alto: false, ataque: 1 });
-    expect(Math.hypot(perto.vx, perto.vz)).toBeCloseTo(10.5, 1);
+    expect(Math.hypot(perto.vx, perto.vz)).toBeCloseTo(PASSE.velocidadeBase + PASSE.velocidadePorMetro * 5, 1);
     const longe = calcularPasseAssistido({ de, dirX: 1, dirZ: 0, companheiros: [parado(2, 25, 0)], adversarios: [], alto: false, ataque: 1 });
-    expect(Math.hypot(longe.vx, longe.vz)).toBeCloseTo(16, 5);
+    expect(Math.hypot(longe.vx, longe.vz)).toBeCloseTo(PASSE.velocidadeMax, 5);
     const colado = calcularPasseAssistido({ de, dirX: 1, dirZ: 0, companheiros: [parado(2, 1.5, 0)], adversarios: [], alto: false, ataque: 1 });
-    expect(Math.hypot(colado.vx, colado.vz)).toBeCloseTo(8, 5);
+    expect(Math.hypot(colado.vx, colado.vz)).toBeCloseTo(PASSE.velocidadeMin, 5);
     expect(perto.vy).toBe(0);
     expect(perto.para).toBe(2);
   });
