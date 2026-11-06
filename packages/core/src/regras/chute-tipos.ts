@@ -195,13 +195,14 @@ export function escolherTipoDeChute(a: AnaliseDoChute): TipoDeChute {
   }
 
   // Ângulo fechado: perto do gol a chapada curva a bola para dentro; longe a curva não compensa (o reto rende mais), então é trivela
-  if (a.abertura < t.anguloFechadoGraus) return a.distancia <= t.chapadaDistanciaMaxM ? "chapada" : "trivela";
+  if (a.abertura < t.anguloFechadoGraus) return a.distancia <= t.chapadaDistanciaMaxM ? "chapada" : "normal";
   // Ângulo aberto: canudo se estiver perto e sem marcação em cima; marcado e de média distância, a trivela contorna o marcador
   if (a.abertura >= t.anguloAbertoGraus && a.distancia <= t.canudoDistanciaMaxM) {
     if (a.pressionado && a.distancia > t.pressaoTrivelaDistanciaM) return "trivela";
     return "canudo";
   }
-  return "trivela";
+  // Ângulo médio: a mistura de força e efeito (de longe, com o gol aberto, o chute reto de sempre rende o mesmo ou mais)
+  return a.distancia <= t.chapadaDistanciaMaxM + 4 ? "trivela" : "normal";
 }
 
 export interface EntradaChuteComTipo extends EntradaChute {

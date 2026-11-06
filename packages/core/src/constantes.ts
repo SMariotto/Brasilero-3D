@@ -201,12 +201,12 @@ export const TIPO_CHUTE = {
   /** Com pressão e o ângulo aberto, a partir desta distância (m) o jogador chuta de trivela para contornar o marcador (perto, é canudo). */
   pressaoTrivelaDistanciaM: 10,
   /** Força mínima do chute (0 a 1) em cada tipo: o tipo "automático" não é um toquinho. */
-  canudoForcaMin: 0.85,
+  canudoForcaMin: 1,
   chapadaForcaMin: 0.6,
-  trivelaForcaMin: 0.75,
+  trivelaForcaMin: 0.85,
   /** Quanto a bola curva (graus de rumo entre a saída e a chegada) na chapada e na trivela. */
   chapadaCurvaGraus: 16,
-  trivelaCurvaGraus: 9,
+  trivelaCurvaGraus: 14,
   /** Velocidade vertical extra (m/s) do chute com efeito (0: o chute reto já sobe o bastante e mais que isso passa do travessão). */
   chapadaVyExtra: 0,
   trivelaVyExtra: 0,
