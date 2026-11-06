@@ -28,17 +28,21 @@ const zero = (): [number, number] => [0, 0];
 
 console.log(`Bots contra bots: ${partidas} partidas de ${segundos} s por cenário, modo ${modo}, ${n} de linha, semente base ${sementeBase}.`);
 console.log("Valores por partida. C = Casa, V = Visitante. Acerto = desarmes por bote ou carrinho tentado.\n");
-const cab = ["cenário (C:V)", "gols C", "gols V", "posse C%", "passes C", "passes V", "chutes C", "chutes V", "botes C", "botes V", "desarm C", "desarm V", "acerto C", "acerto V", "viradas", "faltas"];
+const cab = ["cenário (C:V)", "gols C", "gols V", "posse C%", "passes C", "passes V", "chutes C", "chutes V", "botes C", "botes V", "desarm C", "desarm V", "acerto C", "acerto V", "viradas", "faltas", "posse GK C(s)", "posse GK V(s)", "g.contra"];
 const larguras = cab.map((c) => Math.max(c.length, 9));
 console.log(cab.map((c, i) => pad(c, larguras[i]!)).join(" "));
 
 for (const par of cenariosTexto.split(",")) {
   const [c, v] = par.split(":") as [Dificuldade, Dificuldade];
   if (!DIFICULDADES.includes(c) || !DIFICULDADES.includes(v)) throw new Error(`Cenário inválido: ${par}`);
-  const soma: ResultadoBots = { gols: zero(), posseTicks: zero(), passes: zero(), chutes: zero(), botes: zero(), carrinhos: zero(), desarmesBote: zero(), desarmesCarrinho: zero(), viradas: 0, faltas: 0 };
+  const soma: ResultadoBots = { gols: zero(), posseTicks: zero(), passes: zero(), chutes: zero(), botes: zero(), carrinhos: zero(), desarmesBote: zero(), desarmesCarrinho: zero(), viradas: 0, faltas: 0, posseGoleiroTicks: zero(), golsContra: zero() };
   for (let i = 0; i < partidas; i++) {
     const r = simularBots(c, v, sementeBase + i * 7919, opcoes);
     for (const k of ["gols", "posseTicks", "passes", "chutes", "botes", "carrinhos", "desarmesBote", "desarmesCarrinho"] as const) {
+      soma[k][0] += r[k][0];
+      soma[k][1] += r[k][1];
+    }
+    for (const k of ["posseGoleiroTicks", "golsContra"] as const) {
       soma[k][0] += r[k][0];
       soma[k][1] += r[k][1];
     }
@@ -67,6 +71,9 @@ for (const par of cenariosTexto.split(",")) {
     acerto(1),
     fmt(m(soma.viradas)),
     fmt(m(soma.faltas)),
+    fmt(m(soma.posseGoleiroTicks[0]) / 60),
+    fmt(m(soma.posseGoleiroTicks[1]) / 60),
+    fmt(m(soma.golsContra[0] + soma.golsContra[1])),
   ];
   console.log(linha.map((x, i) => pad(x, larguras[i]!)).join(" "));
 }

@@ -95,7 +95,7 @@ export interface ResultadoPasse extends VelocidadeBola {
 const dist = (ax: number, az: number, bx: number, bz: number): number => Math.hypot(ax - bx, az - bz);
 
 /** Menor distância do ponto (px, pz) ao segmento (ax, az)-(bx, bz). */
-function distanciaAoSegmento(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
+export function distanciaAoSegmento(px: number, pz: number, ax: number, az: number, bx: number, bz: number): number {
   const dx = bx - ax;
   const dz = bz - az;
   const c2 = dx * dx + dz * dz;

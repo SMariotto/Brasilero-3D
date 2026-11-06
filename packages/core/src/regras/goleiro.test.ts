@@ -133,7 +133,7 @@ describe("goleiro: defesa", () => {
     for (let semente = 1; semente <= 30; semente++) {
       const p = criar({ dificuldade: "dificil" }, semente);
       emJogo(p);
-      prepararChute(p, 18, 0);
+      prepararChute(p, 10, 0); // 20 m: longe demais para a cavadinha (H4: o goleiro que sai da linha a tornou possível a até 16 m)
       chutarPara(p, CASA, p.campo.metadeComp, 0, 1);
       rodar(p, 0.8);
       if (p.placar[0] === 1) gols++;
@@ -163,7 +163,7 @@ describe("goleiro: defesa", () => {
       for (let semente = 1; semente <= 60; semente++) {
         const p = criar({ dificuldade }, semente);
         emJogo(p);
-        prepararChute(p, 18, 0);
+        prepararChute(p, 10, 0);
         chutarPara(p, CASA, p.campo.metadeComp, 0, 1);
         rodar(p, 0.8);
         if (p.placar[0] === 1) gols++;
@@ -224,12 +224,15 @@ describe("goleiro: defesa", () => {
     j.corpo.x = g.x - 1.1;
     j.corpo.z = g.z;
     p.definirComando(CASA, cmd({ seguros: BOTAO.passe }));
-    rodar(p, 0.3);
+    rodar(p, 0.1);
     expect(p.dominante).toBe(GOLEIRO_VIS);
+    // H4: com o adversário em cima ele solta a bola logo (lança), mas ninguém a rouba da mão dele
+    rodar(p, 0.6);
     expect(p.eventosPendentes().some((e) => e.tipo === "roubo")).toBe(false);
+    expect(p.dominante).not.toBe(CASA);
   });
 
-  it("com a bola na mão espera 1,5 s e repõe (sem companheiro livre: chutão para frente)", () => {
+  it("H4: com a bola na mão segura até ${GOLEIRO.maosS} s e lança (sem companheiro livre: longe e para o lado, nunca para o meio)", () => {
     const p = criar();
     emJogo(p);
     prepararChute(p, 18, 0);
@@ -241,13 +244,25 @@ describe("goleiro: defesa", () => {
     }
     expect(pegou).toBeGreaterThan(0);
     p.eventosPendentes();
-    while (p.t - pegou < 1.4) p.passo();
+    while (p.t - pegou < GOLEIRO.maosS - 0.15) p.passo();
     expect(p.dominante).toBe(GOLEIRO_VIS);
-    while (p.t - pegou < 1.8) p.passo();
+    while (p.t - pegou < GOLEIRO.maosS + 0.3) p.passo();
     expect(p.dominante).toBeNull();
-    const ev = p.eventosPendentes().find((e) => e.tipo === "chute" || e.tipo === "passe");
-    expect(ev).toBeDefined();
+    const ev = p.eventosPendentes().find((e) => e.tipo === "passe");
+    expect(ev).toMatchObject({ dados: { de: GOLEIRO_VIS, alto: true } });
+    expect((ev as { dados: { para?: number } }).dados.para).toBeUndefined();
     expect(p.bola.vx).toBeLessThan(0); // o goleiro do Visitante repõe para o gol da Casa (X negativo)
+    expect(p.bola.vy).toBeGreaterThan(4); // por cima
+    // Para o lado: onde a bola vai cair, longe do meio do gol
+    let zFinal = 0;
+    for (let i = 0; i < 150; i++) {
+      p.passo();
+      if (p.bola.y < 0.2 && i > 20) {
+        zFinal = p.bola.z;
+        break;
+      }
+    }
+    expect(Math.abs(zFinal)).toBeGreaterThan(p.campo.areaLarg / 2);
   });
 
   it("com um companheiro livre, repõe com passe para ele", () => {
@@ -266,13 +281,13 @@ describe("goleiro: defesa", () => {
 });
 
 describe("goleiro: tiro de meta", () => {
-  it("o goleiro do time que defende cobra o tiro de meta depois de 1,5 s", () => {
+  it("H4: o goleiro do time que defende cobra o tiro de meta de pé, em até 0,8 s depois de chegar à bola", () => {
     const p = criar();
     emJogo(p);
     p.posicionarParaTeste(CASA, 24, 12, 24.55, 12, 0);
     rodar(p, 0.2);
     chutarPara(p, CASA, 40, 12, 0.8); // para fora, longe do gol
-    rodar(p, 1.5);
+    rodar(p, 1.0);
     expect(p.reinicio).toMatchObject({ tipo: "tiroDeMeta", time: 1, cobrador: GOLEIRO_VIS });
     expect(p.estadoDe(GOLEIRO_VIS)!.situacao).toBe("lateral");
     p.eventosPendentes();

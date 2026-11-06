@@ -3,7 +3,7 @@
 //   npm run chutes -- --sementes 6 --dificuldade dificil --marcador --mira centro
 // Cada tipo é FORÇADO em todas as posições (para ver o que ele rende); a linha "auto" é o que o jogo faz de verdade (escolhe o tipo
 // pelo lance). Zonas: "perto aberto" (até 20 m e abertura do gol de 26° ou mais), "ângulo médio" (18° a 26°), "fechado perto" (abaixo de 18°, até 20 m) e "longe" (mais de 20 m).
-import { posicoesDeChute, simularChute, type ChuteSimulado, type Dificuldade, type TipoDeChute } from "@b3d/core";
+import { CAMPOS, posicoesDeChute, simularChute, type ChuteSimulado, type Dificuldade, type TipoDeChute } from "@b3d/core";
 
 function arg(nome: string): string | undefined {
   const i = process.argv.indexOf(`--${nome}`);
@@ -51,4 +51,40 @@ for (const [nome, f] of ZONAS) {
     return `${t} ${l.filter((c) => c.gol).length}/${l.length}`;
   });
   console.log(`  ${nome.padEnd(13)} ${partes.join(", ")}`);
+}
+
+// H4: taxa de gol por DISTÂNCIA ao gol (o chute que o jogo faz de verdade, "auto"), de perto até a defesa do próprio time:
+//   npm run chutes -- --distancia                (mira no canto e no meio, força 1 como num chute de longe, 3 sementes)
+// As distâncias vão até o campo todo (60 m no campo 5): o meio de campo é a 30 m do gol, 50% do comprimento.
+if (process.argv.includes("--distancia")) {
+  const campo = CAMPOS[5];
+  const metade = campo.comp / 2;
+  const recuos = [6, 10, 14, 18, 22, 26, 30, 36, 42, 50];
+  const zs = [0, 4, 8];
+  const forcaD = Number(arg("forca") ?? 1);
+  const sem = Number(arg("sementes") ?? 6);
+  console.log(`\nTaxa de gol por distância ao gol (H4): chute AUTO, força ${forcaD}, dificuldade ${dificuldade}, ${sem} sementes, campo de ${campo.comp} m (meio de campo = ${metade} m = 50%)${marcador ? ", com marcador" : ""}.`);
+  console.log("distância (m) / % do campo".padEnd(28), "mira no canto".padStart(16), "mira no meio".padStart(16));
+  for (const recuo of recuos) {
+    const x = metade - recuo;
+    const linha: string[] = [];
+    let dMedia = 0;
+    for (const alvo of ["canto", "centro"] as const) {
+      let gols = 0;
+      let n = 0;
+      for (const z of zs) {
+        for (const zz of z === 0 ? [0] : [z, -z]) {
+          for (let s = 0; s < sem; s++) {
+            const c = simularChute(x, zz, "auto", 100 + s * 37, { dificuldade, forca: forcaD, marcador, mira: alvo });
+            gols += c.gol ? 1 : 0;
+            n++;
+            dMedia += c.distancia;
+          }
+        }
+      }
+      linha.push(`${((100 * gols) / n).toFixed(0)}% (${n})`.padStart(16));
+      if (alvo === "centro") dMedia /= 2 * n;
+    }
+    console.log(`${dMedia.toFixed(0).padStart(4)} m / ${((100 * dMedia) / campo.comp).toFixed(0).padStart(3)}%`.padEnd(28), ...linha);
+  }
 }

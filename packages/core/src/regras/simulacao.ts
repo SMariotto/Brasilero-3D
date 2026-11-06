@@ -25,6 +25,10 @@ export interface ResultadoBots {
   /** Quantas vezes a bola mudou de time. */
   viradas: number;
   faltas: number;
+  /** H4: passos (1/60 s) com a bola nas mãos ou nos pés do goleiro de cada time. */
+  posseGoleiroTicks: [number, number];
+  /** H4: gols contra feitos por cada time (o time que fez o gol contra). */
+  golsContra: [number, number];
 }
 
 const timeDe = (slot: number): 0 | 1 => (slot < 6 ? 0 : 1);
@@ -54,6 +58,8 @@ export function simularBots(casa: Dificuldade, visitante: Dificuldade, semente: 
     desarmesCarrinho: [0, 0],
     viradas: 0,
     faltas: 0,
+    posseGoleiroTicks: [0, 0],
+    golsContra: [0, 0],
   };
   let ultimoTime: 0 | 1 | null = null;
   const limite = TEMPO.tickHz * (o.segundos + 120);
@@ -62,6 +68,7 @@ export function simularBots(casa: Dificuldade, visitante: Dificuldade, semente: 
     if (p.dominante !== null) {
       const tm = timeDe(p.dominante);
       r.posseTicks[tm]++;
+      if (p.jogador(p.dominante)?.vaga.goleiro) r.posseGoleiroTicks[tm]++;
       if (ultimoTime !== null && ultimoTime !== tm) r.viradas++;
       ultimoTime = tm;
     }
@@ -70,6 +77,7 @@ export function simularBots(casa: Dificuldade, visitante: Dificuldade, semente: 
       else if (e.tipo === "chute") r.chutes[timeDe(e.dados.slot)]++;
       else if (e.tipo === "roubo") (e.dados.jeito === "bote" ? r.desarmesBote : r.desarmesCarrinho)[timeDe(e.dados.slot)]++;
       else if (e.tipo === "falta") r.faltas++;
+      else if (e.tipo === "gol" && e.dados.contra) r.golsContra[e.dados.time === 0 ? 1 : 0]++;
     }
   }
   r.gols = [p.placar[0], p.placar[1]];

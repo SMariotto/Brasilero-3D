@@ -61,6 +61,8 @@ export interface CerebroEstado {
   detectadoEm: number | null;
   /** Quando passou a segurar a bola (goleiro e cobrador). */
   segurandoDesde: number | null;
+  /** Goleiro (H4): a bola está nas mãos (defesa ou bola solta) e não nos pés (bola recuada pelo companheiro, tiro de meta). */
+  maos: boolean;
 }
 
 export interface JogadorPartida {
@@ -103,6 +105,8 @@ export interface PasseEmVoo {
   total: number;
   alto: boolean;
   desde: number;
+  /** Lançamento do goleiro (H4): o receptor domina a bola com certeza e adversário nenhum toca nela durante o voo (regra de jogo). */
+  garantido?: boolean;
 }
 
 export type TipoReinicio = "saida" | "lateral" | "escanteio" | "tiroDeMeta" | "falta";

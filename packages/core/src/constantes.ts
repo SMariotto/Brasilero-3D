@@ -194,6 +194,8 @@ export const TIPO_CHUTE = {
   anguloAbertoGraus: 26,
   /** A chapada só vale até esta distância (m) do gol: medido no simulador, de mais longe o chute reto rende mais. */
   chapadaDistanciaMaxM: 20,
+  /** H4: com o goleiro saído da linha por mais disto (m), ele já fecha o ângulo e a chapada perde a graça: vai de chute reto. */
+  chapadaGoleiroAteM: 1.2,
   /** O canudo só vale até esta distância (m) do gol; mais longe com ângulo aberto vira trivela. */
   canudoDistanciaMaxM: 20,
   /** Um adversário de linha a menos disto (m) do jogador conta como pressão. */
@@ -236,7 +238,7 @@ export const TIPO_CHUTE = {
      * O goleiro recua em direção à linha enquanto a bola voa (medido: de 2 m/s perto da linha a 4 m/s antes da H3; com os jogadores a 7,6 m/s o goleiro chega a uns 6 m/s partindo de longe, até 0,8 m da linha): a zona onde ele alcança a
      * bola vai até onde ele chega no fim do voo. Por isso a cavadinha só encobre quando ele está bem fora do lugar.
      */
-    goleiroRecuoMS: 6.5,
+    goleiroRecuoMS: 1.5,
     goleiroRecuoMinimoM: 0.8,
     /** Faixa de velocidade vertical (m/s) e teto da velocidade horizontal (m/s) que a busca aceita. */
     vyMin: 4,
@@ -449,8 +451,29 @@ export const GOLEIRO = {
   reacaoS: { facil: 0.3, medio: 0.22, dificil: 0.15 } satisfies Record<Dificuldade, number>,
   /** Encaixa se a bola chega abaixo disto (m/s); acima, espalma. */
   encaixaAteVelocidade: 18,
-  /** Espera com a bola na mão antes de repor. */
-  esperaComBolaS: 1.5,
+  /** H4: com a bola nas MÃOS (defesa ou bola solta), segura no máximo isto (s) antes de lançar. */
+  maosS: 1.2,
+  /** H4: com a bola nos PÉS (bola recuada pelo companheiro, tiro de meta), joga em até isto (s). */
+  peS: 0.8,
+  /** H4: segura pelo menos isto (s) para a bola assentar, mesmo com adversário em cima. */
+  segurarMinS: 0.35,
+  /** H4: com um adversário a menos disto (m), distribui assim que passa o mínimo. */
+  pressaoM: 2.2,
+  /** H4: quanto o corpo gira por passo (graus) para pôr a bola do lado oposto ao adversário mais perto. */
+  protegeGiroGraus: 12,
+  /**
+   * H4: saída no 1 contra 1. Quando um atacante com a bola está sozinho com o goleiro e a até `atacanteAteM` do gol, o goleiro sai da
+   * linha para fechar o ângulo: o avanço sobe de `adiantadoMinM` (atacante longe) até `adiantadoMaxM` (atacante a `cheioAteM`) e
+   * volta a `adiantadoPertoM` quando o atacante já está colado na área (`pertoAteM` ou menos), onde sair mais não ajuda. Só a posição
+   * muda; a velocidade do goleiro é a de sempre.
+   */
+  saida: { atacanteAteM: 20, adiantadoMinM: 2, adiantadoMaxM: 4, cheioAteM: 13, pertoAteM: 7, adiantadoPertoM: 2 },
+  /**
+   * H4: distribuição. Receptor "livre" = nenhum adversário a menos de `livreM` dele; só vale entre `distanciaMinM` e `distanciaMaxM`
+   * do goleiro. O lançamento do goleiro sobe com velocidade vertical de `vyMin` a `vyMax` (mais longe, mais alto) e leva a bola
+   * ao companheiro como regra de jogo (domínio garantido). Sem ninguém livre: lança para `longeM` à frente e a `bordaM` da linha lateral.
+   */
+  lance: { livreM: 4, distanciaMinM: 7, distanciaMaxM: 42, vyMin: 5, vyMax: 9, longeM: 30, bordaM: 5, raioDominioM: 1.6, passeLivreM: 2.4 },
   /** Provisório (F3): chance de falhar uma defesa que exigia espalmar (bola acima de 18 m/s). */
   falhaChance: { facil: 0.25, medio: 0.12, dificil: 0.05 } satisfies Record<Dificuldade, number>,
   /** Provisório (F3): duração e velocidade lateral do mergulho. */

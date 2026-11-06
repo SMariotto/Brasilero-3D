@@ -35,6 +35,8 @@ import {
 
 export type { JogadorPartida, Reinicio, VagaPartida } from "./tipos-partida";
 
+const limitarNumero = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
+
 export interface OpcoesPartida {
   /** A config que vale (`n` já é o efetivo). */
   config: Config;
@@ -90,6 +92,7 @@ const novoCerebro = (): CerebroEstado => ({
   papel: "apoio",
   detectadoEm: null,
   segurandoDesde: null,
+  maos: false,
 });
 
 /**
@@ -136,6 +139,8 @@ export class Partida {
   private penultimoToque: Toque | null = null;
   /** O passe que está no ar (H3): quem deve receber, de onde saiu e quanto devia andar. Some quando alguém toca na bola. */
   passeEmVoo: PasseEmVoo | null = null;
+  /** Quem deu o último golpe de pé (passe, chute, lançamento) na bola e ninguém mais tocou nela desde então (H4: bola recuada). */
+  private golpeDoPe: { slot: number; time: 0 | 1 } | null = null;
 
   constructor(op: OpcoesPartida) {
     this.config = op.config;
@@ -602,6 +607,7 @@ export class Partida {
     j.anim = anim;
     j.cerebro.segurandoDesde = null;
     this.registrarToque(j);
+    this.golpeDoPe = { slot: j.vaga.slot, time: j.vaga.time };
     // Quem cobrou o reinício coloca a bola em jogo.
     if (this.reinicio && (this.reinicio.cobrador === j.vaga.slot || this.reinicio.tipo === "saida")) this.soltarReinicio();
   }
@@ -653,6 +659,7 @@ export class Partida {
   }
 
   private resolverBote(j: JogadorPartida): void {
+    if (this.passeEmVoo?.garantido && this.passeEmVoo.time !== j.vaga.time) return;
     const dono = this.dominante !== null ? this.jogador(this.dominante) : undefined;
     if (!dono || dono.vaga.time === j.vaga.time || dono.vaga.goleiro) return;
     const b = this.bola;
@@ -674,9 +681,12 @@ export class Partida {
     const b = this.bola;
     const alcanceBola = JOGADOR.raio + BOLA.raio + 0.45;
 
-    if (!c.tocouBola && b.y < DOMINIO.alturaMax && Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) < alcanceBola) {
+    const donoDaBola = this.dominante !== null ? this.jogador(this.dominante) : undefined;
+    // H4: a bola nas mãos ou nos pés do goleiro não se rouba de carrinho; o contato vira falta pelas regras de sempre
+    const protegida = (donoDaBola?.vaga.goleiro && donoDaBola.vaga.time !== j.vaga.time) || (this.passeEmVoo?.garantido && this.passeEmVoo.time !== j.vaga.time);
+    if (!c.tocouBola && !protegida && b.y < DOMINIO.alturaMax && Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) < alcanceBola) {
       c.tocouBola = true;
-      const dono = this.dominante !== null ? this.jogador(this.dominante) : undefined;
+      const dono = donoDaBola;
       if (dono && dono.vaga.time !== j.vaga.time) {
         dono.bloqueioAte = this.t + DOMINIO.bloqueioAposChuteS;
         this.desarmesPorSlot.set(j.vaga.slot, (this.desarmesPorSlot.get(j.vaga.slot) ?? 0) + 1);
@@ -754,8 +764,14 @@ export class Partida {
       const alcance = g.mergulho ? GOLEIRO.alcanceMergulhando : GOLEIRO.alcanceEmPe;
       const altura = g.mergulho ? 2.4 : GOLEIRO.alturaEmPe;
       if (b.y > altura || Math.hypot(b.x - g.corpo.x, b.z - g.corpo.z) > alcance) continue;
+      if (this.passeEmVoo?.garantido && this.passeEmVoo.time !== g.vaga.time) continue; // lançamento do outro goleiro: ninguém toca
+      if (this.bolaRecuadaPara(g)) continue; // H4: bola que o companheiro recuou é só de pé (a recepção cuida dela)
       const rel = Math.hypot(b.vx - g.corpo.vx, b.vy, b.vz - g.corpo.vz);
-      if (rel < GOLEIRO.encaixaAteVelocidade) continue; // devagar: ele encaixa pelo domínio normal
+      if (rel < GOLEIRO.encaixaAteVelocidade) {
+        // H4: devagar ele SEGURA, inclusive no mergulho (antes a bola passava por quem estava no ar): a bola fica nas mãos, sem rebote
+        if (g.mergulho) this.segurarComAsMaos(g);
+        continue; // em pé: o domínio normal já encaixa
+      }
 
       g.bloqueioAte = this.t + GOLEIRO.bloqueioAposEspalmarS;
       if (this.rng.sorteio(GOLEIRO.falhaChance[this.dificuldadeDe(g.vaga.time)])) continue; // falhou: a bola segue
@@ -767,6 +783,60 @@ export class Partida {
       this.registrarToque(g);
       this.evento({ tipo: "defesa", dados: { slot: g.vaga.slot, encaixou: false } });
     }
+  }
+
+  /** Defesa que segura (H4): o goleiro no mergulho pega a bola devagar nas mãos; acaba o mergulho e a bola passa a ser dele. */
+  private segurarComAsMaos(g: JogadorPartida): void {
+    const b = this.bola;
+    g.mergulho = null;
+    g.anim = ANIM.goleiroComBola;
+    g.animAte = this.t + 0.3;
+    g.corpo.vx = g.corpo.vz = 0;
+    b.giro = 0;
+    b.vx = 0;
+    b.vz = 0;
+    b.vy = 0;
+    this.registrarToque(g);
+    this.dominante = g.vaga.slot;
+    g.cerebro.segurandoDesde = this.t;
+    g.cerebro.maos = true;
+    this.evento({ tipo: "defesa", dados: { slot: g.vaga.slot, encaixou: true } });
+  }
+
+  /**
+   * A bola foi recuada para o goleiro (H4)? Sim se o último golpe de pé nela foi de um companheiro dele e ninguém mais tocou depois.
+   * Regra do jogo (decisão da H4, "Dúvidas para o Samuel"): essa bola é só de pé, o goleiro não mergulha nem pega com a mão.
+   */
+  bolaRecuadaPara(g: JogadorPartida): boolean {
+    const q = this.golpeDoPe;
+    return q !== null && q.time === g.vaga.time && q.slot !== g.vaga.slot && this.dominante === null;
+  }
+
+  /**
+   * Lançamento do goleiro (H4), de mão: a bola sobe e vai para `tx, tz` (ou onde o `receptor` vai estar). Com receptor, o domínio dele é
+   * garantido e o adversário não toca na bola durante o voo: é regra de jogo, não física (ver PROGRESSO.md).
+   */
+  lancarDoGoleiro(g: JogadorPartida, tx: number, tz: number, receptor: JogadorPartida | null): void {
+    const L = GOLEIRO.lance;
+    const x0 = this.bola.x;
+    const z0 = this.bola.z;
+    const d0 = Math.hypot(tx - x0, tz - z0);
+    const vy = limitarNumero(L.vyMin + ((d0 - 5) / 25) * (L.vyMax - L.vyMin), L.vyMin, L.vyMax);
+    const voo = (2 * vy) / BOLA.gravidade;
+    let px = tx;
+    let pz = tz;
+    if (receptor) {
+      px = receptor.corpo.x + receptor.corpo.vx * voo;
+      pz = receptor.corpo.z + receptor.corpo.vz * voo;
+    }
+    px = limitarNumero(px, -this.campo.metadeComp + 1, this.campo.metadeComp - 1);
+    pz = limitarNumero(pz, -this.campo.metadeLarg + 1, this.campo.metadeLarg - 1);
+    const d = Math.hypot(px - x0, pz - z0) || 1;
+    const rapidez = (d / voo) * 1.06; // a bola perde um pouco no ar: compensa, como no lançamento do jogador
+    this.soltarBola(g, ((px - x0) / d) * rapidez, vy, ((pz - z0) / d) * rapidez, ANIMACAO.passeS, ANIM.passe);
+    this.evento({ tipo: "passe", dados: { de: g.vaga.slot, ...(receptor ? { para: receptor.vaga.slot } : {}), alto: true } });
+    this.controle.aoPassar(g.vaga.slot, receptor?.vaga.slot);
+    this.passeEmVoo = receptor ? { para: receptor.vaga.slot, time: g.vaga.time, x0, z0, total: d, alto: true, desde: this.t, garantido: true } : null;
   }
 
   // ---------------------------------------------------------------------------
@@ -906,8 +976,10 @@ export class Partida {
     const t = this.t;
     for (const j of this.jogadores) {
       // H3: o receptor pretendido de um passe (humano ou bot) recebe com mais raio e força; os outros só se forem humanos
-      const recebePasse = this.passeEmVoo?.para === j.vaga.slot;
-      if ((controladoPorBot(j) && !recebePasse && !(t < j.recepcaoAte)) || j.vaga.goleiro) continue;
+      const recebePasse = this.passeEmVoo?.para === j.vaga.slot || (j.vaga.goleiro && this.bolaRecuadaPara(j));
+      const jaRecebendo = t < j.recepcaoAte;
+      // H4: o goleiro também recebe com o pé (e com a recepção reforçada) a bola que o companheiro lhe passa ou recua
+      if (j.vaga.goleiro ? !recebePasse && !jaRecebendo : controladoPorBot(j) && !recebePasse && !jaRecebendo) continue;
       if (this.noChao(j) || j.mergulho || t < j.bloqueioAte || this.dominante === j.vaga.slot) {
         j.recepcaoAte = 0;
         continue;
@@ -971,12 +1043,12 @@ export class Partida {
     const S = PASSE.seguir;
     const rec = this.jogador(voo.para);
     const h = Math.hypot(b.vx, b.vz);
-    if (!rec || this.noChao(rec) || this.dominante !== null || this.reinicio || b.naRede !== 0 || this.t - voo.desde > S.tempoMaxS || rec.recepcaoAte > this.t) {
+    if (!rec || this.noChao(rec) || this.dominante !== null || this.reinicio || b.naRede !== 0 || this.t - voo.desde > S.tempoMaxS || (rec.recepcaoAte > this.t && !voo.garantido)) {
       this.passeEmVoo = null;
       return;
     }
-    if (voo.alto) return; // o lançamento é balístico: só a recepção forte vale
-    if (h < S.velocidadeMin || b.y > S.alturaMax) {
+    if (voo.alto && !voo.garantido) return; // o lançamento é balístico: só a recepção forte vale
+    if (!voo.alto && (h < S.velocidadeMin || b.y > S.alturaMax)) {
       this.passeEmVoo = null;
       return;
     }
@@ -1032,6 +1104,9 @@ export class Partida {
       return;
     }
 
+    // Lançamento do goleiro (H4): o receptor domina com certeza e o adversário não toca na bola durante o voo (regra de jogo, não física)
+    const voo = this.passeEmVoo;
+    const garantido = voo !== null && voo.garantido === true;
     let melhor: JogadorPartida | null = null;
     let melhorDist = Infinity;
     let atual: JogadorPartida | null = null;
@@ -1040,11 +1115,14 @@ export class Partida {
 
     for (const j of this.jogadores) {
       if (this.t < j.bloqueioAte || this.noChao(j) || j.mergulho) continue;
+      if (garantido && j.vaga.time !== voo.time) continue;
+      const recebeLance = garantido && voo.para === j.vaga.slot;
       const c = j.corpo;
       const goleiro = j.vaga.goleiro;
-      const alcance = goleiro ? GOLEIRO.alcanceEmPe : DOMINIO.alcance;
-      const altura = goleiro ? GOLEIRO.alturaEmPe : DOMINIO.alturaMax;
-      const velMax = goleiro ? GOLEIRO.encaixaAteVelocidade : DOMINIO.velocidadeRelativaMax;
+      // O goleiro que acabou de segurar a bola no mergulho a mantém (a mola a traz às mãos) mesmo a até o alcance do mergulho
+      const alcance = recebeLance ? GOLEIRO.lance.raioDominioM : goleiro ? (this.dominante === j.vaga.slot ? GOLEIRO.alcanceMergulhando : GOLEIRO.alcanceEmPe) : DOMINIO.alcance;
+      const altura = recebeLance ? 2.6 : goleiro ? GOLEIRO.alturaEmPe : DOMINIO.alturaMax;
+      const velMax = recebeLance ? Infinity : goleiro ? GOLEIRO.encaixaAteVelocidade : DOMINIO.velocidadeRelativaMax;
       if (Math.hypot(b.x - c.x, b.z - c.z) > alcance) continue;
       if (b.y > altura) continue;
       if (Math.hypot(b.vx - c.vx, b.vy, b.vz - c.vz) >= velMax) continue;
@@ -1074,9 +1152,18 @@ export class Partida {
     if (escolhido) b.giro = 0; // com a bola dominada não há efeito
     if (novo !== this.dominante && escolhido) {
       const rapida = Math.hypot(b.vx - escolhido.corpo.vx, b.vy, b.vz - escolhido.corpo.vz);
-      if (escolhido.vaga.goleiro && rapida > 6) this.evento({ tipo: "defesa", dados: { slot: escolhido.vaga.slot, encaixou: true } });
+      const recuada = escolhido.vaga.goleiro && this.bolaRecuadaPara(escolhido);
+      const lance = garantido && voo.para === escolhido.vaga.slot;
+      if (lance) {
+        // Domínio garantido: a bola do lançamento "assenta" no receptor (a velocidade dela cai à dele), só aqui, por regra
+        b.vx = escolhido.corpo.vx;
+        b.vz = escolhido.corpo.vz;
+        b.vy *= 0.2;
+      }
+      if (escolhido.vaga.goleiro && rapida > 6 && !recuada) this.evento({ tipo: "defesa", dados: { slot: escolhido.vaga.slot, encaixou: true } });
       this.registrarToque(escolhido);
       escolhido.cerebro.segurandoDesde = escolhido.vaga.goleiro ? this.t : null;
+      if (escolhido.vaga.goleiro) escolhido.cerebro.maos = !recuada && !this.reinicio;
     }
     this.dominante = novo;
     if (escolhido) this.conduzir(escolhido);
@@ -1102,8 +1189,10 @@ export class Partida {
   private colidirCorpoComBola(): void {
     const b = this.bola;
     const alcance = JOGADOR.raio + BOLA.raio;
+    const voo = this.passeEmVoo;
     for (const j of this.jogadores) {
       if (this.dominante === j.vaga.slot || this.t < j.bloqueioAte || this.noChao(j) || j.vaga.goleiro) continue;
+      if (voo?.garantido && j.vaga.time !== voo.time) continue; // lançamento do goleiro: o adversário não bloqueia a bola (H4)
       if (b.y > JOGADOR.alturaCorpo) continue;
       const c = j.corpo;
       const dx = b.x - c.x;
@@ -1142,6 +1231,7 @@ export class Partida {
     if (this.ultimoToque && this.ultimoToque.slot !== novo.slot) this.penultimoToque = this.ultimoToque;
     this.ultimoToque = novo;
     this.passeEmVoo = null; // qualquer toque na bola (chute, bote, defesa, domínio) acaba com o passe no ar (H3)
+    this.golpeDoPe = null; // e com a "bola recuada" (H4); o `soltarBola` marca o golpe de novo logo depois
   }
 
   private registrarGol(lado: 1 | -1): void {
