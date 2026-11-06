@@ -17,6 +17,7 @@ import {
 import type { Config } from "../protocolo/config";
 import type { DonoDeSlot, Destaque, MiraDoPasse, EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
 import { criarRng, type Rng } from "../util/rng";
+import { calcularChuteComTipo, type SituacaoDeChute, type TipoDeChute } from "./chute-tipos";
 import { calcularChute, calcularPasseAssistido, escolherAlvoDoPasse, type Alvo, type EntradaPasse, type Ponto } from "./acoes";
 import { Bots, posicoesDeSaida } from "./bots";
 import { GestorDeControle } from "./controle";
@@ -432,7 +433,9 @@ export class Partida {
       const chuteLiberado = !cobrando || r?.tipo === "escanteio" || r?.tipo === "falta";
       if (c.acao === ACAO.chute && j.chute.comBola && chuteLiberado) {
         const [dx, dz] = this.direcaoDe(j);
-        this.chutarComo(j, c.forca / 255, dx, dz);
+        // Chute do humano com a bola em jogo: o servidor escolhe o tipo (H2). Reinícios (escanteio, falta) seguem o chute de sempre.
+        if (cobrando) this.chutarComo(j, c.forca / 255, dx, dz);
+        else this.chutarComTipo(j, c.forca / 255, dx, dz);
         j.chute.comBola = false;
       } else if ((c.acao === ACAO.passeToque || c.acao === ACAO.passeSegurado) && j.passe.comBola) {
         const [dx, dz] = this.direcaoDe(j);
@@ -478,6 +481,43 @@ export class Partida {
     });
     this.soltarBola(j, v.vx, v.vy, v.vz, ANIMACAO.chuteS, ANIM.chute);
     this.evento({ tipo: "chute", dados: { slot: j.vaga.slot, forca: Math.round(v.forca * 100) / 100 } });
+  }
+
+  /** O lance visto do jogador `j`: o goleiro adversário e o adversário de linha mais perto (para escolher o tipo de chute, H2). */
+  private situacaoDoChute(j: JogadorPartida): SituacaoDeChute {
+    let goleiro: SituacaoDeChute["goleiro"] = null;
+    let perto = Infinity;
+    for (const o of this.adversariosDe(j)) {
+      if (o.vaga.goleiro) goleiro = { x: o.corpo.x, z: o.corpo.z };
+      else perto = Math.min(perto, Math.hypot(o.corpo.x - j.corpo.x, o.corpo.z - j.corpo.z));
+    }
+    return { goleiro, adversarioMaisPertoM: perto };
+  }
+
+  /**
+   * Chute do humano (H2): o servidor escolhe o tipo (canudo, chapada, trivela ou cavadinha) pelo lance e a bola sai com ele; sem lance
+   * de gol é o chute de sempre. Os bots usam `chutarComo` e chutam como antes. `tipo` força um tipo (simulador e testes).
+   */
+  chutarComTipo(j: JogadorPartida, forca: number, dirX: number, dirZ: number, tipo?: TipoDeChute): TipoDeChute {
+    const r = calcularChuteComTipo({
+      forca,
+      dirX,
+      dirZ,
+      px: j.corpo.x,
+      pz: j.corpo.z,
+      time: j.vaga.time,
+      campo: this.campo,
+      arrancando: j.corpo.arrancando,
+      rng: this.rng,
+      situacao: this.situacaoDoChute(j),
+      ...(tipo ? { tipo } : {}),
+    });
+    this.soltarBola(j, r.vx, r.vy, r.vz, ANIMACAO.chuteS, ANIM.chute, r.giro);
+    this.evento({
+      tipo: "chute",
+      dados: { slot: j.vaga.slot, forca: Math.round(r.forca * 100) / 100, ...(r.tipo !== "normal" ? { tipoDeChute: r.tipo } : {}) },
+    });
+    return r.tipo;
   }
 
   /** Passe (SPEC 6.4): rasteiro, ou lançamento por cima; mira no melhor companheiro do cone. */
@@ -540,10 +580,11 @@ export class Partida {
     return lista;
   }
 
-  private soltarBola(j: JogadorPartida, vx: number, vy: number, vz: number, animS: number, anim: number): void {
+  private soltarBola(j: JogadorPartida, vx: number, vy: number, vz: number, animS: number, anim: number, giro = 0): void {
     this.bola.vx = vx;
     this.bola.vy = vy;
     this.bola.vz = vz;
+    this.bola.giro = giro; // efeito (H2): só os chutes com efeito levam giro
     this.dominante = null;
     j.bloqueioAte = this.t + DOMINIO.bloqueioAposChuteS;
     j.animAte = this.t + animS;
@@ -708,6 +749,7 @@ export class Partida {
       g.bloqueioAte = this.t + GOLEIRO.bloqueioAposEspalmarS;
       if (this.rng.sorteio(GOLEIRO.falhaChance[this.dificuldadeDe(g.vaga.time)])) continue; // falhou: a bola segue
       const lado = b.z >= g.corpo.z ? 1 : -1;
+      b.giro = 0;
       b.vx = -b.vx * GOLEIRO.espalmaFator;
       b.vz = lado * GOLEIRO.espalmaLateral;
       b.vy = Math.max(2, b.vy * 0.5);
@@ -957,6 +999,7 @@ export class Partida {
     else if (atual && melhor !== atual && atualDist - melhorDist <= DOMINIO.disputaEmpateM) escolhido = atual;
 
     const novo = escolhido ? escolhido.vaga.slot : null;
+    if (escolhido) b.giro = 0; // com a bola dominada não há efeito
     if (novo !== this.dominante && escolhido) {
       const rapida = Math.hypot(b.vx - escolhido.corpo.vx, b.vy, b.vz - escolhido.corpo.vz);
       if (escolhido.vaga.goleiro && rapida > 6) this.evento({ tipo: "defesa", dados: { slot: escolhido.vaga.slot, encaixou: true } });
@@ -1460,6 +1503,7 @@ export class Partida {
     this.bola.y = BOLA.raio;
     this.bola.z = bolaZ;
     this.bola.vx = this.bola.vy = this.bola.vz = 0;
+    this.bola.giro = 0;
     this.bola.naRede = 0;
     this.dominante = null;
     this.reinicio = null;

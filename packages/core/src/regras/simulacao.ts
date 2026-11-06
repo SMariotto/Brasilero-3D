@@ -143,3 +143,85 @@ export function simularDriblador(dificuldade: Dificuldade, semente: number, o: O
   r.sofridos = p.placar[1];
   return r;
 }
+
+// ---------------------------------------------------------------------------
+// Chutes (H2): taxa de gol por tipo, contra um goleiro de verdade
+// ---------------------------------------------------------------------------
+
+import { analisarChute, type TipoDeChute } from "./chute-tipos";
+
+export interface ChuteSimulado {
+  x: number;
+  z: number;
+  /** Tipo forçado (ou `"auto"`: o jogo escolhe) e o tipo que realmente saiu. */
+  pedido: TipoDeChute | "auto";
+  tipo: TipoDeChute;
+  gol: boolean;
+  /** Abertura do gol (graus) e distância (m) do jogador ao gol, no instante do chute. */
+  abertura: number;
+  distancia: number;
+}
+
+export interface OpcoesChutes {
+  dificuldade?: Dificuldade;
+  /** Quantas sementes (goleiros com sorteios diferentes) por posição. */
+  sementes?: number;
+  /** A força do chute (carga de 0 a 1) usada em todos. */
+  forca?: number;
+  /** Se há um zagueiro de linha marcando o atacante (pressão). */
+  marcador?: boolean;
+  /** Onde o atacante mira: o canto longe do goleiro (jogador bom) ou o meio do gol com imprecisão (jogador que só aponta para o gol). */
+  mira?: "canto" | "centro";
+}
+
+/** Posições de chute: da frente do gol até longe, do centro até a linha lateral (Casa atacando X positivo). */
+export function posicoesDeChute(n: Config["n"] = 5): Array<{ x: number; z: number }> {
+  const campo = new Partida({ config: { ...CONFIG_PADRAO, n, modo: "campo" }, elenco: [], semente: 1, semBots: true }).campo;
+  const lista: Array<{ x: number; z: number }> = [];
+  for (const recuo of [6, 9, 13, 18, 24, 29]) {
+    for (const z of [0, 3.5, 7, 11, 15]) {
+      const x = campo.metadeComp - recuo;
+      if (Math.abs(z) < campo.metadeLarg - 1) {
+        lista.push({ x, z });
+        if (z !== 0) lista.push({ x, z: -z });
+      }
+    }
+  }
+  return lista;
+}
+
+/** Um chute: o atacante (Casa, humano) com a bola mira no centro do gol; o goleiro (Visitante, bot) defende. Devolve se foi gol. */
+export function simularChute(x: number, z: number, pedido: TipoDeChute | "auto", semente: number, o: OpcoesChutes = {}): ChuteSimulado {
+  const elenco: Array<import("./partida").VagaPartida> = [
+    { slot: 1, time: 0, numero: 7, nome: "Atacante", humano: true, idControle: 1, goleiro: false },
+    { slot: 6, time: 1, numero: 1, nome: "Goleiro", humano: false, goleiro: true },
+  ];
+  if (o.marcador) elenco.push({ slot: 7, time: 1, numero: 4, nome: "Zagueiro", humano: false, goleiro: false });
+  const p = new Partida({
+    config: { ...CONFIG_PADRAO, modo: "campo", n: 5, dificuldade: o.dificuldade ?? "medio", duracao: 4 },
+    elenco,
+    semente,
+    semBots: true,
+  });
+  const j = p.jogador(1)!;
+  p.posicionarParaTeste(1, x, z, x + 0.55, z, 0);
+  if (o.marcador) {
+    const m = p.jogador(7)!;
+    m.corpo.x = x + 1.5;
+    m.corpo.z = z + 1.2;
+  }
+  for (let i = 0; i < 90; i++) p.passo(); // o goleiro toma posição e o atacante domina a bola
+  j.cmd = { ...comandoParado() };
+  const gx = p.campo.metadeComp;
+  // O atacante mira no canto do gol mais longe do goleiro, com uma imprecisão de até 0,6 m (o goleiro é o do jogo, não o dos sorteios)
+  const goleiro = p.jogador(6)!;
+  const erroZ = ((semente % 7) - 3) * 0.2;
+  const cantoZ = o.mira === "centro" ? erroZ * 3 : -Math.sign(goleiro.corpo.z || 1) * (p.campo.golLarg / 2 - 0.9) + erroZ;
+  const dx = gx - j.corpo.x;
+  const dz = cantoZ - j.corpo.z;
+  const n = Math.hypot(dx, dz);
+  const a = analisarChute({ px: j.corpo.x, pz: j.corpo.z, time: 0, campo: p.campo, dirX: dx / n, dirZ: dz / n }, { goleiro: null, adversarioMaisPertoM: Infinity });
+  const tipo = p.chutarComTipo(j, o.forca ?? 0.85, dx / n, dz / n, pedido === "auto" ? undefined : pedido);
+  for (let i = 0; i < 4 * 60 && p.placar[0] === 0; i++) p.passo();
+  return { x, z, pedido, tipo, gol: p.placar[0] > 0, abertura: a.abertura, distancia: a.distancia };
+}

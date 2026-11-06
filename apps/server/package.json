@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "carga": "tsx src/ferramentas/carga.ts",
     "simular": "tsx src/ferramentas/simular-bots.ts",
-    "medir": "tsx src/ferramentas/medir-movimento.ts"
+    "medir": "tsx src/ferramentas/medir-movimento.ts",
+    "chutes": "tsx src/ferramentas/simular-chutes.ts"
   },
   "dependencies": {
     "@b3d/core": "*",

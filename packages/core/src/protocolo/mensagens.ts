@@ -194,7 +194,7 @@ export interface Voce {
 export type EventoJogo =
   | { tipo: "apito"; dados: { motivo: "inicio" | "fim" | "falta" | "reinicio" } }
   | { tipo: "saida"; dados: { time: 0 | 1 } }
-  | { tipo: "chute"; dados: { slot: number; forca: number } }
+  | { tipo: "chute"; dados: { slot: number; forca: number; tipoDeChute?: "canudo" | "chapada" | "trivela" | "cavadinha" } }
   | { tipo: "passe"; dados: { de: number; para?: number; alto: boolean } }
   | { tipo: "roubo"; dados: { slot: number; de: number; jeito: "bote" | "carrinho" } }
   | { tipo: "falta"; dados: { de: number; em: number; x: number; z: number } }

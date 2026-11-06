@@ -8,6 +8,8 @@ export interface Bola {
   vx: number;
   vy: number;
   vz: number;
+  /** Efeito (H2): rad/s com que o rumo da velocidade horizontal gira (positivo: de +X para +Z). Ausente = sem efeito. */
+  giro?: number;
   /** Depois de um gol: de que lado (-1 gol da Casa, +1 gol do Visitante) a bola está presa na rede. 0 = jogo normal. */
   naRede: -1 | 0 | 1;
 }
@@ -60,6 +62,20 @@ export function passoBola(b: Bola, campo: Campo, dt: number, op: OpcoesPassoBola
     b.vz *= f;
   }
 
+  // Efeito (H2): o rumo da velocidade horizontal gira (a rapidez não muda); o giro cai no ar devagar e no chão depressa
+  if (b.giro && b.naRede === 0) {
+    const a = b.giro * dt;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const vx = b.vx * c - b.vz * s;
+    const vz = b.vx * s + b.vz * c;
+    b.vx = vx;
+    b.vz = vz;
+    const tau = b.y <= r + 0.02 ? BOLA.giroDecaimentoChaoS : BOLA.giroDecaimentoArS;
+    b.giro *= Math.exp(-dt / tau);
+    if (Math.abs(b.giro) < BOLA.giroMinimo) b.giro = 0;
+  }
+
   b.x += b.vx * dt;
   b.y += b.vy * dt;
   b.z += b.vz * dt;
@@ -86,6 +102,7 @@ export function passoBola(b: Bola, campo: Campo, dt: number, op: OpcoesPassoBola
       b.vy -= k * ny;
       b.vz -= k * nz;
       ev.trave = { x: b.x, y: b.y, z: b.z };
+      if (b.giro) b.giro *= BOLA.giroSobraTrave;
     }
   }
 
@@ -122,6 +139,7 @@ export function passoBola(b: Bola, campo: Campo, dt: number, op: OpcoesPassoBola
       b.vy = -b.vy * BOLA.restituicaoChao;
       b.vx *= 1 - BOLA.perdaHorizontalQuique;
       b.vz *= 1 - BOLA.perdaHorizontalQuique;
+      if (b.giro) b.giro *= BOLA.giroSobraQuique;
       ev.quiques++;
     } else {
       b.vy = 0;

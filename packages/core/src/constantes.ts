@@ -97,6 +97,17 @@ export const BOLA = {
   paredeRestituicao: 0.7,
   /** Provisório (F2): abaixo desta velocidade vertical (m/s) a bola não quica mais, só rola. */
   quiqueMinimo: 1,
+  /**
+   * Efeito (H2): a bola pode ter um `giro` (rad/s) que gira o rumo da velocidade horizontal, curvando a trajetória sem mudar a
+   * rapidez. No ar o giro cai devagar (constante de tempo em segundos); no chão (rolando ou quicando) cai depressa.
+   */
+  giroDecaimentoArS: 2,
+  giroDecaimentoChaoS: 0.25,
+  /** Fração do giro que sobra a cada quique no chão e a cada batida na trave. */
+  giroSobraQuique: 0.6,
+  giroSobraTrave: 0.2,
+  /** Abaixo disto (rad/s) o giro vale zero. */
+  giroMinimo: 0.02,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -168,6 +179,74 @@ export const DOMINIO = {
   toqueImpulso: 2,
   /** Ao disputar, vence quem estiver mais perto do alvo; diferença menor que isto conta como empate. */
   disputaEmpateM: 0.05,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Tipos de chute (H2, provisório): o servidor escolhe o tipo pelo lance; o jogador só aperta CHUTE
+// ---------------------------------------------------------------------------
+export const TIPO_CHUTE = {
+  /** Um toque rápido (carga abaixo disto, de 0 a 1) continua sendo o chute fraco de sempre: o tipo automático é para chute de verdade. */
+  forcaMinParaTipo: 0.3,
+  /** Só há tipo de chute quando o chute aponta para o gol e o jogador está a menos disto (m) do centro do gol. */
+  alcanceMaxM: 32,
+  /** Abertura do gol vista pelo jogador (graus): abaixo disto o ângulo é fechado (chapada); a partir do aberto, canudo. */
+  anguloFechadoGraus: 18,
+  anguloAbertoGraus: 26,
+  /** A chapada só vale até esta distância (m) do gol: medido no simulador, de mais longe o chute reto rende mais. */
+  chapadaDistanciaMaxM: 20,
+  /** O canudo só vale até esta distância (m) do gol; mais longe com ângulo aberto vira trivela. */
+  canudoDistanciaMaxM: 20,
+  /** Um adversário de linha a menos disto (m) do jogador conta como pressão. */
+  pressaoM: 2.5,
+  /** Com pressão e o ângulo aberto, a partir desta distância (m) o jogador chuta de trivela para contornar o marcador (perto, é canudo). */
+  pressaoTrivelaDistanciaM: 10,
+  /** Força mínima do chute (0 a 1) em cada tipo: o tipo "automático" não é um toquinho. */
+  canudoForcaMin: 0.85,
+  chapadaForcaMin: 0.6,
+  trivelaForcaMin: 0.75,
+  /** Quanto a bola curva (graus de rumo entre a saída e a chegada) na chapada e na trivela. */
+  chapadaCurvaGraus: 16,
+  trivelaCurvaGraus: 9,
+  /** Velocidade vertical extra (m/s) do chute com efeito (0: o chute reto já sobe o bastante e mais que isso passa do travessão). */
+  chapadaVyExtra: 0,
+  trivelaVyExtra: 0,
+  /** Os cantos do gol (alvo da chapada e da trivela) ficam a esta distância (m) para dentro das traves. */
+  alvoMargemTraveM: 0.5,
+  /** O erro angular aleatório do chute com efeito é esta fração do erro do chute reto (o efeito é um gesto mais cuidadoso). */
+  erroEfeitoFator: 0.5,
+  /** Usa-se 92% da velocidade da bola para estimar o tempo de voo (arrasto e quique). */
+  fatorTempoDeVoo: 0.92,
+  /** Cavadinha: chute leve por cima do goleiro adiantado, com o jogador livre e perto do gol. */
+  cavadinha: {
+    /**
+     * O goleiro está "adiantado" se está a mais disto (m) da linha de fundo. Medido: ele fica de 1,1 a 1,7 m quando o jogador se
+     * aproxima, então a cavadinha só aparece quando ele está bem fora do lugar (para encobrir e ainda entrar sob o travessão, a bola
+     * precisa descer íngreme, o que não dá com o goleiro colado na linha).
+     */
+    goleiroAdiantadoM: 1.9,
+    distanciaMinM: 6,
+    distanciaMaxM: 16,
+    /** Abertura mínima (graus): a cavadinha não vale com o gol quase de lado. */
+    anguloMinGraus: 12,
+    /** A bola tem que cruzar a linha do gol a esta altura (m, abaixo do travessão de 2,2 m), descendo. */
+    alturaNoGolM: 1.8,
+    /** E tem que ficar acima disto (m) em toda a zona onde o goleiro alcançaria a bola (ele alcança 2 m em pé). */
+    alturaSobreGoleiroM: 2.05,
+    /**
+     * O goleiro recua em direção à linha enquanto a bola voa (medido: de 2 m/s perto da linha a 4 m/s partindo de longe, até 0,8 m da linha): a zona onde ele alcança a
+     * bola vai até onde ele chega no fim do voo. Por isso a cavadinha só encobre quando ele está bem fora do lugar.
+     */
+    goleiroRecuoMS: 4.5,
+    goleiroRecuoMinimoM: 0.8,
+    /** Faixa de velocidade vertical (m/s) e teto da velocidade horizontal (m/s) que a busca aceita. */
+    vyMin: 4,
+    vyMax: 8.5,
+    /** Velocidade horizontal mínima (m/s): abaixo disso seria um balão quase vertical, não uma cavadinha. */
+    vhMin: 6,
+    vhMax: 15,
+  },
+  /** Quanto tempo (s) o telão mostra o nome do tipo de chute ("Trivela!"). */
+  textoS: 1,
 } as const;
 
 // ---------------------------------------------------------------------------
