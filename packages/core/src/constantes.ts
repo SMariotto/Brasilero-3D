@@ -214,6 +214,26 @@ export const PASSE = {
   lancamentoVzMax: 9,
   /** Provisório (F2): velocidade do passe sem mira em alvo. Na F3 vira a fórmula por distância. */
   velocidadeSemAlvo: 12,
+  /**
+   * Ajuda de mira do passe do humano (H1, provisório), por dificuldade: `coneGraus` é a abertura em que o jogo procura o
+   * companheiro (em volta da direção do joystick) e `forca` é o quanto a bola vai para onde o companheiro VAI ESTAR (1 = em cheio,
+   * 0 = onde o joystick aponta). Fácil ajuda muito; Difícil só um pouco, para a habilidade do jogador ainda contar.
+   */
+  ajuda: {
+    facil: { coneGraus: 100, forca: 1 },
+    medio: { coneGraus: 75, forca: 0.85 },
+    dificil: { coneGraus: 55, forca: 0.6 },
+  },
+  /** Quantas vezes se refina o ponto de encontro (o companheiro anda enquanto a bola viaja). */
+  iteracoesDeMira: 3,
+  /** Sem joystick, o companheiro é escolhido por: quanto está à frente (peso), linha livre de adversários e distância ideal (H1). */
+  semDirecaoPesoAvanco: 0.5,
+  semDirecaoPesoLivre: 0.3,
+  semDirecaoPesoDistancia: 0.2,
+  /** O quanto o companheiro mais à frente conta, em metros de avanço para nota máxima (H1). */
+  semDirecaoAvancoM: 30,
+  /** A mira para o ponto de encontro fica a pelo menos esta distância (m) das linhas do campo. */
+  margemDoCampoM: 0.6,
 } as const;
 
 // ---------------------------------------------------------------------------

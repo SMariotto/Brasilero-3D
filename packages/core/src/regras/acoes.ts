@@ -137,10 +137,60 @@ export interface EntradaPasse {
   coneGraus?: number;
   /** Erro angular (graus) somado à direção final (bots). */
   erroGraus?: number;
+  /** O joystick está solto: escolhe o companheiro mais à frente e livre, em vez do mais alinhado com a direção (H1). */
+  semDirecao?: boolean;
+  /** Quanto a bola vai para onde o companheiro vai estar, de 0 a 1 (H1). Padrão 1 (bots e testes antigos). */
+  forcaDaAjuda?: number;
+  /** Metades do campo, para a mira não sair das linhas (H1). */
+  campo?: { metadeComp: number; metadeLarg: number };
+}
+
+/**
+ * Em quanto tempo uma bola rasteira lançada a `v0` percorre `d` (H1), integrando a mesma desaceleração da física da bola (atrito da
+ * grama mais arrasto do ar, que cresce com o quadrado da velocidade). Se a bola para antes de chegar, devolve o tempo até parar.
+ */
+export function tempoDeVoo(d: number, v0: number): number {
+  const dt = 1 / 60;
+  let v = v0;
+  let x = 0;
+  let t = 0;
+  while (v > BOLA.velocidadeParada && t < 10) {
+    const v1 = Math.max(0, v - (BOLA.atritoChao + BOLA.arrasto * v * v) * dt);
+    const passo = ((v + v1) / 2) * dt;
+    if (x + passo >= d) return t + (passo > 0 ? ((d - x) / passo) * dt : 0); // acerta o último passo
+    x += passo;
+    v = v1;
+    t += dt;
+  }
+  return t;
+}
+
+/** Sem joystick (H1): o companheiro mais à frente e com a linha livre de adversários, perto da distância ideal. */
+function escolherMaisAFrenteELivre(e: EntradaPasse): Alvo | null {
+  let melhor: Alvo | null = null;
+  let melhorNota = -Infinity;
+  for (const c of e.companheiros) {
+    const d = dist(e.de.x, e.de.z, c.x, c.z);
+    if (d < 2) continue;
+    const avanco = limitar(0.5 + ((c.x - e.de.x) * e.ataque) / PASSE.semDirecaoAvancoM, 0, 1);
+    let perto = Infinity;
+    for (const a of e.adversarios) perto = Math.min(perto, distanciaAoSegmento(a.x, a.z, e.de.x, e.de.z, c.x, c.z));
+    const livre = limitar(perto / 3, 0, 1);
+    let distancia = 1;
+    if (d < PASSE.distanciaIdealMin) distancia = limitar(d / PASSE.distanciaIdealMin, 0, 1);
+    else if (d > PASSE.distanciaIdealMax) distancia = limitar(1 - (d - PASSE.distanciaIdealMax) / PASSE.distanciaIdealMax, 0, 1);
+    const nota = PASSE.semDirecaoPesoAvanco * avanco + PASSE.semDirecaoPesoLivre * livre + PASSE.semDirecaoPesoDistancia * distancia;
+    if (nota > melhorNota) {
+      melhor = c;
+      melhorNota = nota;
+    }
+  }
+  return melhor;
 }
 
 /** Companheiro dentro do cone, ou `null`: rasteiro escolhe o de maior nota; lançamento escolhe o mais avançado. */
 export function escolherAlvoDoPasse(e: EntradaPasse): Alvo | null {
+  if (e.semDirecao && !e.alto) return escolherMaisAFrenteELivre(e);
   const cone = e.coneGraus ?? PASSE.coneGraus;
   const meio = grausParaRad(cone / 2);
   let melhor: Alvo | null = null;
@@ -173,10 +223,10 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
   let vy = 0;
 
   if (alvo) {
-    // Onde o companheiro estará quando a bola chegar (duas iterações bastam)
+    // Onde o companheiro estará quando a bola chegar: refina o ponto de encontro (ele anda enquanto a bola viaja)
     let px = alvo.x;
     let pz = alvo.z;
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < PASSE.iteracoesDeMira; i++) {
       const d = dist(e.de.x, e.de.z, px, pz);
       let tempo: number;
       if (e.alto) {
@@ -185,15 +235,28 @@ export function calcularPasseAssistido(e: EntradaPasse): ResultadoPasse {
         rapidez = Math.min(24, (d / tempo) * 1.06);
       } else {
         rapidez = limitar(PASSE.velocidadeBase + PASSE.velocidadePorMetro * d, PASSE.velocidadeMin, PASSE.velocidadeMax);
-        tempo = d / rapidez;
+        tempo = tempoDeVoo(d, rapidez); // a bola vai perdendo velocidade: demora mais que d / rapidez
       }
       px = alvo.x + alvo.vx * tempo;
       pz = alvo.z + alvo.vz * tempo;
+      if (e.campo) {
+        px = limitar(px, -e.campo.metadeComp + PASSE.margemDoCampoM, e.campo.metadeComp - PASSE.margemDoCampoM);
+        pz = limitar(pz, -e.campo.metadeLarg + PASSE.margemDoCampoM, e.campo.metadeLarg - PASSE.margemDoCampoM);
+      }
     }
     const d = dist(e.de.x, e.de.z, px, pz);
     if (d > 0.01) {
-      dirX = (px - e.de.x) / d;
-      dirZ = (pz - e.de.z) / d;
+      // A ajuda mistura a direção do joystick com a da mira: força 1 vai em cheio no ponto de encontro
+      const forca = limitar(e.forcaDaAjuda ?? 1, 0, 1);
+      const mx = (px - e.de.x) / d;
+      const mz = (pz - e.de.z) / d;
+      const bx = e.dirX * (1 - forca) + mx * forca;
+      const bz = e.dirZ * (1 - forca) + mz * forca;
+      const n = Math.hypot(bx, bz);
+      if (n > 1e-6) {
+        dirX = bx / n;
+        dirZ = bz / n;
+      }
     }
   } else if (e.alto) {
     vy = (PASSE.lancamentoVzMin + PASSE.lancamentoVzMax) / 2;

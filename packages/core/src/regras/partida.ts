@@ -1,4 +1,4 @@
-import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, RECEPCAO, TEMPO, type Dificuldade } from "../constantes";
+import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, PASSE, RECEPCAO, TEMPO, type Dificuldade } from "../constantes";
 import { criarCampo, type Campo } from "../fisica/campo";
 import { golMarcado, novaBola, passoBola, type Bola } from "../fisica/bola";
 import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade } from "../fisica/jogador";
@@ -17,7 +17,7 @@ import {
 import type { Config } from "../protocolo/config";
 import type { DonoDeSlot, Destaque, EventoJogo, Fim, GolFeito, SituacaoJogador } from "../protocolo/mensagens";
 import { criarRng, type Rng } from "../util/rng";
-import { calcularChute, calcularPasseAssistido, type Alvo, type Ponto } from "./acoes";
+import { calcularChute, calcularPasseAssistido, escolherAlvoDoPasse, type Alvo, type EntradaPasse, type Ponto } from "./acoes";
 import { Bots, posicoesDeSaida } from "./bots";
 import { GestorDeControle } from "./controle";
 import { completarElenco, nomeDeBot } from "./elenco";
@@ -482,11 +482,25 @@ export class Partida {
 
   /** Passe (SPEC 6.4): rasteiro, ou lançamento por cima; mira no melhor companheiro do cone. */
   passarComo(j: JogadorPartida, alto: boolean, dirX: number, dirZ: number, opcoes: { cone?: number; erroGraus?: number } = {}): void {
+    const v = calcularPasseAssistido(this.entradaDoPasse(j, alto, dirX, dirZ, opcoes));
+    this.soltarBola(j, v.vx, v.vy, v.vz, ANIMACAO.passeS, ANIM.passe);
+    this.evento({ tipo: "passe", dados: { de: j.vaga.slot, ...(v.para !== undefined ? { para: v.para } : {}), alto: v.alto } });
+    this.controle.aoPassar(j.vaga.slot, v.para); // o controle vai para quem recebe (G1)
+  }
+
+  /**
+   * Tudo que a escolha e a mira do passe precisam (H1). O passe do humano usa a ajuda da dificuldade (`PASSE.ajuda`: cone de busca
+   * e força da mira) e, com o joystick solto, escolhe o companheiro mais à frente e livre. Bots e cobranças automáticas passam o
+   * próprio cone e não levam a ajuda.
+   */
+  private entradaDoPasse(j: JogadorPartida, alto: boolean, dirX: number, dirZ: number, opcoes: { cone?: number; erroGraus?: number } = {}): EntradaPasse {
     const alvos: Alvo[] = this.companheirosDe(j)
       .filter((o) => !this.noChao(o))
       .map((o) => ({ slot: o.vaga.slot, x: o.corpo.x, z: o.corpo.z, vx: o.corpo.vx, vz: o.corpo.vz }));
     const adversarios: Ponto[] = this.adversariosDe(j).map((o) => ({ x: o.corpo.x, z: o.corpo.z }));
-    const v = calcularPasseAssistido({
+    const humano = !controladoPorBot(j) && opcoes.cone === undefined;
+    const ajuda = PASSE.ajuda[this.dificuldadeDe(j.vaga.time)];
+    return {
       de: { x: j.corpo.x, z: j.corpo.z },
       dirX,
       dirZ,
@@ -494,12 +508,20 @@ export class Partida {
       adversarios,
       alto,
       ataque: j.vaga.time === 0 ? 1 : -1,
+      campo: { metadeComp: this.campo.metadeComp, metadeLarg: this.campo.metadeLarg },
       ...(opcoes.cone !== undefined ? { coneGraus: opcoes.cone } : {}),
       ...(opcoes.erroGraus !== undefined ? { erroGraus: opcoes.erroGraus } : {}),
-    });
-    this.soltarBola(j, v.vx, v.vy, v.vz, ANIMACAO.passeS, ANIM.passe);
-    this.evento({ tipo: "passe", dados: { de: j.vaga.slot, ...(v.para !== undefined ? { para: v.para } : {}), alto: v.alto } });
-    this.controle.aoPassar(j.vaga.slot, v.para); // o controle vai para quem recebe (G1)
+      ...(humano ? { coneGraus: ajuda.coneGraus, forcaDaAjuda: ajuda.forca, semDirecao: j.cmd.mag === 0 } : {}),
+    };
+  }
+
+  /**
+   * Quem receberia o passe se o jogador o soltasse agora (H1), ou `null`: serve para mostrar a mira no telão e no celular enquanto
+   * PASSE está apertado. `alto` é o lançamento (PASSE segurado por mais de `PASSE.lancamentoSegurarS`).
+   */
+  alvoDaMira(j: JogadorPartida, alto: boolean): number | null {
+    const [dx, dz] = this.direcaoDe(j);
+    return escolherAlvoDoPasse(this.entradaDoPasse(j, alto, dx, dz))?.slot ?? null;
   }
 
   private soltarBola(j: JogadorPartida, vx: number, vy: number, vz: number, animS: number, anim: number): void {
