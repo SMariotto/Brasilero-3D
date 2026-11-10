@@ -45,7 +45,7 @@ function amostrar(nome: string, ossos: string[]): Array<Record<string, THREE.Vec
   return saida;
 }
 
-describe("o corpo (model-brasilero-3d-rig.glb)", () => {
+describe("o corpo (model-brasilero-3d-rig-1malha.glb)", () => {
   it("é um GLB, e as imagens embutidas saem sem o GLTFLoader precisar abrir nenhuma", () => {
     const bytes = bytesDe(NOME_DO_CORPO);
     expect(ehGlb(bytes)).toBe(true);
@@ -64,6 +64,12 @@ describe("o corpo (model-brasilero-3d-rig.glb)", () => {
     for (const o of ["Raiz", "Quadril", "Peito", "Pescoco", "Cabeca", "BracoL", "BracoR", "PeL", "PeR"]) expect(base.ossos, o).toContain(o);
     expect(new Set(base.clipes.map((c) => c.name))).toEqual(new Set(TODOS_OS_CLIPES));
     expect(base.clipes).toHaveLength(9);
+  });
+
+  it("o corpo vem em uma malha só, mais o rosto (o glb de malha única)", () => {
+    const pecas = malhas(base.cena);
+    expect(pecas.map((m) => m.name).sort()).toEqual(["Corpo", "Rosto_Expressao"]);
+    expect(pecas.filter((m) => m.name !== "Rosto_Expressao")).toHaveLength(1);
   });
 
   it("acha o material Skin, o Rosto e a malha do rosto; as imagens ficam para o navegador", () => {
@@ -107,10 +113,10 @@ describe("FiguraBoneco", () => {
     expect(malhas(a.raiz)[0]!.skeleton).not.toBe(malhas(b.raiz)[0]!.skeleton);
   });
 
-  it("todas as peças de um jogador dividem um esqueleto só (uma textura de ossos e uma atualização por quadro, não 20)", () => {
+  it("todas as peças de um jogador (corpo, rosto e cabelo) dividem um esqueleto só: uma textura de ossos e uma atualização por quadro", () => {
     const f = new FiguraBoneco(base, SKIN, null, 0, false);
     const pecas = malhas(f.raiz);
-    expect(pecas.length).toBeGreaterThan(1);
+    expect(pecas).toHaveLength(2);
     expect(new Set(pecas.map((m) => m.skeleton)).size).toBe(1);
     // ...e os ossos desse esqueleto são os do clone (não os do corpo original)
     for (const o of pecas[0]!.skeleton.bones) expect(base.cena.getObjectByName(o.name)).not.toBe(o);
@@ -233,7 +239,7 @@ describe("cabelos", () => {
     const f = new FiguraBoneco(base, null, { geometria: c.geometria, material: c.material }, 0, false);
     const todas = malhas(f.raiz);
     const cabelo = todas[todas.length - 1]!;
-    expect(todas).toHaveLength(21); // as 20 peças do corpo e o cabelo
+    expect(todas).toHaveLength(3); // o corpo, o rosto e o cabelo
     expect(cabelo.skeleton).toBe(todas[0]!.skeleton);
 
     f.raiz.updateMatrixWorld(true);

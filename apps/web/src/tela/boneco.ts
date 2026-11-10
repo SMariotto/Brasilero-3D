@@ -6,7 +6,7 @@ import { CLIPE, CROSSFADE_S, ControladorDeRosto, decidir, velocidadeDaCorrida, t
 import { aparenciaDoSlot, caminhosDoBoneco, chaveDoCabelo, kitDoJogador, offsetDoRosto, type KitDeSkin } from "./boneco-dados";
 import { desenharSkinGerada } from "./skin-gerada";
 
-// O boneco novo (rig-v1, H5): um `model-brasilero-3d-rig.glb` com esqueleto de 17 ossos e 9 animações, clonado por jogador
+// O boneco novo (rig-v1, H5): um `model-brasilero-3d-rig-1malha.glb` (o corpo numa malha só, mais o rosto) com esqueleto de 17 ossos e 9 animações, clonado por jogador
 // (SkeletonUtils.clone, um AnimationMixer cada), com skin por time, rosto de atlas e cabelo em .glb à parte. Se o arquivo não
 // carrega, o jogo segue com o jogador feito por código: nada depende do modelo.
 //
@@ -374,8 +374,9 @@ export class FiguraBoneco {
     this.rostoCtl = new ControladorDeRosto(criarRng(slot * 7919 + 13).proximo);
     this.tipoRosto = tipoRosto;
 
-    // O SkeletonUtils.clone (e o GLTFLoader) dão um esqueleto a cada peça: com 20 peças seriam 20 texturas de ossos e 20 atualizações
-    // por quadro para cada jogador. As peças do mesmo jogador têm os mesmos ossos, então dividem um esqueleto só.
+    // O SkeletonUtils.clone (e o GLTFLoader) dão um esqueleto a cada peça: corpo, rosto e cabelo seriam 3 texturas de ossos e 3
+    // atualizações por quadro para cada jogador (com o corpo antigo, de 20 peças, eram 21). As peças do mesmo jogador têm os mesmos
+    // ossos, então dividem um esqueleto só.
     const pecas = malhasDe(this.cena);
     this.esqueleto = pecas[0]?.skeleton ?? null;
     for (const m of pecas.slice(1)) if (this.esqueleto && mesmosOssos(this.esqueleto, m.skeleton)) m.bind(this.esqueleto, m.bindMatrix);

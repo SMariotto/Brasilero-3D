@@ -66,7 +66,7 @@ export async function abrirVitrineBoneco(raiz: HTMLElement): Promise<void> {
   }
   const base = await obterBoneco(import.meta.env.BASE_URL);
   if (!base) {
-    aviso("O boneco não carregou (public/boneco/model-brasilero-3d-rig.glb).");
+    aviso("O boneco não carregou (public/boneco/model-brasilero-3d-rig-1malha.glb).");
     return;
   }
 

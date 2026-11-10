@@ -81,7 +81,7 @@ export function kitDoJogador(v: Pick<VagaElenco, "time" | "goleiro">, uniformes:
 
 // --- onde ficam os arquivos --------------------------------------------------------------------------------------------------
 
-export const NOME_DO_CORPO = "model-brasilero-3d-rig.glb";
+export const NOME_DO_CORPO = "model-brasilero-3d-rig-1malha.glb";
 
 export function caminhosDoBoneco(base = "/"): { corpo: string; atlas: string; skinModelo: string; skin: (id: string) => string; cabelo: (chave: string) => string } {
   const raiz = `${base}boneco/`;

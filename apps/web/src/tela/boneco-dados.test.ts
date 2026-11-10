@@ -74,6 +74,8 @@ describe("skins prontas", () => {
     expect(TIMES.length).toBeGreaterThanOrEqual(13);
     const t = acharTime("pedesapo")!;
     expect(t.sigla).toBe("PDS");
+    expect(t.nomeOficial).toBe("Pé de Sapo");
+    expect(t.cidade).toBe("Guarulhos, SP");
     expect(t.cores.primaria.toLowerCase()).toBe("#184722");
     expect(t.cores.secundaria.toLowerCase()).toBe("#b39101");
     expect(t.cores.terciaria?.toLowerCase()).toBe("#e3d391");
@@ -83,7 +85,7 @@ describe("skins prontas", () => {
 describe("caminhosDoBoneco", () => {
   it("monta os endereços a partir da base do site", () => {
     const c = caminhosDoBoneco("/jogo/");
-    expect(c.corpo).toBe("/jogo/boneco/model-brasilero-3d-rig.glb");
+    expect(c.corpo).toBe("/jogo/boneco/model-brasilero-3d-rig-1malha.glb");
     expect(c.skin("vasco")).toBe("/jogo/boneco/skins/vasco.png");
     expect(c.cabelo("07-mullet_preto")).toBe("/jogo/boneco/cabelos/07-mullet_preto.glb");
     expect(caminhosDoBoneco().atlas).toBe("/boneco/rostos_atlas.png");

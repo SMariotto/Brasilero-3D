@@ -2,7 +2,7 @@ import { ANIM, ANIMACAO } from "@b3d/core";
 import { EXPRESSAO, FPS_DO_ROSTO, QUADROS_POR_EXPRESSAO } from "./boneco-dados";
 
 // Que animação do boneco novo (rig-v1, H5) tocar para cada estado do snapshot, e como (velocidade, pé, rosto). Lógica pura, sem
-// Three.js, com teste. Os nomes são os do `model-brasilero-3d-rig.glb` (30 fps).
+// Three.js, com teste. Os nomes são os do `model-brasilero-3d-rig-1malha.glb` (30 fps).
 
 export const CLIPE = {
   parado: "parado",
