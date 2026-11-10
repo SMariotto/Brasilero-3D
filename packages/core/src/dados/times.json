@@ -1,5 +1,5 @@
 {
-  "_leia": "Clubes do Brasilero 3D. Nome oficial, nome curto, sigla e cidade sao dados publicos. As cores em hexadecimal sao APROXIMADAS: ajuste a vontade. O padrao da camisa vem 'liso' em todos; troque pelo padrao que quiser (liso, listras-verticais, listras-horizontais, faixa-diagonal, faixa-horizontal, metade-vertical, mangas-contraste). Escudo: coloque apps/web/public/escudos/<id>.png. Para adicionar um clube, copie um bloco inteiro e troque o id (minusculo, sem acento, sem espaco).",
+  "_leia": "Clubes do Brasilero 3D. Nome oficial, nome curto, sigla e cidade sao dados publicos. As cores em hexadecimal sao APROXIMADAS: ajuste a vontade. O padrao da camisa vem 'liso' na maioria (o Pe de Sapo usa listras-verticais); troque pelo padrao que quiser (liso, listras-verticais, listras-horizontais, faixa-diagonal, faixa-horizontal, metade-vertical, mangas-contraste). Escudo: coloque apps/web/public/escudos/<id>.png. Para adicionar um clube, copie um bloco inteiro e troque o id (minusculo, sem acento, sem espaco).",
   "versao": 1,
   "times": [
     {
@@ -145,6 +145,18 @@
       "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
       "calcao": "secundaria",
       "meiao": "secundaria"
+    },
+    {
+      "id": "pedesapo",
+      "nomeOficial": "Pé de Sapo",
+      "nome": "Pé de Sapo",
+      "sigla": "PDS",
+      "cidade": "A definir",
+      "cores": { "primaria": "#184722", "secundaria": "#B39101", "terciaria": "#E3D391" },
+      "camisa": { "padrao": "listras-verticais", "cor1": "primaria", "cor2": "secundaria" },
+      "reserva": { "padrao": "liso", "cor1": "secundaria", "cor2": "primaria" },
+      "calcao": "primaria",
+      "meiao": "primaria"
     }
   ]
 }

@@ -9,7 +9,7 @@ Código do jogo. A especificação mora em `../guia-claude-code/` e manda em tud
 4. **Não apague nada fora de `projeto/`.** Dentro de `projeto/`, só apague o que a própria sessão criou; para o resto, pergunte.
 5. **Não invente dado.** Se a SPEC não diz, ou diz algo impossível, anote em `PROGRESSO.md` (seção "Dúvidas para o Samuel") e siga com a opção mais simples, marcada como provisória.
 6. **Números de física e de jogo só em `packages/core/src/constantes.ts`.**
-7. **Nada de escudo, logo ou camisa de clube real** baixado ou desenhado. Escudos só os PNGs que o Samuel colocar em `apps/web/public/escudos/`.
+7. **Nada de escudo, logo ou camisa de clube real** baixado ou desenhado por mim. **Valem os que o Samuel fez e colocou:** escudos (PNG) em `apps/web/public/escudos/` e skins do boneco (PNG, 128x128) em `apps/web/public/boneco/skins/`; eu só copio e uso esses arquivos, sem editar nem redesenhar. Clube sem skin do Samuel usa a skin gerada por código, só com as cores do `times.json`.
 8. **Nada de CDN em tempo de execução.** Tudo vem do npm e vai no build.
 9. **Controle leve:** `controle.html` nunca importa Three.js nem nada de `src/tela/`.
 10. **Windows:** o Samuel usa PowerShell 5.1. Em instruções para ele, comandos em uma linha usam `;` (não `&&`). Scripts do npm devem funcionar no Windows (use Node para mexer em arquivos, não `rm`, `cp` ou `mv`). O caminho tem espaço: sempre aspas.
