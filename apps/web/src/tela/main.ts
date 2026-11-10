@@ -277,6 +277,11 @@ if (new URLSearchParams(location.search).get("vitrine") === "1") {
   inicio.hidden = true;
   porId("vitrine").hidden = false;
   void import("./vitrinePoses").then((m) => m.abrirVitrinePoses(porId("vitrine")));
+} else if (new URLSearchParams(location.search).get("boneco") === "1") {
+  // `tela.html?boneco=1`: o boneco novo (rig-v1) em cada estado do jogo, com as skins dos clubes (H5)
+  inicio.hidden = true;
+  porId("vitrine").hidden = false;
+  void import("./vitrineBoneco").then((m) => m.abrirVitrineBoneco(porId("vitrine")));
 } else if (sala) {
   // Página recarregada com ?sala=ABCD: volta a assistir sem pedir nada.
   iniciar();

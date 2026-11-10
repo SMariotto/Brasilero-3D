@@ -1,8 +1,10 @@
 import * as THREE from "three";
-import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type DonoDeSlot, type MiraDoPasse, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
+import { ANIM, JOGADOR, PARTIDA, SEM_DOMINANTE, donosDoElenco, type BolaSnap, type DonoDeSlot, type MiraDoPasse, type JogadorSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
 import { criarMaterialUniforme } from "./uniforme";
 import { ElencoProcedural } from "./corpos";
 import { FiguraModelo, type ModeloBase } from "./modelo";
+import { FiguraBoneco, type BonecoPronto } from "./boneco";
+import { aparenciaDoSlot } from "./boneco-dados";
 
 /** Etiqueta com o apelido, desenhada num canvas e usada como sprite (sempre virada para a câmera). */
 function etiqueta(nome: string, cor: string): THREE.Sprite {
@@ -61,6 +63,8 @@ interface Figura {
   capsula: THREE.Group | null;
   /** O modelo 3D animado, se o `jogador.glb` carregou. */
   modelo: FiguraModelo | null;
+  /** O boneco novo (rig-v1, H5), se carregou. Com ele a cápsula só aparece no modo leve. */
+  boneco: FiguraBoneco | null;
   /** Número da camisa em cima do bot (G1: some quando um humano passa a controlar este jogador). Fora do grupo, para não girar. */
   numero: THREE.Sprite | null;
   /** Seta e anel "este é o jogador de um humano agora" (G1), na cor do time. Dentro do grupo. */
@@ -73,8 +77,9 @@ interface Figura {
 }
 
 /**
- * Os jogadores. O corpo é, nesta ordem de preferência: o `jogador.glb` se alguém o pôs em `modelos/` (F6, obsoleto desde a G3),
- * o jogador feito por código (G3, o padrão), ou a cápsula na cor do time (modo leve e `?capsula=1`). Por cima, apelido, seta e anel
+ * Os jogadores. O corpo é, nesta ordem de preferência: o boneco novo (rig-v1, H5, o padrão), o `jogador.glb` se alguém o pôs em
+ * `modelos/` (F6, obsoleto desde a G3), o jogador feito por código (G3, a reserva se o boneco não carregar) ou a cápsula na cor do
+ * time (modo leve e `?capsula=1`). Por cima, apelido, seta e anel
  * em quem um humano controla agora e um anel no chão sob quem está com a bola.
  */
 export class Jogadores {
@@ -93,8 +98,16 @@ export class Jogadores {
   /** Um anel no receptor e uma linha ligando quem passa a ele, para cada mira (no máximo 6 humanos mirando ao mesmo tempo). */
   private readonly marcadoresDeMira: Array<{ anel: THREE.Mesh; linha: THREE.Line; pontos: THREE.BufferAttribute }> = [];
 
-  /** `procedural`: usar o jogador feito por código (G3). Falso com `?capsula=1`. */
-  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null, procedural = true) {
+  private readonly temBoneco: boolean;
+
+  /** O boneco novo está em uso (carregou e não é o modo leve)? */
+  private get usandoBoneco(): boolean {
+    return this.temBoneco && !this.leve;
+  }
+
+  /** `procedural`: usar o jogador feito por código (G3) quando não há boneco. Falso com `?capsula=1`. */
+  constructor(elenco: VagaElenco[], uniformes: [UniformeResolvido, UniformeResolvido], modelo: ModeloBase | null = null, procedural = true, boneco: BonecoPronto | null = null) {
+    this.temBoneco = boneco !== null;
     const alturaTronco = JOGADOR.alturaCorpo - JOGADOR.raio * 2;
 
     for (const v of elenco) {
@@ -106,7 +119,12 @@ export class Jogadores {
       let corpo: THREE.Mesh | null = null;
       let capsula: THREE.Group | null = null;
       let figuraModelo: FiguraModelo | null = null;
-      if (modelo) {
+      let figuraBoneco: FiguraBoneco | null = null;
+      if (boneco) {
+        figuraBoneco = new FiguraBoneco(boneco.base, boneco.materialDoKit(`${v.time}${v.goleiro ? "g" : "l"}`), boneco.cabeloDe(v.slot), aparenciaDoSlot(v.slot).tipoRosto, v.goleiro, v.slot);
+        grupo.add(figuraBoneco.raiz);
+      }
+      if (modelo && !boneco) {
         figuraModelo = new FiguraModelo(modelo, uniforme);
         grupo.add(figuraModelo.raiz);
       } else {
@@ -144,11 +162,11 @@ export class Jogadores {
       }
 
       this.grupo.add(grupo);
-      this.figuras.set(v.slot, { grupo, corpo, capsula, modelo: figuraModelo, numero, seta, anelDono, apelido: null, cor });
+      this.figuras.set(v.slot, { grupo, corpo, capsula, modelo: figuraModelo, boneco: figuraBoneco, numero, seta, anelDono, apelido: null, cor });
     }
     this.definirDonos(donosDoElenco(elenco));
 
-    this.procedural = !modelo && procedural ? new ElencoProcedural(elenco, uniformes) : null;
+    this.procedural = !modelo && !boneco && procedural ? new ElencoProcedural(elenco, uniformes) : null;
     if (this.procedural) this.grupo.add(this.procedural.grupo);
     this.aplicarVisibilidade();
 
@@ -213,8 +231,12 @@ export class Jogadores {
 
   private aplicarVisibilidade(): void {
     const proc = this.usandoProcedural;
+    const bon = this.usandoBoneco;
     if (this.procedural) this.procedural.grupo.visible = proc;
-    for (const f of this.figuras.values()) if (f.capsula) f.capsula.visible = !proc;
+    for (const f of this.figuras.values()) {
+      if (f.capsula) f.capsula.visible = !proc && !bon;
+      if (f.boneco) f.boneco.raiz.visible = bon;
+    }
   }
 
   private readonly geoSeta = new THREE.ConeGeometry(0.32, 0.6, 4);
@@ -301,7 +323,10 @@ export class Jogadores {
 
   /** Solta o que o modelo animado prendeu (mixers). A cena chama ao trocar de partida ou de elenco. */
   liberar(): void {
-    for (const f of this.figuras.values()) f.modelo?.liberar();
+    for (const f of this.figuras.values()) {
+      f.modelo?.liberar();
+      f.boneco?.liberar();
+    }
     this.procedural?.liberar();
     for (const m of this.marcadoresDeMira) {
       m.anel.geometry.dispose();
@@ -320,7 +345,8 @@ export class Jogadores {
     this.materiaisDaCor.clear();
   }
 
-  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0): void {
+  /** `bola`: a posição da bola neste quadro (o boneco escolhe o pé do chute e a defesa alta por ela). */
+  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0, bola?: Pick<BolaSnap, "x" | "y" | "z">): void {
     this.anel.visible = false;
     this.posicionarMiras(jogadores);
     if (this.usandoProcedural) this.procedural!.atualizar(jogadores, dtS);
@@ -329,7 +355,8 @@ export class Jogadores {
       if (!f) continue;
       f.grupo.position.set(j.x, 0, j.z);
       f.grupo.rotation.y = -j.dir; // dirX = cos, dirZ = sin: girar +X para +Z é no sentido horário visto de cima
-      if (!this.usandoProcedural) this.pose(f, j);
+      if (this.usandoBoneco) f.boneco?.atualizar({ anim: j.anim, vel: j.vel, x: j.x, z: j.z, dir: j.dir }, dtS, bola);
+      else if (!this.usandoProcedural) this.pose(f, j);
       f.modelo?.atualizar(j.anim, j.vel, dtS);
 
       if (f.apelido) f.apelido.position.set(j.x, JOGADOR.alturaCorpo + 1.35, j.z);

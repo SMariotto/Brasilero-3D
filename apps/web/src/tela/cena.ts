@@ -12,6 +12,7 @@ import { criarEstadio, type Estadio } from "./estadio";
 import { Hud } from "./hud";
 import { Interpolador, type Amostra } from "./interpolacao";
 import { Jogadores } from "./jogadores";
+import { obterBoneco, prepararBoneco, type BonecoPronto } from "./boneco";
 import { obterModelo, urlDoModelo, type ModeloBase } from "./modelo";
 import { GravadorDeReplay, Reproducao } from "./replay";
 import { idDoApelido, idsHumanos, proximoId, slotDoHumano } from "./seguir";
@@ -45,6 +46,8 @@ export class CenaJogo {
   private estadio: Estadio | null = null;
   private jogadores: Jogadores | null = null;
   private modelo: ModeloBase | null = null;
+  /** O boneco novo (rig-v1) desta partida: skins, cabelos e o corpo. `null` se não carregou (aí valem o jogador por código e as cápsulas). */
+  private boneco: BonecoPronto | null = null;
   private bola: Bola3D | null = null;
   private sol: THREE.DirectionalLight | null = null;
 
@@ -82,7 +85,7 @@ export class CenaJogo {
     if (p.id === this.partidaId && this.scene && this.jogadores) {
       this.scene.remove(this.jogadores.grupo);
       this.jogadores.liberar();
-      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo, !CAPSULA_FORCADA());
+      this.jogadores = new Jogadores(p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), this.modelo, !CAPSULA_FORCADA(), this.boneco);
       this.jogadores.definirLeve(this.medidor.leve);
       this.scene.add(this.jogadores.grupo);
       this.hud.atualizarElenco(p);
@@ -91,9 +94,13 @@ export class CenaJogo {
       this.mostrarSeguindo();
       return;
     }
-    // O modelo 3D (se existir) baixa uma vez; enquanto isso, ou sem ele, valem as cápsulas
+    // O boneco novo (rig-v1) e o modelo 3D antigo (se existirem) baixam uma vez; sem eles, valem o jogador por código e as cápsulas
     this.ultimosDonos = null;
-    this.modelo = await obterModelo(urlDoModelo(location.search, import.meta.env.BASE_URL));
+    this.boneco?.liberar();
+    this.boneco = null;
+    const corpoDoBoneco = CAPSULA_FORCADA() ? null : await obterBoneco(import.meta.env.BASE_URL);
+    if (corpoDoBoneco) this.boneco = await prepararBoneco(corpoDoBoneco, p.elenco, uniformesDaPartida(p.config.casa, p.config.visitante), [p.config.casa, p.config.visitante]);
+    this.modelo = this.boneco ? null : await obterModelo(urlDoModelo(location.search, import.meta.env.BASE_URL));
     // `donos` que chegaram enquanto o modelo baixava valem sobre o elenco da mensagem `partida` (que é anterior a eles)
     if (this.ultimosDonos) p = { ...p, elenco: aplicarDonos(p.elenco, this.ultimosDonos) };
     this.partidaId = p.id;
@@ -151,7 +158,7 @@ export class CenaJogo {
     scene.background = this.estadio.ceu;
     scene.fog = new THREE.Fog(0x0d1a33, 95, 280);
 
-    this.jogadores = new Jogadores(p.elenco, uniformes, this.modelo, !CAPSULA_FORCADA());
+    this.jogadores = new Jogadores(p.elenco, uniformes, this.modelo, !CAPSULA_FORCADA(), this.boneco);
     this.jogadores.definirLeve(this.medidor.leve);
     scene.add(this.jogadores.grupo);
     this.bola = criarBola3D();
@@ -253,6 +260,8 @@ export class CenaJogo {
     this.campo = null;
     this.estadio = null;
     this.jogadores = null;
+    this.boneco?.liberar();
+    this.boneco = null;
     this.bola = null;
     this.reproducao = null;
     this.golPendente = null;
@@ -363,7 +372,7 @@ export class CenaJogo {
     if (vivo) this.hud.atualizar(vivo);
     if (a) {
       this.bola?.atualizar(a.bola);
-      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt);
+      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt, a.bola);
       const slotSeguido = this.seguindo === null ? null : slotDoHumano(this.elenco, this.seguindo);
       const seguido = slotSeguido === null ? undefined : a.jogadores.find((j) => j.slot === slotSeguido);
       this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro, seguido ? { x: seguido.x, z: seguido.z } : null);
