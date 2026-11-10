@@ -1,0 +1,47 @@
+{
+  "parado": {
+    "quadros": 49,
+    "fps": 30,
+    "loop": true
+  },
+  "correr": {
+    "quadros": 17,
+    "fps": 30,
+    "loop": true
+  },
+  "chutar": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
+  },
+  "chutar_esq": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
+  },
+  "comemorar": {
+    "quadros": 36,
+    "fps": 30,
+    "loop": false
+  },
+  "gk_parado": {
+    "quadros": 41,
+    "fps": 30,
+    "loop": true
+  },
+  "gk_mergulho_esq": {
+    "quadros": 30,
+    "fps": 30,
+    "loop": false
+  },
+  "gk_mergulho_dir": {
+    "quadros": 30,
+    "fps": 30,
+    "loop": false
+  },
+  "gk_defesa_alta": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
+  }
+}
