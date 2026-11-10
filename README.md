@@ -15,6 +15,7 @@ Futebol 3D para jogar com os amigos: a TV (ou o PC) mostra o jogo e cada pessoa 
 11. `node ferramentas/gerar-icones.mjs` redesenha os ícones do app (só se quiser mudar o desenho).
 12. ~~`npm run boneco-teste` e o caminho Mixamo + Blender (`ferramentas/blender/`)~~ **OBSOLETO desde a G3** (o jogador agora é feito por código; nada foi apagado, o Samuel decide). `npm run boneco-teste` ainda grava um boneco de caixas para testar o carregador de GLB (`tela.html?modelo=boneco-teste`).
 13. `tela.html?poses=1`: vitrine das poses do jogador feito por código (as 14 animações lado a lado; `&vel=7` muda a velocidade da corrida).
+14. `tela.html?boneco=1`: vitrine do boneco novo (rig-v1) em cada estado do jogo, com as skins dos clubes (`&times=vasco,flamengo`, `&cam=lado`, `&colunas=0,4&h=700`, `&padrao=faixa-diagonal`, `&t=0.2`).
 
 Teclas do telão: **C** troca a câmera (TV, aérea, segue um jogador), **N** troca quem é seguido, **T** abre a tabela do campeonato da sala, **M** liga/desliga o som, **L** modo leve (sem sombras, torcida e brilho). Endereços úteis: `?segue=Apelido` abre o telão seguindo aquele jogador; `?debug=1` mostra fps e draw calls; `?capsula=1` usa cápsulas no lugar do modelo 3D; `?vitrine=1` mostra as camisas dos clubes.
 
