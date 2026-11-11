@@ -487,10 +487,14 @@ export const DEFESA = {
 // Troca de jogador estilo FIFA (G1, provisório)
 // ---------------------------------------------------------------------------
 export const TROCA = {
-  /** Sem a bola, o humano só passa para outro companheiro se ele estiver pelo menos isto (m) mais perto da bola (histerese). */
-  histereseM: 2.5,
-  /** Depois de qualquer troca sozinha, o humano fica este tempo (s) sem trocar sozinho de novo. */
-  travaAposTrocaS: 0.6,
+  /** Sem a bola, o humano só passa para outro companheiro se ele estiver pelo menos isto (m) mais perto da bola (histerese). (2,5 antes da H6) */
+  histereseM: 4,
+  /** Depois de qualquer troca sozinha, o humano fica este tempo (s) sem trocar sozinho de novo. (0,6 antes da H6) */
+  travaAposTrocaS: 1.5,
+  /** H6: com o joystick empurrado, não troca sozinho enquanto o jogador atual está a menos disto (m) da bola: quem corre para a jogada não é trocado. */
+  semTrocaComJoystickAteM: 12,
+  /** H6: com a bola acima desta velocidade (m/s, no chão do campo) não troca sozinho: a bola em voo muda o "mais perto" a cada instante. */
+  semTrocaBolaAcimaDeMs: 12,
   /** Depois de trocar à mão (CHUTE sem a bola), fica este tempo (s) sem trocar sozinho, para o controle não "voltar". */
   travaAposManualS: 1.5,
 } as const;

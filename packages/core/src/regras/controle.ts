@@ -11,7 +11,8 @@ import type { JogadorPartida } from "./tipos-partida";
 //  2. Passe de um humano para um bot: o humano que passou vai para o fim da fila e o primeiro da fila assume quem recebe, na hora
 //     em que o passe sai. Se quem recebe já é controlado por outro humano, ele continua com esse humano.
 //  3. Sem a bola (bola solta ou com o adversário): o humano controla o companheiro mais perto da bola, com histerese (só troca se
-//     o outro estiver `TROCA.histereseM` mais perto) e uma pausa depois de cada troca.
+//     o outro estiver `TROCA.histereseM` mais perto) e uma pausa depois de cada troca. Não troca com a bola acima de
+//     `TROCA.semTrocaBolaAcimaDeMs`, nem com o joystick empurrado e o jogador dele a menos de `TROCA.semTrocaComJoystickAteM` da bola (H6).
 //  4. CHUTE sem a bola troca à mão para o companheiro mais perto da bola (que não seja o atual).
 // Goleiro nunca é controlado por humano.
 
@@ -200,14 +201,19 @@ export class GestorDeControle {
         h.semAutoAte = t + TROCA.travaAposTrocaS;
       }
 
-      // 3. Sem a bola: o companheiro mais perto da bola, com histerese
+      // 3. Sem a bola: o companheiro mais perto da bola, com histerese. H6: não troca com a bola rápida (b) nem enquanto o humano
+      // empurra o joystick com o jogador dele perto da jogada (a)
+      const bolaRapida = Math.hypot(p.bola.vx, p.bola.vz) > TROCA.semTrocaBolaAcimaDeMs;
       for (const h of fila) {
         if (h.slot === null || t < h.semAutoAte) continue;
         if (portador && h.slot === portador.vaga.slot) continue;
+        if (bolaRapida) continue;
         const atual = p.jogador(h.slot);
         const melhor = this.maisPertoDaBola(this.livresDo(time, h));
         if (!atual || !melhor || melhor === atual) continue;
-        if (this.distanciaDaBola(atual) - this.distanciaDaBola(melhor) > TROCA.histereseM) {
+        const distanciaAtual = this.distanciaDaBola(atual);
+        if (h.cmd.mag > 0 && distanciaAtual < TROCA.semTrocaComJoystickAteM) continue;
+        if (distanciaAtual - this.distanciaDaBola(melhor) > TROCA.histereseM) {
           this.atribuir(h, melhor.vaga.slot);
           h.semAutoAte = t + TROCA.travaAposTrocaS;
         }

@@ -19,6 +19,8 @@ interface Falso {
   mudar: { dominante: (slot: number | null) => void; tempo: (t: number) => void; fase: (f: number) => void };
   pos: (slot: number, x: number, z: number) => void;
   bola: (x: number, z: number) => void;
+  /** A velocidade da bola no chão do campo (m/s). */
+  velBola: (vx: number, vz: number) => void;
 }
 
 /** Casa: slots 0 (goleiro) a 5; Visitante: 6 (goleiro) a 11. Todos longe da bola e bots, até o teste dizer o contrário. */
@@ -40,7 +42,7 @@ function falso(humanos: Array<{ slot: number; id: number }>, dinamico = true): F
   const estado = { dominante: null as number | null, t: 10, fase: FASE.jogo as number };
   const p = {
     jogadores,
-    bola: { x: 0, z: 0 },
+    bola: { x: 0, z: 0, vx: 0, vz: 0 },
     reinicio: null,
     get dominante() {
       return estado.dominante;
@@ -79,6 +81,10 @@ function falso(humanos: Array<{ slot: number; id: number }>, dinamico = true): F
       p.bola.x = x;
       p.bola.z = z;
     },
+    velBola: (vx, vz) => {
+      p.bola.vx = vx;
+      p.bola.vz = vz;
+    },
   };
 }
 
@@ -99,7 +105,9 @@ describe("controle estilo FIFA: regras", () => {
     expect(f.g.fila(0)).toEqual([11, 10]);
   });
 
-  it("histerese: só troca de jogador se o outro estiver mais de 2,5 m mais perto da bola, e depois fica 0,6 s sem trocar sozinho", () => {
+  it("histerese: só troca de jogador se o outro estiver mais de TROCA.histereseM (4 m) mais perto da bola, e depois fica TROCA.travaAposTrocaS (1,5 s) sem trocar sozinho", () => {
+    expect(TROCA.histereseM).toBe(4); // H6: era 2,5
+    expect(TROCA.travaAposTrocaS).toBe(1.5); // H6: era 0,6
     const f = falso([{ slot: 1, id: 10 }]);
     f.bola(0, 0);
     f.pos(1, 8, 0); // o dele, a 8 m
@@ -107,7 +115,11 @@ describe("controle estilo FIFA: regras", () => {
     f.g.atualizar();
     expect(f.g.slotDe(10)).toBe(1);
 
-    f.pos(2, 5.4, 0); // 2,6 m mais perto: troca
+    f.pos(2, 8 - TROCA.histereseM + 0.1, 0); // um pouco menos que a histerese mais perto: não basta
+    f.g.atualizar();
+    expect(f.g.slotDe(10)).toBe(1);
+
+    f.pos(2, 8 - TROCA.histereseM - 0.1, 0); // um pouco mais que a histerese mais perto: troca
     f.g.atualizar();
     expect(f.g.slotDe(10)).toBe(2);
     // O jogador largado vira bot, com o nome de bot, parado e sem botão seguro
@@ -115,13 +127,122 @@ describe("controle estilo FIFA: regras", () => {
     expect(largado.vaga).toMatchObject({ humano: false, nome: "Bot1" });
     expect(largado.vaga.idControle).toBeUndefined();
 
-    // Logo depois, outro fica bem mais perto, mas a pausa segura a troca
+    // Logo depois, o jogador dele se afasta e outro fica bem mais perto (mais que a histerese), mas a pausa segura a troca
+    f.pos(2, 9, 0);
     f.pos(3, 1, 0);
     f.g.atualizar();
     expect(f.g.slotDe(10)).toBe(2);
     f.mudar.tempo(10 + TROCA.travaAposTrocaS + 0.01);
     f.g.atualizar();
     expect(f.g.slotDe(10)).toBe(3);
+  });
+
+  describe("H6: a troca sozinha sem a bola é menos intrusiva", () => {
+    /** O humano (id 10) está no slot 1, a `d` m da bola em (0, 0); o companheiro livre (slot 2) está 6 m mais perto (passa da histerese de 4 m). */
+    const cena = (d: number): Falso => {
+      const f = falso([{ slot: 1, id: 10 }]);
+      f.bola(0, 0);
+      f.pos(1, d, 0);
+      f.pos(2, d - 6, 0);
+      return f;
+    };
+    const empurrar = (f: Falso, mag: number): void => f.g.comando(10, { ...comandoParado(), mag });
+
+    it("as duas condições novas têm constantes próprias em TROCA (12 m e 12 m/s)", () => {
+      expect(TROCA.semTrocaComJoystickAteM).toBe(12);
+      expect(TROCA.semTrocaBolaAcimaDeMs).toBe(12);
+    });
+
+    it("a) com o joystick empurrado e o jogador dele a menos de 12 m da bola, não troca; solto, troca", () => {
+      const f = cena(8);
+      empurrar(f, magParaByte(1));
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(1);
+      // Qualquer empurrão conta, mesmo leve
+      empurrar(f, magParaByte(0.1));
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(1);
+      // Soltou o joystick: a troca acontece
+      empurrar(f, 0);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(2);
+    });
+
+    it("a) a 12 m da bola ou mais, mesmo com o joystick empurrado, troca (o humano não fica preso num jogador longe da jogada)", () => {
+      const perto = cena(TROCA.semTrocaComJoystickAteM - 0.1);
+      empurrar(perto, magParaByte(1));
+      perto.g.atualizar();
+      expect(perto.g.slotDe(10)).toBe(1);
+
+      const longe = cena(TROCA.semTrocaComJoystickAteM + 0.1);
+      empurrar(longe, magParaByte(1));
+      longe.g.atualizar();
+      expect(longe.g.slotDe(10)).toBe(2);
+    });
+
+    it("a) a condição não gasta a pausa: troca na hora que o joystick solta, e aí a pausa da troca segura a seguinte", () => {
+      const f = cena(8);
+      empurrar(f, magParaByte(1));
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(1); // preso pelo joystick
+      empurrar(f, 0);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(2); // trocou assim que soltou
+      f.pos(2, 8, 0); // o jogador dele se afasta e o 3 fica a 3 m (5 m mais perto, mais que a histerese): a pausa segura
+      f.pos(3, 3, 0);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(2);
+    });
+
+    it("b) com a bola acima de 12 m/s (no chão do campo) não troca; a 12 m/s ou menos, troca", () => {
+      const rapida = cena(8);
+      rapida.velBola(TROCA.semTrocaBolaAcimaDeMs + 0.1, 0);
+      rapida.g.atualizar();
+      expect(rapida.g.slotDe(10)).toBe(1);
+
+      const diagonal = cena(8); // a velocidade é a do conjunto, não de um eixo
+      diagonal.velBola(9, 9); // 12,7 m/s
+      diagonal.g.atualizar();
+      expect(diagonal.g.slotDe(10)).toBe(1);
+
+      const limite = cena(8);
+      limite.velBola(TROCA.semTrocaBolaAcimaDeMs, 0);
+      limite.g.atualizar();
+      expect(limite.g.slotDe(10)).toBe(2);
+
+      const lenta = cena(8);
+      lenta.velBola(5, 5);
+      lenta.g.atualizar();
+      expect(lenta.g.slotDe(10)).toBe(2);
+    });
+
+    it("b) a bola rápida só segura a troca: quando desacelera, a troca acontece", () => {
+      const f = cena(8);
+      f.velBola(20, 0);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(1);
+      f.velBola(3, 0);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(2);
+    });
+
+    it("as outras regras não mudam: a bola rápida e o joystick não seguram a regra 1 (portador) nem a troca à mão (regra 4)", () => {
+      const f = falso([{ slot: 1, id: 10 }]);
+      f.bola(0, 0);
+      f.pos(1, -20, 10);
+      f.pos(4, 0, 0);
+      f.velBola(25, 0);
+      f.g.comando(10, { ...comandoParado(), mag: 255 });
+      f.mudar.dominante(4);
+      f.g.atualizar();
+      expect(f.g.slotDe(10)).toBe(4); // regra 1: assume o portador
+
+      const m = cena(8);
+      m.velBola(25, 0);
+      empurrar(m, 255);
+      expect(m.g.trocarManual(1)).toBe(true); // regra 4: CHUTE sem a bola
+      expect(m.g.slotDe(10)).toBe(2);
+    });
   });
 
   it("time com a bola: o humano assume quem está com ela", () => {
@@ -236,9 +357,10 @@ describe("controle estilo FIFA: regras", () => {
     f.mudar.tempo(12);
     expect(f.g.trocarManual(3)).toBe(true);
     expect(f.g.slotDe(10)).toBe(4);
-    // A troca à mão segura a troca sozinha por mais tempo que a normal
-    f.pos(3, 0.5, 0);
-    f.mudar.tempo(12 + TROCA.travaAposTrocaS + 0.1);
+    // A troca à mão segura a troca sozinha por TROCA.travaAposManualS, que não é menor que a da troca sozinha
+    expect(TROCA.travaAposManualS).toBeGreaterThanOrEqual(TROCA.travaAposTrocaS);
+    f.pos(3, 0.5, 0); // 4,5 m mais perto que o 4 (a 5 m): passa da histerese
+    f.mudar.tempo(12 + TROCA.travaAposManualS - 0.1);
     f.g.atualizar();
     expect(f.g.slotDe(10)).toBe(4);
     f.mudar.tempo(12 + TROCA.travaAposManualS + 0.1);
