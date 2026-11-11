@@ -267,6 +267,25 @@ export class Partida {
     return this.controle.versao;
   }
 
+  /**
+   * Depois de uma pausa (H7): o que cada humano fez com o jogo parado não vale. A sala guarda os comandos que chegam, mas sem passos
+   * ninguém os processou; na primeira volta depois de retomar, uma ação com `acaoSeq` novo (chute, passe) dispararia de uma vez, e um
+   * CHUTE apertado na pausa, sem a bola, contaria como aperto novo e viraria troca de jogador. Então iguala o "já visto" ao comando de
+   * agora: `acaoSeq`, e o estado de CHUTE e PASSE (o que continua segurado não dispara ao soltar, como em `GestorDeControle.atribuir`).
+   * O joystick não muda: vale o do momento. Os bots não são tocados.
+   */
+  aoRetomar(): void {
+    const t = this.t;
+    for (const j of this.jogadores) {
+      if (controladoPorBot(j)) continue;
+      if (j.acaoSeq !== null) j.acaoSeq = j.cmd.acaoSeq;
+      const comBola = this.temBola(j);
+      const seguros = j.cmd.seguros;
+      j.chute = { apertado: (seguros & BOTAO.chute) !== 0, comBola: comBola && (seguros & BOTAO.chute) === 0, desde: t };
+      j.passe = { apertado: (seguros & BOTAO.passe) !== 0, comBola: comBola && (seguros & BOTAO.passe) === 0, desde: t };
+    }
+  }
+
   /** Esvazia e devolve os eventos acumulados desde a última chamada. */
   eventosPendentes(): EventoDoTick[] {
     const e = this.eventos;

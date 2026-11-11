@@ -7,6 +7,7 @@ import "../comum/estilo.css";
 import "./tela.css";
 import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
+import { AVISO_DO_TELAO_MS, reacaoAoErro } from "./erros";
 import { criarLobby } from "./lobby";
 import { enderecoParaCelular } from "./rede";
 import { Som } from "./som";
@@ -19,7 +20,17 @@ const carregando = porId("carregando");
 const reconectando = porId("reconectando");
 const pingEl = porId("ping");
 const avisoInicio = porId("aviso-inicio");
+const avisoTelao = porId("aviso-telao");
 const campoCodigo = porId<HTMLInputElement>("codigo");
+
+/** Mostra por alguns segundos o texto de uma recusa do servidor (erro não fatal), sem sair da sala. */
+let timerAvisoTelao: ReturnType<typeof setTimeout> | undefined;
+function avisarNoTelao(texto: string): void {
+  avisoTelao.textContent = texto;
+  avisoTelao.hidden = false;
+  clearTimeout(timerAvisoTelao);
+  timerAvisoTelao = setTimeout(() => (avisoTelao.hidden = true), AVISO_DO_TELAO_MS);
+}
 
 const lobby = criarLobby(lobbyEl);
 
@@ -191,7 +202,9 @@ function aoMensagem(msg: MensagemServidor): void {
       som.definirPrincipal(msg.valor);
       return;
     case "erro":
-      voltarAoInicio(msg.msg);
+      // Só o erro fatal tira o telão da sala; uma recusa de ação (H7) vira aviso e o jogo continua
+      if (reacaoAoErro(msg.codigo) === "voltar") voltarAoInicio(msg.msg);
+      else avisarNoTelao(msg.msg);
       return;
     default:
       return;

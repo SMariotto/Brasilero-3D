@@ -13,7 +13,8 @@ body.tela {
 
 .cena[hidden],
 .faixa[hidden],
-.ping[hidden] {
+.ping[hidden],
+.aviso-telao[hidden] {
   display: none;
 }
 
@@ -306,6 +307,23 @@ button:hover {
   top: 1vh;
   font-size: 0.8em;
   opacity: 0.6;
+}
+
+/* Recusa do servidor a uma ação do telão (H7): aparece uns segundos embaixo, sem sair da sala */
+.aviso-telao {
+  position: fixed;
+  left: 50%;
+  bottom: 4vh;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  padding: 0.5em 1.5em;
+  border-radius: 1em;
+  background: #222;
+  border: 2px solid #ffd54a;
+  color: #fff;
+  font-size: 1.2em;
+  text-align: center;
+  z-index: 40;
 }
 
 /* Jogo */

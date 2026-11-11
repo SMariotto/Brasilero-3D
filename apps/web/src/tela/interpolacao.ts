@@ -58,6 +58,7 @@ export class Interpolador {
   private jitter = 0;
   /** Atraso de interpolação atual (ms). */
   atrasoMs = ATRASO_INICIAL_MS;
+  private parado = false;
 
   /** Esquece tudo (nova partida, ou o tick voltou para trás). */
   reiniciar(): void {
@@ -66,6 +67,35 @@ export class Interpolador {
     this.base = 0;
     this.jitter = 0;
     this.atrasoMs = ATRASO_INICIAL_MS;
+    this.parado = false;
+  }
+
+  /** A partida está pausada (H7). */
+  get pausado(): boolean {
+    return this.parado;
+  }
+
+  /**
+   * Começa a pausa (H7): o servidor não manda snapshot e nada se mexe. Sem isto, faltando snapshot o telão "segue" a bola por até 100 ms
+   * (`EXTRAPOLA_MAX_MS`) e ela deslizaria numa posição que o jogo nunca teve. Pausado, o último snapshot vale parado.
+   */
+  pausar(): void {
+    this.parado = true;
+  }
+
+  /**
+   * Fim da pausa (H7). O tick do servidor continua de onde parou, mas a hora local saltou o tempo todo da pausa; o relógio estimado
+   * (o menor `chegada - hora do tick` dos últimos ~3 s) ficaria errado por até 3 s, o desenho ficaria "à frente" dos dados e o jogo
+   * apareceria aos soquinhos. Então esquece a estimativa e as medidas de rede e guarda só o último snapshot: o desenho segura esse
+   * instante enquanto o relógio se acerta com os primeiros snapshots novos, e segue suave dali, sem voltar no tempo.
+   */
+  retomar(): void {
+    this.parado = false;
+    const ultimo = this.buf[this.buf.length - 1];
+    this.buf = ultimo ? [ultimo] : [];
+    this.difs = [];
+    this.base = 0;
+    this.jitter = 0;
   }
 
   get tamanho(): number {
@@ -114,8 +144,9 @@ export class Interpolador {
     const b = this.buf[i + 1]!;
 
     if (alvo > b.t) {
-      // Faltou snapshot: segue a bola com a velocidade dela por até 100 ms e depois congela.
+      // Faltou snapshot: segue a bola com a velocidade dela por até 100 ms e depois congela. Pausado, o último snapshot vale parado.
       const s = copiar(b.snap);
+      if (this.parado) return s;
       const dt = Math.min(alvo - b.t, EXTRAPOLA_MAX_MS) / 1000;
       s.bola.x += s.bola.vx * dt;
       s.bola.y = Math.max(0.11, s.bola.y + s.bola.vy * dt);

@@ -161,3 +161,95 @@ describe("Interpolador", () => {
     expect(a.jogadores.map((j) => j.slot)).toEqual([1, 7]);
   });
 });
+
+describe("pausa (H7)", () => {
+  /** 6 m/s, com a velocidade da bola dita no snapshot (é o que a extrapolação lê). */
+  const andando = (tick: number): Snapshot => {
+    const s = snap(tick, tick * 0.1);
+    s.bola.vx = 6;
+    return s;
+  };
+  const LATENCIA = 20;
+  const PAUSA_MS = 10_000;
+
+  /** Alimenta o jogo até o tick 120 (x = 12 m) e devolve o interpolador. */
+  function ateOTick120(): Interpolador {
+    const it = new Interpolador();
+    for (let tick = 0; tick <= 120; tick += 2) it.adicionar(andando(tick), tick * MS_TICK + LATENCIA);
+    return it;
+  }
+
+  it("pausado, o último snapshot vale parado: a bola não é extrapolada (sem pausa ela seguiria por até 100 ms)", () => {
+    const it = ateOTick120();
+    const durante = 120 * MS_TICK + LATENCIA + 3000; // 3 s sem snapshot
+    expect(it.amostrar(durante)!.bola.x).toBeGreaterThan(12.3); // sem a pausa: segue 0,6 m e congela
+    it.pausar();
+    expect(it.pausado).toBe(true);
+    expect(it.amostrar(durante)!.bola.x).toBeCloseTo(12, 10);
+    expect(it.amostrar(durante + 5000)!.bola.x).toBeCloseTo(12, 10);
+  });
+
+  /**
+   * O telão desenhando a cada 4 ms. A pausa dura 10 s sem snapshot; depois o servidor volta com o tick de onde parou (122, 124...) e a hora
+   * local chega 10 s mais tarde. Devolve o X da bola em cada instante de 1,5 s depois da retomada.
+   */
+  function viagemDepoisDaPausa(comRetomar: boolean): number[] {
+    const it = ateOTick120();
+    if (comRetomar) it.pausar();
+    const inicio = 122 * MS_TICK + LATENCIA + PAUSA_MS;
+    if (comRetomar) it.retomar();
+    const xs: number[] = [];
+    let proximo = 122;
+    for (let t = inicio; t < inicio + 1500; t += 4) {
+      while (proximo * MS_TICK + LATENCIA + PAUSA_MS <= t) {
+        it.adicionar(andando(proximo), proximo * MS_TICK + LATENCIA + PAUSA_MS);
+        proximo += 2;
+      }
+      xs.push(it.amostrar(t)!.bola.x);
+    }
+    return xs;
+  }
+
+  const maiorSalto = (xs: number[]): number => Math.max(...xs.slice(1).map((x, i) => Math.abs(x - xs[i]!)));
+
+  it("sem retomar, depois de uma pausa longa o jogo aparece aos soquinhos (é o defeito que ele corrige)", () => {
+    const xs = viagemDepoisDaPausa(false);
+    // 6 m/s a cada 33 ms de snapshot são 0,2 m de uma vez, parado no meio: o desenho pula de snapshot em snapshot
+    expect(maiorSalto(xs)).toBeGreaterThan(0.1);
+  });
+
+  it("retomando, o desenho segura o instante da pausa e segue suave, sem voltar no tempo", () => {
+    const xs = viagemDepoisDaPausa(true);
+    expect(xs[0]).toBeCloseTo(12, 10); // continua onde parou
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(12 - 1e-9); // nunca volta atrás
+    expect(maiorSalto(xs)).toBeLessThan(0.05); // 6 m/s em 4 ms são 0,024 m
+    for (let i = 1; i < xs.length; i++) expect(xs[i]!).toBeGreaterThanOrEqual(xs[i - 1]! - 1e-9);
+    expect(xs[xs.length - 1]!).toBeGreaterThan(12 + 6 * 1); // depois de 1,5 s já andou
+  });
+
+  it("retomar guarda só o último snapshot e desliga o modo pausado", () => {
+    const it = ateOTick120();
+    it.pausar();
+    it.retomar();
+    expect(it.pausado).toBe(false);
+    expect(it.tamanho).toBe(1);
+    expect(it.amostrar(123456)!.bola.x).toBeCloseTo(12, 10);
+  });
+
+  it("pausar e retomar sem nada no buffer não quebra", () => {
+    const it = new Interpolador();
+    it.pausar();
+    expect(it.amostrar(1000)).toBeNull();
+    it.retomar();
+    expect(it.amostrar(1000)).toBeNull();
+    it.adicionar(snap(2, 5), 100);
+    expect(it.amostrar(1000)!.bola.x).toBe(5);
+  });
+
+  it("uma partida nova (tick que volta) tira o modo pausado", () => {
+    const it = ateOTick120();
+    it.pausar();
+    it.adicionar(snap(2, 0), 5000); // tick menor que o último: reinicia
+    expect(it.pausado).toBe(false);
+  });
+});
