@@ -1,4 +1,4 @@
-import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, GOLEIRO, JOGADOR, PARTIDA, PASSE, RECEPCAO, RECEPCAO_PASSE, TEMPO, type Dificuldade } from "../constantes";
+import { ANIMACAO, BOLA, CHUTE, DEFESA, DOMINIO, FACILIDADE_DO_HUMANO, GOLEIRO, JOGADOR, PARTIDA, PASSE, RECEPCAO, RECEPCAO_PASSE, TEMPO, type Dificuldade } from "../constantes";
 import { criarCampo, type Campo } from "../fisica/campo";
 import { golMarcado, novaBola, passoBola, type Bola } from "../fisica/bola";
 import { colidirJogadores, limitarAoCampo, novoCorpo, passoJogador, velocidade } from "../fisica/jogador";
@@ -616,23 +616,32 @@ export class Partida {
   // Defesa: bote e carrinho (SPEC 6.6)
   // ---------------------------------------------------------------------------
 
-  /** Bote: avanço de 0,25 s a 9 m/s em direção à bola. Rouba se a bola ficar a menos de 0,8 m. Recarga de 0,8 s. */
+  /** Os números do bote de quem o faz: o humano usa os da `FACILIDADE_DO_HUMANO` (H6), o bot os de `DEFESA.bote`, que não mudam. */
+  private numerosDoBote(j: JogadorPartida): { duracaoS: number; velocidade: number; raioRoubo: number; recargaS: number; distanciaMaxM: number } {
+    if (controladoPorBot(j)) return DEFESA.bote;
+    const f = FACILIDADE_DO_HUMANO.roubo;
+    return { duracaoS: f.boteDuracaoS, velocidade: f.boteVelocidade, raioRoubo: f.boteRaioRoubo, recargaS: f.boteRecargaS, distanciaMaxM: f.boteDistanciaMaxM };
+  }
+
+  /** Bote: avanço curto em direção à bola (0,25 s a 9,5 m/s para o bot). Rouba se a bola ficar perto (0,8 m para o bot). Recarga de 0,8 s para o bot. */
   iniciarBote(j: JogadorPartida, miraS = 0): boolean {
     if (this.t < j.boteProntoEm || j.bote || this.noChao(j) || j.vaga.goleiro) return false;
     const b = this.bola;
-    // `miraS` (bots, G2): mira onde a bola vai estar daqui a esses segundos, não onde ela está
-    let dx = b.x + b.vx * miraS - j.corpo.x;
-    let dz = b.z + b.vz * miraS - j.corpo.z;
+    const n = this.numerosDoBote(j);
+    // `miraS` (bots, G2): mira onde a bola vai estar daqui a esses segundos, não onde ela está. O humano usa o da FACILIDADE_DO_HUMANO.
+    const mira = controladoPorBot(j) ? miraS : FACILIDADE_DO_HUMANO.roubo.boteMiraS;
+    let dx = b.x + b.vx * mira - j.corpo.x;
+    let dz = b.z + b.vz * mira - j.corpo.z;
     const d = Math.hypot(dx, dz);
-    if (d < 1e-6 || d > 6) {
+    if (d < 1e-6 || d > n.distanciaMaxM) {
       [dx, dz] = [Math.cos(j.corpo.dir), Math.sin(j.corpo.dir)];
     } else {
       dx /= d;
       dz /= d;
     }
     this.metricas.botesTentados[j.vaga.time]!++;
-    j.bote = { ate: this.t + DEFESA.bote.duracaoS, dx, dz };
-    j.boteProntoEm = this.t + DEFESA.bote.recargaS;
+    j.bote = { ate: this.t + n.duracaoS, dx, dz, velocidade: n.velocidade, raioRoubo: n.raioRoubo };
+    j.boteProntoEm = this.t + n.recargaS;
     j.corpo.dir = Math.atan2(dz, dx);
     return true;
   }
@@ -663,7 +672,7 @@ export class Partida {
     const dono = this.dominante !== null ? this.jogador(this.dominante) : undefined;
     if (!dono || dono.vaga.time === j.vaga.time || dono.vaga.goleiro) return;
     const b = this.bola;
-    if (Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) >= DEFESA.bote.raioRoubo) return;
+    if (Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) >= j.bote!.raioRoubo) return;
     // Roubou: a bola passa para ele e o antigo dono não retoma por um instante
     dono.bloqueioAte = this.t + DOMINIO.bloqueioAposChuteS;
     this.dominante = j.vaga.slot;
@@ -679,7 +688,7 @@ export class Partida {
   private resolverCarrinho(j: JogadorPartida): void {
     const c = j.carrinho!;
     const b = this.bola;
-    const alcanceBola = JOGADOR.raio + BOLA.raio + 0.45;
+    const alcanceBola = JOGADOR.raio + BOLA.raio + (controladoPorBot(j) ? DEFESA.carrinho.alcanceExtraM : FACILIDADE_DO_HUMANO.roubo.carrinhoAlcanceExtraM);
 
     const donoDaBola = this.dominante !== null ? this.jogador(this.dominante) : undefined;
     // H4: a bola nas mãos ou nos pés do goleiro não se rouba de carrinho; o contato vira falta pelas regras de sempre
@@ -877,8 +886,8 @@ export class Partida {
       }
 
       if (j.bote) {
-        corpo.vx = j.bote.dx * DEFESA.bote.velocidade;
-        corpo.vz = j.bote.dz * DEFESA.bote.velocidade;
+        corpo.vx = j.bote.dx * j.bote.velocidade;
+        corpo.vz = j.bote.dz * j.bote.velocidade;
         corpo.x += corpo.vx * DT;
         corpo.z += corpo.vz * DT;
         if (t >= j.bote.ate) {

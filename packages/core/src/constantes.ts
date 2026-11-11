@@ -37,6 +37,31 @@ export const CAMPOS: Record<3 | 4 | 5, MedidasCampo> = {
 export const PAREDE_ALTURA = 1;
 
 // ---------------------------------------------------------------------------
+// Facilidade para o HUMANO (H6): todos os botões de "está difícil demais" num lugar só.
+// Só valem para o jogador humano; os bots seguem os blocos de sempre (DEFESA, DOMINIO, CHUTE...) e o equilíbrio deles (G2, H3, H4)
+// não muda. Cada item diz como medir e qual o alvo. Para mexer: troque o número, rode a ferramenta e veja a tabela.
+// ---------------------------------------------------------------------------
+export const FACILIDADE_DO_HUMANO = {
+  /**
+   * Roubo de bola (bote e carrinho do humano). Medir: `npm run roubo`.
+   * Alvo (aperto a 1,5 m da bola, portador a toda a velocidade): de frente >= 95%, de lado >= 55%, por trás >= 40%.
+   */
+  roubo: {
+    /** Durante o bote, se a bola fica a menos disto (m) do corpo, rouba. */
+    boteRaioRoubo: 0.8,
+    boteVelocidade: 9.5,
+    boteDuracaoS: 0.25,
+    boteRecargaS: 0.8,
+    /** O bote mira onde a bola estará daqui a este tempo (s), não onde ela está agora (os bots já fazem isso). 0 = onde ela está. */
+    boteMiraS: 0,
+    /** O bote parte para a bola se ela está a menos disto (m); mais longe, parte para onde o corpo olha. */
+    boteDistanciaMaxM: 6,
+    /** Alcance do carrinho até a bola, além do raio do corpo e da bola (m). */
+    carrinhoAlcanceExtraM: 0.45,
+  },
+} as const;
+
+// ---------------------------------------------------------------------------
 // Partida (SPEC 3.2, 4.1, 4.4, 4.5, 4.6, 4.7)
 // ---------------------------------------------------------------------------
 export const PARTIDA = {
@@ -420,6 +445,8 @@ export const DEFESA = {
     /** Se a bola ficar a menos disto durante o avanço, rouba. */
     raioRoubo: 0.8,
     recargaS: 0.8,
+    /** O bote parte para a bola se ela está a menos disto (m); mais longe, parte para onde o corpo olha. */
+    distanciaMaxM: 6,
   },
   carrinho: {
     duracaoS: 1.0,
@@ -434,6 +461,8 @@ export const DEFESA = {
     recargaS: 1.5,
     /** G1 (provisório): sem a bola, segurar PASSE por este tempo (depois do bote) vira carrinho. Era o CHUTE sem a bola. */
     segurarPasseS: 0.3,
+    /** Alcance do carrinho até a bola, além do raio do corpo e da bola (m). */
+    alcanceExtraM: 0.45,
   },
 } as const;
 

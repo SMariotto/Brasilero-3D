@@ -10,7 +10,8 @@
     "simular": "tsx src/ferramentas/simular-bots.ts",
     "medir": "tsx src/ferramentas/medir-movimento.ts",
     "tabela-passe": "tsx src/ferramentas/tabela-passe.ts",
-    "chutes": "tsx src/ferramentas/simular-chutes.ts"
+    "chutes": "tsx src/ferramentas/simular-chutes.ts",
+    "roubo": "tsx src/ferramentas/simular-roubo.ts"
   },
   "dependencies": {
     "@b3d/core": "*",

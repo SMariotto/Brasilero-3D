@@ -23,11 +23,14 @@ export interface Carrinho {
   tocouBola: boolean;
 }
 
-/** Avanço curto do bote em direção à bola (SPEC 6.6). */
+/** Avanço curto do bote em direção à bola (SPEC 6.6). Leva os números de quem o fez: o humano e o bot não usam os mesmos (H6). */
 export interface Bote {
   ate: number;
   dx: number;
   dz: number;
+  /** Velocidade (m/s) do avanço e raio (m) em que a bola é roubada. */
+  velocidade: number;
+  raioRoubo: number;
 }
 
 /** Mergulho do goleiro: anda de lado até o ponto onde a bola vai passar. */

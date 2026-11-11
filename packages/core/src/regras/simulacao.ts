@@ -1,5 +1,5 @@
-import { TEMPO, type Dificuldade } from "../constantes";
-import { ACAO, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
+import { DEFESA, TEMPO, type Dificuldade } from "../constantes";
+import { ACAO, BOTAO, anguloParaByte, comandoParado, magParaByte, type Comando } from "../protocolo/binario";
 import { CONFIG_PADRAO, type Config } from "../protocolo/config";
 import { Partida } from "./partida";
 
@@ -229,4 +229,140 @@ export function simularChute(x: number, z: number, pedido: TipoDeChute | "auto",
   const tipo = p.chutarComTipo(j, o.forca ?? 0.85, dx / n, dz / n, pedido === "auto" ? undefined : pedido);
   for (let i = 0; i < 4 * 60 && p.placar[0] === 0; i++) p.passo();
   return { x, z, pedido, tipo, gol: p.placar[0] > 0, abertura: a.abertura, distancia: a.distancia };
+}
+
+// ---------------------------------------------------------------------------
+// Roubo de bola (H6): o bote do humano, contra um portador que corre, e um defensor humano de mentira numa partida inteira
+// ---------------------------------------------------------------------------
+
+export type JeitoDeChegar = "frente" | "lado" | "tras";
+
+export interface BoteSimulado {
+  /** O defensor chegou a `distancia` da bola e apertou o bote? */
+  apertou: boolean;
+  /** O bote roubou a bola (em até 0,6 s)? */
+  roubou: boolean;
+}
+
+/**
+ * Um bote de humano. O portador (Casa, humano de mentira) corre para o gol com a bola, em reta ou em zigue-zague, a toda a velocidade.
+ * O defensor (Visitante, humano de mentira) corre para a bola, vindo `jeito` (de frente, do lado ou por trás), e aperta PASSE (bote)
+ * quando chega a `distancia` m da bola. Ele parte um pouco mais longe que isso, para chegar logo. Sucesso = evento `roubo` dele.
+ */
+export function simularBote(jeito: JeitoDeChegar, distancia: number, zigue: boolean, semente: number): BoteSimulado {
+  const p = new Partida({
+    config: { ...CONFIG_PADRAO, modo: "campo", n: 5, dificuldade: "medio", duracao: 4 },
+    elenco: [
+      { slot: 1, time: 0, numero: 7, nome: "Portador", humano: true, idControle: 1, goleiro: false },
+      { slot: 7, time: 1, numero: 8, nome: "Defensor", humano: true, idControle: 2, goleiro: false },
+    ],
+    semente,
+    semBots: true,
+  });
+  const x0 = -8;
+  p.posicionarParaTeste(1, x0, 0, x0 + 0.55, 0, 0);
+  const d = p.jogador(7)!;
+  const folga = distancia + 1; // parte a esta distância da bola
+  const desvio = ((semente % 5) - 2) * 0.3; // em metros: o defensor não vem sempre no centro
+  if (jeito === "frente") {
+    d.corpo.x = x0 + 0.55 + folga + 3;
+    d.corpo.z = desvio;
+    d.corpo.dir = Math.PI;
+  } else if (jeito === "lado") {
+    d.corpo.x = x0 + 0.55 + desvio;
+    d.corpo.z = folga;
+    d.corpo.dir = -Math.PI / 2;
+  } else {
+    d.corpo.x = x0 + 0.55 - folga;
+    d.corpo.z = desvio;
+    d.corpo.dir = 0;
+  }
+  const fase = (semente % 11) * 0.5;
+  for (let i = 0; i < 20; i++) p.passo();
+  let apertou = false;
+  let apertouEm = -1;
+  let roubou = false;
+  const limite = TEMPO.tickHz * 8;
+  for (let i = 0; i < limite && !roubou; i++) {
+    const c = p.jogador(1)!;
+    const t = p.t;
+    const alvoZ = zigue ? Math.sin(t * 4.2 + fase) * 5 : 0;
+    const angC = Math.atan2(-(alvoZ - c.corpo.z), 40 - c.corpo.x);
+    p.definirComandoDoHumano(1, { ...comandoParado(), ang: anguloParaByte(angC), mag: magParaByte(1), seguros: 0 });
+
+    const b = p.bola;
+    const dist = Math.hypot(b.x - d.corpo.x, b.z - d.corpo.z);
+    const angD = Math.atan2(-(b.z - d.corpo.z), b.x - d.corpo.x);
+    const cmd: Comando = { ...comandoParado(), ang: anguloParaByte(angD), mag: magParaByte(1), seguros: 0 };
+    if (!apertou && dist <= distancia && p.dominante === 1) {
+      cmd.seguros = BOTAO.passe;
+      apertou = true;
+      apertouEm = t;
+    }
+    p.definirComandoDoHumano(2, cmd);
+    p.passo();
+    for (const e of p.eventosPendentes()) if (e.tipo === "roubo" && e.dados.slot === 7) roubou = true;
+    if (apertou && t - apertouEm > 0.6) break;
+  }
+  return { apertou, roubou };
+}
+
+export interface DefesaSimulada {
+  /** Segundos em que o time adversário (Casa) esteve com a bola. */
+  posseAdversariaS: number;
+  /** Botes (ou carrinhos) que o defensor humano apertou. */
+  tentativas: number;
+  roubos: number;
+  faltas: number;
+}
+
+/**
+ * Um defensor humano de mentira numa partida inteira (os outros 11 são bots, na dificuldade pedida). Sem a bola, quando o adversário a tem
+ * ele corre para o portador e aperta o bote (ou o carrinho, com `carrinho`) a 1,8 m (2,5 m no carrinho); com a bola solta, corre atrás
+ * dela se está a menos de 12 m; com o time dele na bola, acompanha de longe. Mede o que o humano rouba por minuto de posse adversária.
+ */
+export function simularDefensor(dificuldade: Dificuldade, semente: number, o: OpcoesSimulacao & { carrinho?: boolean }): DefesaSimulada {
+  const p = new Partida({
+    config: configDe(dificuldade, o),
+    elenco: [{ slot: 7, time: 1, numero: 8, nome: "Defensor", humano: true, idControle: 1, goleiro: false }],
+    semente,
+  });
+  p.definirRelogioParaTeste(o.segundos);
+  const r: DefesaSimulada = { posseAdversariaS: 0, tentativas: 0, roubos: 0, faltas: 0 };
+  const distanciaDoAperto = o.carrinho ? 2.5 : 1.8;
+  let segurandoAte = -1;
+  const limite = TEMPO.tickHz * (o.segundos + 120);
+  for (let i = 0; i < limite && !p.terminou; i++) {
+    const h = p.jogador(7)!;
+    const b = p.bola;
+    const posseAdversaria = p.dominante !== null && timeDe(p.dominante) === 0 && !p.jogador(p.dominante)!.vaga.goleiro;
+    if (posseAdversaria) r.posseAdversariaS += 1 / TEMPO.tickHz;
+    const dist = Math.hypot(b.x - h.corpo.x, b.z - h.corpo.z);
+    let alvoX = b.x;
+    let alvoZ = b.z;
+    let mag = 1;
+    const cmd: Comando = { ...comandoParado(), seguros: 0 };
+    if (posseAdversaria) {
+      if (dist <= distanciaDoAperto && p.t >= (o.carrinho ? h.carrinhoProntoEm : h.boteProntoEm) && !h.bote && !h.carrinho) {
+        cmd.seguros = BOTAO.passe;
+        segurandoAte = p.t + (o.carrinho ? DEFESA.carrinho.segurarPasseS + 0.05 : 0);
+        r.tentativas++;
+      }
+    } else if (p.dominante === null) {
+      if (dist > 12) mag = 0.5;
+    } else {
+      alvoX = b.x - 10; // o time dele tem a bola: acompanha de longe
+      mag = Math.hypot(alvoX - h.corpo.x, alvoZ - h.corpo.z) > 3 ? 0.6 : 0;
+    }
+    if (p.t < segurandoAte) cmd.seguros = BOTAO.passe; // carrinho: segura o PASSE
+    cmd.ang = anguloParaByte(Math.atan2(-(alvoZ - h.corpo.z), alvoX - h.corpo.x));
+    cmd.mag = magParaByte(mag);
+    p.definirComandoDoHumano(1, cmd);
+    p.passo();
+    for (const e of p.eventosPendentes()) {
+      if (e.tipo === "roubo" && e.dados.slot === 7) r.roubos++;
+      else if (e.tipo === "falta" && e.dados.de === 7) r.faltas++;
+    }
+  }
+  return r;
 }
