@@ -45,12 +45,15 @@ export const FACILIDADE_DO_HUMANO = {
   /**
    * Roubo de bola (bote e carrinho do humano). Medir: `npm run roubo`. Entre parênteses, o valor de antes da H6.
    * Alvo (aperto a 1,5 m da bola, portador a toda a velocidade, com 0,3 m de imprecisão do aperto): de frente >= 95%, de lado >= 55%,
-   * por trás >= 40%, e a chance cair com a distância (a 2,5 m de lado ~20%, por trás ~0%): roubar tem de pedir chegar perto.
-   * Antes: 100% / 0% / 0%. Agora: 100% / 100% / 100% a 1,5 m; a 2,0 m, 100% / ~90% / ~50%; a 2,5 m, 100% / ~20% / 0%.
+   * por trás >= 40%, e a chance cair com a distância (a 2,5 m de lado até ~35%, por trás até ~15%): roubar tem de pedir chegar perto.
+   * Antes da H6: 100% / 0% / 0%. Primeira passada (raio 1,2 m, fácil demais): 100% / 100% / 100% a 1,6 m; a 2,0 m, 100% / 85% / 37%;
+   * a 2,5 m, 100% / 12% / 0%. Agora (só o raio caiu de 1,2 para 1,1 m, "um pouco mais difícil"): a 1,6 m, 100% / 100% / ~90% (por trás
+   * 96% em reta e 85% em zigue-zague); a 2,0 m, 100% / ~70% / ~19%; a 2,5 m, 100% / 3% / 0%. De frente não cai com ajuste pequeno: o
+   * portador corre para dentro do bote.
    */
   roubo: {
-    /** Durante o bote, se a bola fica a menos disto (m) do corpo, rouba. (0,8) */
-    boteRaioRoubo: 1.2,
+    /** Durante o bote, se a bola fica a menos disto (m) do corpo, rouba. (0,8 antes da H6; 1,2 na primeira passada da H6, fácil demais) */
+    boteRaioRoubo: 1.1,
     /** Velocidade do avanço do bote (m/s). (9,5) */
     boteVelocidade: 10,
     /** Duração do avanço (s). Alcance do bote = velocidade x duração. (0,25) */

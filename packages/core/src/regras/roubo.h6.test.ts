@@ -194,6 +194,15 @@ describe("taxa de roubo do bote do humano (simularBote)", () => {
     }
   });
 
+  it("roubo um pouco mais difícil (raio 1,1 m): a 1,6 m, por trás deixa de ser 100% (85% a 95%), de frente e de lado seguem >= 95%; a 2,0 m, de lado fica abaixo de 80%", () => {
+    const media = (jeito: JeitoDeChegar, D: number): number => (taxa(jeito, D, false, 60) + taxa(jeito, D, true, 60)) / 2;
+    expect(media("tras", 1.6)).toBeGreaterThanOrEqual(0.8);
+    expect(media("tras", 1.6)).toBeLessThanOrEqual(0.95);
+    expect(media("frente", 1.6)).toBeGreaterThanOrEqual(0.95);
+    expect(media("lado", 1.6)).toBeGreaterThanOrEqual(0.95);
+    expect(media("lado", 2.0)).toBeLessThan(0.8);
+  });
+
   it("a chance cai com a distância: roubar de lado ou por trás ainda pede chegar perto", () => {
     expect(taxa("lado", 2.5)).toBeLessThanOrEqual(0.35);
     expect(taxa("tras", 2.5)).toBeLessThanOrEqual(0.15);
