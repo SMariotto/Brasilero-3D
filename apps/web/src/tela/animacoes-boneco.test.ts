@@ -93,10 +93,17 @@ describe("decidir: um clipe para cada estado do jogo", () => {
 describe("corrida", () => {
   it("a velocidade do clipe acompanha a do jogador, com piso e teto", () => {
     expect(velocidadeDaCorrida(VELOCIDADE_DA_CORRIDA_GRAVADA)).toBeCloseTo(1, 10);
-    expect(velocidadeDaCorrida(1.17)).toBeCloseTo(0.5, 2);
+    expect(velocidadeDaCorrida(ESCALA_MIN_DA_CORRIDA * VELOCIDADE_DA_CORRIDA_GRAVADA)).toBeCloseTo(ESCALA_MIN_DA_CORRIDA, 10);
     expect(velocidadeDaCorrida(0.1)).toBe(ESCALA_MIN_DA_CORRIDA);
-    expect(velocidadeDaCorrida(JOGADOR.velocidadeMax)).toBe(ESCALA_MAX_DA_CORRIDA);
+    expect(velocidadeDaCorrida(ESCALA_MAX_DA_CORRIDA * VELOCIDADE_DA_CORRIDA_GRAVADA * 1.5)).toBe(ESCALA_MAX_DA_CORRIDA);
     expect(velocidadeDaCorrida(3.5)).toBeGreaterThan(velocidadeDaCorrida(2));
+  });
+
+  it("na velocidade máxima do jogo, com e sem a bola, o clipe acompanha o chão sem bater no teto (o pé não desliza)", () => {
+    for (const v of [JOGADOR.velocidadeMax, JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola]) {
+      expect(velocidadeDaCorrida(v)).toBeLessThan(ESCALA_MAX_DA_CORRIDA);
+      expect(velocidadeDaCorrida(v)).toBeCloseTo(v / VELOCIDADE_DA_CORRIDA_GRAVADA, 10);
+    }
   });
 
   it("o estado de corrida já sai com a velocidade certa", () => {

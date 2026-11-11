@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ANIM, JOGADOR } from "@b3d/core";
-import { CLIPE, CONTATO_DO_CHUTE_S, TODOS_OS_CLIPES, VELOCIDADE_DA_CORRIDA_GRAVADA } from "./animacoes-boneco";
+import { CLIPE, CONTATO_DO_CHUTE_S, TODOS_OS_CLIPES, VELOCIDADE_DA_CORRIDA_GRAVADA, velocidadeDaCorrida } from "./animacoes-boneco";
 import { NOME_DO_CORPO, TODAS_AS_CHAVES_DE_CABELO } from "./boneco-dados";
 import { FiguraBoneco, ehGlb, imagemDoGlb, lerCabelo, lerCorpo, semTexturas, type BonecoBase } from "./boneco";
 
@@ -215,7 +215,33 @@ describe("as animações têm o que o jogo supõe", () => {
     const neg = v.filter((x) => x < 0).sort((p, q) => p - q);
     const mediana = neg[Math.floor(neg.length / 2)]!;
     const doJogo = Math.abs(mediana) * base.escala;
-    expect(Math.abs(doJogo - VELOCIDADE_DA_CORRIDA_GRAVADA) / VELOCIDADE_DA_CORRIDA_GRAVADA).toBeLessThan(0.08);
+    expect(Math.abs(doJogo - VELOCIDADE_DA_CORRIDA_GRAVADA) / VELOCIDADE_DA_CORRIDA_GRAVADA).toBeLessThan(0.03);
+  });
+
+  it("cadência da corrida: o ciclo do clipe tem dois apoios (um de cada pé) e, na velocidade máxima com e sem a bola, dá de 5 a 6,5 passos por segundo", () => {
+    const a = amostrar("correr", ["PeL", "PeR", "Quadril"]);
+    // Um apoio é uma sequência de quadros com o pé no chão andando para trás em relação ao quadril (fora o salto de volta ao começo do laço)
+    const chao = Math.min(...a.flatMap((q) => [q["PeL"]!.y, q["PeR"]!.y])) + 0.012;
+    const apoios = (osso: string): number => {
+      let sequencias = 0;
+      let dentro = false;
+      for (let i = 1; i < a.length - 1; i++) {
+        const v = (a[i]![osso]!.z - a[i]!["Quadril"]!.z - (a[i - 1]![osso]!.z - a[i - 1]!["Quadril"]!.z)) * 30;
+        const apoiado = a[i]![osso]!.y < chao && a[i - 1]![osso]!.y < chao && v < -0.5 && v > -1.5;
+        if (apoiado && !dentro) sequencias++;
+        dentro = apoiado;
+      }
+      return sequencias;
+    };
+    expect(apoios("PeL")).toBe(1);
+    expect(apoios("PeR")).toBe(1);
+    const duracao = base.duracoes.get(CLIPE.correr)!;
+    expect(duracao).toBeCloseTo(0.7, 3); // 21 quadros a 30 fps
+    for (const v of [JOGADOR.velocidadeMax, JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola]) {
+      const passosPorSegundo = (2 * velocidadeDaCorrida(v)) / duracao;
+      expect(passosPorSegundo).toBeGreaterThan(5);
+      expect(passosPorSegundo).toBeLessThan(6.5);
+    }
   });
 });
 
