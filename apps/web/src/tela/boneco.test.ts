@@ -27,7 +27,10 @@ const malhas = (raiz: THREE.Object3D): THREE.SkinnedMesh[] => {
   return l;
 };
 
-/** Toca o clipe `nome` quadro a quadro (30 fps) no corpo original e devolve a posição de cada osso pedido, no espaço do rig. */
+/**
+ * Toca o clipe `nome` quadro a quadro (30 fps) no corpo original e devolve a posição de cada osso pedido, no espaço do rig.
+ * O último quadro é amostrado um instante antes do fim: no instante exato da duração um clipe em laço volta ao quadro 0.
+ */
 function amostrar(nome: string, ossos: string[]): Array<Record<string, THREE.Vector3>> {
   const cena = base.cena;
   const mixer = new THREE.AnimationMixer(cena);
@@ -36,7 +39,7 @@ function amostrar(nome: string, ossos: string[]): Array<Record<string, THREE.Vec
   const n = Math.round(clipe.duration * 30);
   const saida: Array<Record<string, THREE.Vector3>> = [];
   for (let i = 0; i <= n; i++) {
-    mixer.setTime(i / 30);
+    mixer.setTime(Math.min(i / 30, clipe.duration - 1e-5));
     cena.updateMatrixWorld(true);
     saida.push(Object.fromEntries(ossos.map((o) => [o, ossoDe(cena, o).getWorldPosition(new THREE.Vector3())])));
   }
@@ -44,6 +47,15 @@ function amostrar(nome: string, ossos: string[]): Array<Record<string, THREE.Vec
   mixer.uncacheRoot(cena);
   return saida;
 }
+
+/** A pose (todos os ossos) do clipe `nome` no quadro `quadro` (o último quadro é o que está um instante antes do fim). */
+function poseNoQuadro(nome: string, quadro: number): THREE.Vector3[] {
+  const q = amostrar(nome, base.ossos)[quadro]!;
+  return base.ossos.map((o) => q[o]!);
+}
+
+/** O maior deslocamento de um osso entre duas poses, em metros do jogo (o osso que mais se mexe). */
+const maiorDeslocamento = (a: THREE.Vector3[], b: THREE.Vector3[]): number => Math.max(...a.map((p, i) => p.distanceTo(b[i]!))) * base.escala;
 
 describe("o corpo (model-brasilero-3d-rig-1malha.glb)", () => {
   it("é um GLB, e as imagens embutidas saem sem o GLTFLoader precisar abrir nenhuma", () => {
@@ -220,12 +232,12 @@ describe("as animações têm o que o jogo supõe", () => {
 
   it("cadência da corrida: o ciclo do clipe tem dois apoios (um de cada pé) e, na velocidade máxima com e sem a bola, dá de 5 a 6,5 passos por segundo", () => {
     const a = amostrar("correr", ["PeL", "PeR", "Quadril"]);
-    // Um apoio é uma sequência de quadros com o pé no chão andando para trás em relação ao quadril (fora o salto de volta ao começo do laço)
+    // Um apoio é uma sequência de quadros com o pé no chão andando para trás em relação ao quadril
     const chao = Math.min(...a.flatMap((q) => [q["PeL"]!.y, q["PeR"]!.y])) + 0.012;
     const apoios = (osso: string): number => {
       let sequencias = 0;
       let dentro = false;
-      for (let i = 1; i < a.length - 1; i++) {
+      for (let i = 1; i < a.length; i++) {
         const v = (a[i]![osso]!.z - a[i]!["Quadril"]!.z - (a[i - 1]![osso]!.z - a[i - 1]!["Quadril"]!.z)) * 30;
         const apoiado = a[i]![osso]!.y < chao && a[i - 1]![osso]!.y < chao && v < -0.5 && v > -1.5;
         if (apoiado && !dentro) sequencias++;
@@ -236,11 +248,35 @@ describe("as animações têm o que o jogo supõe", () => {
     expect(apoios("PeL")).toBe(1);
     expect(apoios("PeR")).toBe(1);
     const duracao = base.duracoes.get(CLIPE.correr)!;
-    expect(duracao).toBeCloseTo(0.7, 3); // 21 quadros a 30 fps
+    expect(duracao).toBeCloseTo(20 / 30, 3); // 21 quadros (20 intervalos) a 30 fps
     for (const v of [JOGADOR.velocidadeMax, JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola]) {
       const passosPorSegundo = (2 * velocidadeDaCorrida(v)) / duracao;
       expect(passosPorSegundo).toBeGreaterThan(5);
       expect(passosPorSegundo).toBeLessThan(6.5);
+    }
+  });
+
+  it("animacoes.json bate com o glb: a duração de cada clipe é (quadros - 1) / fps", () => {
+    const tabela = JSON.parse(readFileSync(new URL("animacoes.json", PASTA), "utf8")) as Record<string, { quadros: number; fps: number }>;
+    for (const [nome, i] of Object.entries(tabela)) expect(base.duracoes.get(nome), nome).toBeCloseTo((i.quadros - 1) / i.fps, 3);
+  });
+
+  it("os clipes em laço fecham sem salto: o último quadro é igual ao primeiro (sem o clarão a cada volta)", () => {
+    for (const nome of ["parado", "correr", "gk_parado"]) {
+      const n = Math.round(base.duracoes.get(nome)! * 30);
+      expect(maiorDeslocamento(poseNoQuadro(nome, 0), poseNoQuadro(nome, n)), nome).toBeLessThan(0.01);
+    }
+    // E o passo que fecha o laço do correr não é maior que um passo normal do meio do ciclo
+    const n = Math.round(base.duracoes.get("correr")! * 30);
+    const passos = Array.from({ length: n }, (_, i) => maiorDeslocamento(poseNoQuadro("correr", i), poseNoQuadro("correr", i + 1)));
+    const medio = passos.reduce((s, p) => s + p, 0) / passos.length;
+    expect(passos[n - 1]!).toBeLessThan(medio * 1.5);
+  });
+
+  it("o primeiro quadro de correr e dos clipes de goleiro é a pose do próprio clipe, não a pose de parado que o exportador deixava", () => {
+    const repouso = poseNoQuadro("parado", 0);
+    for (const nome of ["correr", "gk_parado", "gk_defesa_alta", "gk_mergulho_esq", "gk_mergulho_dir"]) {
+      expect(maiorDeslocamento(poseNoQuadro(nome, 0), repouso), nome).toBeGreaterThan(0.2);
     }
   });
 });

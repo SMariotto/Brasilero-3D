@@ -20,8 +20,8 @@ import {
 import { EXPRESSAO } from "./boneco-dados";
 
 const TABELA = JSON.parse(readFileSync(new URL("../../public/boneco/animacoes.json", import.meta.url), "utf8")) as Record<string, { quadros: number; fps: number; loop: boolean }>;
-// Duração de cada clipe como no .glb: quadros / fps (o último quadro dos loops repete o primeiro)
-const DURACOES = new Map(Object.entries(TABELA).map(([nome, i]) => [nome, i.quadros / i.fps]));
+// Duração de cada clipe como no .glb: (quadros - 1) / fps, porque `quadros` conta o quadro 0 e o último (boneco.test.ts confere isso com o glb)
+const DURACOES = new Map(Object.entries(TABELA).map(([nome, i]) => [nome, (i.quadros - 1) / i.fps]));
 
 const LINHA: ContextoDaAnimacao = { goleiro: false, x: 0, z: 0, dir: 0, vel: 0 };
 const GOLEIRO: ContextoDaAnimacao = { ...LINHA, goleiro: true };
