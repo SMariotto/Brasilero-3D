@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ANIM, ANIMACAO, JOGADOR, RECEPCAO_PASSE, TEMPO } from "@b3d/core";
+import { ANIM, ANIMACAO, DEFESA, FACILIDADE_DO_HUMANO, JOGADOR, RECEPCAO_PASSE, TEMPO } from "@b3d/core";
 import {
   ALTURA_DA_DEFESA_ALTA_M,
   ATRASO_DO_CONTATO_S,
   CLIPES_COM_LOOP,
+  CLIPES_QUE_SEGURAM_A_ULTIMA_POSE,
   CONTATO_DO_CHUTE_S,
   CONTATO_DO_DOMINIO_PUXAR_S,
   CONTATO_DO_DOMINIO_S,
@@ -12,15 +13,21 @@ import {
   CROSSFADE_DA_JOGADA_S,
   CROSSFADE_S,
   ControladorDeRosto,
+  ESCALA_DO_BOTE,
+  ESCALA_DO_CARRINHO,
   ESCALA_DO_DOMINIO,
   ESCALA_DO_DOMINIO_PUXAR,
+  ESCALA_DO_LEVANTAR,
   ESCALA_DO_PASSE,
+  ESTADO_BOTE,
   LATERAL_DO_DOMINIO_PUXAR_M,
   ESCALA_MAX_DA_CORRIDA,
   ESCALA_MIN_DA_CORRIDA,
   TODOS_OS_CLIPES,
   VELOCIDADE_DA_CORRIDA_GRAVADA,
+  VELOCIDADE_MINIMA_DO_BOTE,
   decidir,
+  estadoDoBoneco,
   expressaoDoEstado,
   pePorLado,
   velocidadeDaCorrida,
@@ -37,7 +44,7 @@ const GOLEIRO: ContextoDaAnimacao = { ...LINHA, goleiro: true };
 const nome = (anim: number, ctx = LINHA): string | undefined => decidir(anim, ctx, DURACOES)?.clipe;
 
 describe("animacoes.json", () => {
-  it("tem exatamente os 15 clipes do boneco, a 30 fps, e os loops são parado, correr e gk_parado", () => {
+  it("tem exatamente os 21 clipes do boneco, a 30 fps, e os loops são parado, correr e gk_parado", () => {
     expect(Object.keys(TABELA).sort()).toEqual([...TODOS_OS_CLIPES].sort());
     for (const i of Object.values(TABELA)) expect(i.fps).toBe(30);
     expect(new Set(Object.entries(TABELA).filter(([, i]) => i.loop).map(([n]) => n))).toEqual(CLIPES_COM_LOOP);
@@ -59,7 +66,7 @@ describe("decidir: um clipe para cada estado do jogo", () => {
   });
 
   it("os estados sem animação própria usam a reserva e dizem isso (propria = false)", () => {
-    const semClipe = [ANIM.carrinho, ANIM.queda, ANIM.cabeceio, ANIM.cobranca];
+    const semClipe = [ANIM.queda, ANIM.cabeceio, ANIM.cobranca]; // a queda só levanta depois do carrinho (ver abaixo)
     for (const anim of semClipe) {
       const d = decidir(anim, LINHA, DURACOES)!;
       expect(d, `anim ${anim}`).toMatchObject({ clipe: "parado", propria: false });
@@ -194,12 +201,117 @@ describe("recepção (domínio)", () => {
     expect(recebe(0, antigo)).toMatchObject({ clipe: "parado", propria: false });
   });
 
-  it("os seis clipes novos existem na lista e na tabela, e nenhum repete", () => {
-    for (const n of ["passar", "passar_esq", "dominio", "dominio_esq", "dominio_puxar", "dominio_puxar_esq"]) {
+  it("os doze clipes de passe, recepção, bote, carrinho e levantar existem na lista e na tabela, e nenhum repete", () => {
+    for (const n of ["passar", "passar_esq", "dominio", "dominio_esq", "dominio_puxar", "dominio_puxar_esq", "bote", "bote_esq", "carrinho", "carrinho_esq", "levantar", "levantar_esq"]) {
       expect(TODOS_OS_CLIPES).toContain(n);
       expect(DURACOES.has(n), n).toBe(true);
       expect(CLIPES_COM_LOOP.has(n), n).toBe(false);
     }
+  });
+});
+
+describe("bote, carrinho e levantar (H5)", () => {
+  /** A bola está `lateral` m para a esquerda do corpo (de frente para +X, a esquerda é -Z) e 0,6 m à frente. */
+  const com = (anim: number, lateral = 0, duracoes = DURACOES, ctx: ContextoDaAnimacao = LINHA) => decidir(anim, { ...ctx, bola: { x: 0.6, y: 0.11, z: -lateral } }, duracoes)!;
+  const DEPOIS_DO_CARRINHO = { anim: ANIM.carrinho, clipe: "carrinho" };
+
+  describe("o bote não tem estado no protocolo: é a corrida na velocidade do bote", () => {
+    it("a velocidade mínima fica entre a máxima de correr e a do bote (do bot e do humano)", () => {
+      expect(VELOCIDADE_MINIMA_DO_BOTE).toBeGreaterThan(JOGADOR.velocidadeMax);
+      expect(VELOCIDADE_MINIMA_DO_BOTE).toBeLessThan(DEFESA.bote.velocidade);
+      expect(VELOCIDADE_MINIMA_DO_BOTE).toBeLessThan(FACILIDADE_DO_HUMANO.roubo.boteVelocidade);
+    });
+
+    it("só a corrida na velocidade do bote vira bote; correr à toda (7,6 m/s) e os outros estados seguem como são", () => {
+      expect(estadoDoBoneco(ANIM.corrida, DEFESA.bote.velocidade)).toBe(ESTADO_BOTE);
+      expect(estadoDoBoneco(ANIM.corrida, FACILIDADE_DO_HUMANO.roubo.boteVelocidade)).toBe(ESTADO_BOTE);
+      expect(estadoDoBoneco(ANIM.corrida, VELOCIDADE_MINIMA_DO_BOTE)).toBe(ESTADO_BOTE);
+      expect(estadoDoBoneco(ANIM.corrida, VELOCIDADE_MINIMA_DO_BOTE - 0.01)).toBe(ANIM.corrida);
+      expect(estadoDoBoneco(ANIM.corrida, JOGADOR.velocidadeMax)).toBe(ANIM.corrida);
+      for (const anim of Object.values(ANIM)) if (anim !== ANIM.corrida) expect(estadoDoBoneco(anim, 20), `anim ${anim}`).toBe(anim);
+      expect(Object.values(ANIM)).not.toContain(ESTADO_BOTE); // nunca bate com um valor do protocolo
+    });
+
+    it("usa bote com o pé do lado da bola, do quadro 0, a ×0,93 e com troca curta", () => {
+      expect(com(ESTADO_BOTE, 0)).toMatchObject({ clipe: "bote", propria: true, repete: false, velocidade: ESCALA_DO_BOTE, inicioS: 0, crossfadeS: CROSSFADE_DA_JOGADA_S });
+      expect(com(ESTADO_BOTE, -0.3).clipe).toBe("bote"); // bola à direita
+      expect(com(ESTADO_BOTE, 0.3)).toMatchObject({ clipe: "bote_esq", velocidade: ESCALA_DO_BOTE, inicioS: 0 });
+      expect(decidir(ESTADO_BOTE, LINHA, DURACOES)?.clipe).toBe("bote"); // sem a bola, o pé direito
+      expect(ESCALA_DO_BOTE).toBe(0.93);
+    });
+
+    it("o clipe acaba junto com o avanço do servidor (0,25 s do bot e do humano)", () => {
+      const fim = DURACOES.get("bote")! / ESCALA_DO_BOTE;
+      expect(fim).toBeCloseTo(0.251, 3);
+      expect(Math.abs(fim - DEFESA.bote.duracaoS)).toBeLessThan(0.005);
+      expect(Math.abs(fim - FACILIDADE_DO_HUMANO.roubo.boteDuracaoS)).toBeLessThan(0.005);
+    });
+
+    it("o goleiro não dá bote, e sem o clipe (glb antigo) segue a corrida de sempre", () => {
+      expect(decidir(ESTADO_BOTE, { ...GOLEIRO, vel: 10 }, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
+      const antigo = new Map([...DURACOES].filter(([n]) => !n.startsWith("bote")));
+      expect(decidir(ESTADO_BOTE, { ...LINHA, vel: 10 }, antigo)).toMatchObject({ clipe: "correr", propria: true });
+    });
+  });
+
+  describe("carrinho", () => {
+    it("usa carrinho com o pé do lado da bola, do quadro 0, a ×0,97 e com troca curta", () => {
+      expect(com(ANIM.carrinho, 0)).toMatchObject({ clipe: "carrinho", propria: true, repete: false, velocidade: ESCALA_DO_CARRINHO, inicioS: 0, crossfadeS: CROSSFADE_DA_JOGADA_S });
+      expect(com(ANIM.carrinho, -0.4).clipe).toBe("carrinho");
+      expect(com(ANIM.carrinho, 0.4)).toMatchObject({ clipe: "carrinho_esq", velocidade: ESCALA_DO_CARRINHO, inicioS: 0 });
+      expect(ESCALA_DO_CARRINHO).toBe(0.97);
+    });
+
+    it("o clipe acaba junto com o deslize do servidor (1,0 s)", () => {
+      const fim = DURACOES.get("carrinho")! / ESCALA_DO_CARRINHO;
+      expect(fim).toBeCloseTo(0.997, 3);
+      expect(Math.abs(fim - DEFESA.carrinho.duracaoS)).toBeLessThan(0.005);
+    });
+
+    it("o goleiro (que nunca dá carrinho) e o glb antigo ficam na reserva", () => {
+      expect(decidir(ANIM.carrinho, GOLEIRO, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
+      const antigo = new Map([...DURACOES].filter(([n]) => !n.startsWith("carrinho")));
+      expect(decidir(ANIM.carrinho, LINHA, antigo)).toMatchObject({ clipe: "parado", propria: false });
+    });
+
+    it("os dois clipes de carrinho seguram a última pose ao terminar (o levantar parte dela)", () => {
+      expect([...CLIPES_QUE_SEGURAM_A_ULTIMA_POSE].sort()).toEqual(["carrinho", "carrinho_esq"]);
+    });
+  });
+
+  describe("levantar: o tempo no chão depois do deslize (ANIM.queda vindo do carrinho)", () => {
+    it("quem vem do carrinho levanta, do quadro 0, a ×0,96 e com troca curta", () => {
+      expect(decidir(ANIM.queda, { ...LINHA, anterior: DEPOIS_DO_CARRINHO }, DURACOES)).toMatchObject({ clipe: "levantar", propria: true, repete: false, velocidade: ESCALA_DO_LEVANTAR, inicioS: 0, crossfadeS: CROSSFADE_DA_JOGADA_S });
+      expect(ESCALA_DO_LEVANTAR).toBe(0.96);
+    });
+
+    it("usa o mesmo lado do carrinho que acabou de tocar (a pose final de um é a inicial do outro), mesmo que a bola tenha mudado de lado", () => {
+      const esq = decidir(ANIM.queda, { ...LINHA, bola: { x: 0.6, y: 0.1, z: 0.4 }, anterior: { anim: ANIM.carrinho, clipe: "carrinho_esq" } }, DURACOES)!;
+      expect(esq).toMatchObject({ clipe: "levantar_esq", velocidade: ESCALA_DO_LEVANTAR, inicioS: 0 });
+      expect(decidir(ANIM.queda, { ...LINHA, bola: { x: 0.6, y: 0.1, z: -0.4 }, anterior: { anim: ANIM.carrinho, clipe: "carrinho" } }, DURACOES)!.clipe).toBe("levantar");
+    });
+
+    it("o clipe acaba junto com o tempo no chão do servidor (0,8 s)", () => {
+      const fim = DURACOES.get("levantar")! / ESCALA_DO_LEVANTAR;
+      expect(fim).toBeCloseTo(0.799, 3);
+      expect(Math.abs(fim - DEFESA.carrinho.chaoAposS)).toBeLessThan(0.005);
+    });
+
+    it("o adversário atingido (queda de 1,2 s) e o goleiro depois do mergulho não levantam: ficam no repouso, como antes", () => {
+      // O adversário atingido vem de parado, corrida, etc., nunca do carrinho
+      for (const anim of [ANIM.parado, ANIM.corrida, ANIM.chute, ANIM.recepcao, ANIM.goleiroMergulhoEsq]) {
+        expect(decidir(ANIM.queda, { ...LINHA, anterior: { anim, clipe: "parado" } }, DURACOES), `antes: ${anim}`).toMatchObject({ clipe: "parado", propria: false });
+      }
+      expect(decidir(ANIM.queda, LINHA, DURACOES)).toMatchObject({ clipe: "parado", propria: false }); // sem história
+      expect(decidir(ANIM.queda, { ...LINHA, anterior: null }, DURACOES)).toMatchObject({ clipe: "parado", propria: false });
+      expect(decidir(ANIM.queda, { ...GOLEIRO, anterior: { anim: ANIM.goleiroMergulhoDir, clipe: "gk_mergulho_dir" } }, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
+      expect(decidir(ANIM.queda, { ...GOLEIRO, anterior: DEPOIS_DO_CARRINHO }, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
+    });
+
+    it("sem o clipe (glb antigo) fica no repouso", () => {
+      const antigo = new Map([...DURACOES].filter(([n]) => !n.startsWith("levantar")));
+      expect(decidir(ANIM.queda, { ...LINHA, anterior: DEPOIS_DO_CARRINHO }, antigo)).toMatchObject({ clipe: "parado", propria: false });
+    });
   });
 });
 
@@ -251,14 +363,16 @@ describe("chute e passe: o pé", () => {
     expect((CONTATO_DO_CHUTE_S - dir.inicioS) / dir.velocidade).toBeCloseTo(ATRASO_DO_CONTATO_S, 5);
   });
 
-  it("a troca curta (no máximo 0,06 s) vale só para passe e recepção; os outros clipes mantêm a troca de 0,12 s", () => {
+  it("a troca curta (no máximo 0,06 s) vale só para passe, recepção, bote, carrinho e levantar; os outros clipes mantêm a troca de 0,12 s", () => {
     expect(CROSSFADE_DA_JOGADA_S).toBeLessThanOrEqual(0.06);
     expect(CROSSFADE_S).toBe(0.12);
     const bola = { x: 0.5, y: 0, z: 0.4, vx: 15, vz: 0 };
     for (const anim of [ANIM.parado, ANIM.chute, ANIM.comemoracao]) expect(decidir(anim, { ...LINHA, bola }, DURACOES)!.crossfadeS, `anim ${anim}`).toBe(CROSSFADE_S);
     expect(decidir(ANIM.corrida, { ...LINHA, vel: 5 }, DURACOES)!.crossfadeS).toBe(CROSSFADE_S);
     expect(decidir(ANIM.goleiroMergulhoEsq, { ...GOLEIRO, bola }, DURACOES)!.crossfadeS).toBe(CROSSFADE_S);
-    for (const anim of [ANIM.passe, ANIM.recepcao]) expect(decidir(anim, { ...LINHA, bola }, DURACOES)!.crossfadeS, `anim ${anim}`).toBe(CROSSFADE_DA_JOGADA_S);
+    expect(decidir(ANIM.queda, { ...LINHA, bola }, DURACOES)!.crossfadeS).toBe(CROSSFADE_S); // o adversário atingido, sem clipe próprio
+    for (const anim of [ANIM.passe, ANIM.recepcao, ANIM.carrinho, ESTADO_BOTE]) expect(decidir(anim, { ...LINHA, bola }, DURACOES)!.crossfadeS, `anim ${anim}`).toBe(CROSSFADE_DA_JOGADA_S);
+    expect(decidir(ANIM.queda, { ...LINHA, bola, anterior: { anim: ANIM.carrinho, clipe: "carrinho" } }, DURACOES)!.crossfadeS).toBe(CROSSFADE_DA_JOGADA_S);
   });
 });
 

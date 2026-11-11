@@ -1,8 +1,8 @@
-import { ANIM, ANIMACAO } from "@b3d/core";
+import { ANIM, ANIMACAO, DEFESA, FACILIDADE_DO_HUMANO, JOGADOR } from "@b3d/core";
 import { EXPRESSAO, FPS_DO_ROSTO, QUADROS_POR_EXPRESSAO } from "./boneco-dados";
 
 // Que animação do boneco novo (rig-v1, H5) tocar para cada estado do snapshot, e como (velocidade, pé, rosto). Lógica pura, sem
-// Three.js, com teste. Os nomes são os do `model-brasilero-3d-rig-1malha.glb` (30 fps).
+// Three.js, com teste. Os nomes são os do `model-brasilero-3d-rig-1malha-v2.glb` (30 fps, 21 clipes).
 
 export const CLIPE = {
   parado: "parado",
@@ -20,6 +20,12 @@ export const CLIPE = {
   dominioEsq: "dominio_esq",
   dominioPuxar: "dominio_puxar",
   dominioPuxarEsq: "dominio_puxar_esq",
+  bote: "bote",
+  boteEsq: "bote_esq",
+  carrinho: "carrinho",
+  carrinhoEsq: "carrinho_esq",
+  levantar: "levantar",
+  levantarEsq: "levantar_esq",
 } as const;
 
 export const TODOS_OS_CLIPES: string[] = Object.values(CLIPE);
@@ -27,11 +33,19 @@ export const TODOS_OS_CLIPES: string[] = Object.values(CLIPE);
 /** Os clipes que ficam repetindo (os outros tocam uma vez e voltam para `parado`, ou `gk_parado` no goleiro). */
 export const CLIPES_COM_LOOP: ReadonlySet<string> = new Set([CLIPE.parado, CLIPE.correr, CLIPE.gkParado]);
 
+/**
+ * Os clipes que, ao terminar, ficam na última pose em vez de voltar para `parado`: o estado seguinte parte dela. O `levantar` começa
+ * na pose final do `carrinho`, e o clipe (0,997 s) acaba uns milissegundos antes do estado (1,0 s); voltar ao repouso nesse intervalo
+ * misturaria um pouco de "em pé" na pose deitada.
+ */
+export const CLIPES_QUE_SEGURAM_A_ULTIMA_POSE: ReadonlySet<string> = new Set([CLIPE.carrinho, CLIPE.carrinhoEsq]);
+
 /** Tempo (s) da troca entre dois clipes. */
 export const CROSSFADE_S = 0.12;
 /**
- * Tempo (s) da troca ao entrar nos clipes de jogada curta (passe e recepção). O toque da bola vem logo (0,06 a 0,11 s depois do
- * começo do estado), então a troca tem de acabar antes dele: com 0,12 s o pé ainda estaria misturado com a pose anterior no toque.
+ * Tempo (s) da troca ao entrar nos clipes de jogada curta (passe, recepção, bote, carrinho e levantar). O toque da bola vem logo
+ * (0,06 a 0,11 s depois do começo do estado), então a troca tem de acabar antes dele: com 0,12 s o pé ainda estaria misturado com a
+ * pose anterior no toque.
  */
 export const CROSSFADE_DA_JOGADA_S = 0.06;
 
@@ -89,6 +103,31 @@ export const LATERAL_DO_DOMINIO_PUXAR_M = 0.5;
 export const ESCALA_DO_DOMINIO = 1.2;
 export const ESCALA_DO_DOMINIO_PUXAR = 1.4;
 
+// --- bote, carrinho e levantar ---------------------------------------------------------------------------------------------
+
+/**
+ * Velocidades fixas dos clipes de defesa: cada um acaba junto com o seu estado no servidor, e o pé direito é o padrão (o `_esq` é o
+ * espelho). `bote` 0,233 s ÷ 0,93 = 0,251 s (o avanço dura `DEFESA.bote.duracaoS`, 0,25 s); `carrinho` 0,967 s ÷ 0,97 = 0,997 s (o
+ * deslize dura `DEFESA.carrinho.duracaoS`, 1,0 s); `levantar` 0,767 s ÷ 0,96 = 0,799 s (o tempo no chão depois do deslize dura
+ * `DEFESA.carrinho.chaoAposS`, 0,8 s).
+ */
+export const ESCALA_DO_BOTE = 0.93;
+export const ESCALA_DO_CARRINHO = 0.97;
+export const ESCALA_DO_LEVANTAR = 0.96;
+
+/**
+ * O estado "bote" não existe no protocolo: durante o avanço o servidor manda `ANIM.corrida`, com a velocidade do bote (9,5 m/s no bot,
+ * 10 no humano), bem acima da máxima de correr (7,6 m/s). O telão reconhece o bote por isso: `corrida` com velocidade acima do meio
+ * entre as duas. `ESTADO_BOTE` é um estado só do telão (negativo, para nunca bater com um valor do protocolo).
+ */
+export const ESTADO_BOTE = -2;
+export const VELOCIDADE_MINIMA_DO_BOTE = (JOGADOR.velocidadeMax + Math.min(DEFESA.bote.velocidade, FACILIDADE_DO_HUMANO.roubo.boteVelocidade)) / 2;
+
+/** O estado que o boneco enxerga: o do snapshot, ou `ESTADO_BOTE` quando é `corrida` na velocidade do bote. */
+export function estadoDoBoneco(anim: number, vel: number): number {
+  return anim === ANIM.corrida && vel >= VELOCIDADE_MINIMA_DO_BOTE ? ESTADO_BOTE : anim;
+}
+
 export interface ContextoDaAnimacao {
   goleiro: boolean;
   x: number;
@@ -98,6 +137,11 @@ export interface ContextoDaAnimacao {
   vel: number;
   /** A bola neste instante; `vx` e `vz` (velocidade) só são usados para ver para onde vai o passe. */
   bola?: { x: number; y: number; z: number; vx?: number; vz?: number } | null;
+  /**
+   * O estado de antes desta mudança e o clipe que ele pediu (não o que está tocando agora). O servidor usa `queda` para quem deu o
+   * carrinho, para o adversário atingido e para o goleiro depois do mergulho, e só a história diz quem levanta.
+   */
+  anterior?: { anim: number; clipe: string | null } | null;
 }
 
 /** Com que pé chuta: a bola à esquerda do corpo pede `chutar_esq`. O protocolo não diz o pé, então decide pelo lado da bola. */
@@ -225,7 +269,30 @@ export function decidir(anim: number, ctx: ContextoDaAnimacao, duracoes: Readonl
       return tem(clipe) ? simples(clipe, true, ESCALA_DO_MERGULHO) : reserva();
     }
 
-    // Ainda sem animação própria: carrinho, queda, cabeceio e cobrança ficam no repouso
+    case ESTADO_BOTE: {
+      // O goleiro não dá bote. Sem o clipe (glb antigo), segue a corrida de sempre. O pé é o do lado da bola, como no chute.
+      const clipe = pePorLado(ctx) === "esq" ? CLIPE.boteEsq : CLIPE.bote;
+      if (ctx.goleiro || !tem(clipe)) return decidir(ANIM.corrida, ctx, duracoes);
+      return simples(clipe, true, ESCALA_DO_BOTE, 0, CROSSFADE_DA_JOGADA_S);
+    }
+
+    case ANIM.carrinho: {
+      const clipe = pePorLado(ctx) === "esq" ? CLIPE.carrinhoEsq : CLIPE.carrinho;
+      return ctx.goleiro || !tem(clipe) ? reserva() : simples(clipe, true, ESCALA_DO_CARRINHO, 0, CROSSFADE_DA_JOGADA_S);
+    }
+
+    case ANIM.queda: {
+      // Só quem deu o carrinho levanta (vem do estado `carrinho`, direto, no mesmo passo do servidor). O adversário atingido e o goleiro
+      // depois do mergulho também estão em `queda` e seguem no repouso, como antes.
+      if (!ctx.goleiro && ctx.anterior?.anim === ANIM.carrinho) {
+        // O mesmo lado do carrinho que acabou de tocar: o `levantar` parte da pose final dele
+        const clipe = ctx.anterior.clipe === CLIPE.carrinhoEsq ? CLIPE.levantarEsq : CLIPE.levantar;
+        if (tem(clipe)) return simples(clipe, true, ESCALA_DO_LEVANTAR, 0, CROSSFADE_DA_JOGADA_S);
+      }
+      return reserva();
+    }
+
+    // Ainda sem animação própria: cabeceio e cobrança ficam no repouso
     default:
       return reserva();
   }

@@ -85,7 +85,7 @@ describe("skins prontas", () => {
 describe("caminhosDoBoneco", () => {
   it("monta os endereços a partir da base do site", () => {
     const c = caminhosDoBoneco("/jogo/");
-    expect(c.corpo).toBe("/jogo/boneco/model-brasilero-3d-rig-1malha.glb");
+    expect(c.corpo).toBe("/jogo/boneco/model-brasilero-3d-rig-1malha-v2.glb");
     expect(c.skin("vasco")).toBe("/jogo/boneco/skins/vasco.png");
     expect(c.cabelo("07-mullet_preto")).toBe("/jogo/boneco/cabelos/07-mullet_preto.glb");
     expect(caminhosDoBoneco().atlas).toBe("/boneco/rostos_atlas.png");

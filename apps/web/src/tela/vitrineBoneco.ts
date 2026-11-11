@@ -9,7 +9,7 @@ import { PADROES } from "./uniforme";
 // estado do jogo, feito pelo mesmo caminho da partida (`prepararBoneco` + `FiguraBoneco`) e com a mesma duração do estado no servidor.
 //   ?times=vasco,flamengo   os clubes das linhas (a segunda linha é o visitante: troca para a camisa reserva se as cores brigam)
 //   ?cam=lado               de perfil (padrão: de frente)
-//   ?colunas=0,4            só estas colunas (0 = parado ... 7 = defesa alta, 8 = passe, 9 e 10 = recepção), maiores na tela
+//   ?colunas=0,4            só estas colunas (0 = parado ... 7 = defesa alta, 8 = passe, 9 e 10 = recepção, 11 = bote, 12 e 13 = carrinho e levantar), maiores na tela
 //   ?h=700                  altura de cada linha, em pixels (padrão 400)
 //   ?padrao=faixa-diagonal  veste todos com esse padrão de camisa (e sem skin PNG): mostra a skin gerada por código
 //   ?t=0.2                  congela nesse instante (s) do ciclo, para foto
@@ -21,6 +21,8 @@ interface Coluna {
   vel: number;
   /** Quanto tempo (s) o estado dura antes de voltar ao repouso (como no servidor); `Infinity` fica sempre. */
   dura: number;
+  /** Um segundo estado que vem logo depois do primeiro, direto (o carrinho e depois o tempo no chão, que é onde o levantar toca). */
+  depois?: { anim: number; dura: number };
   /** Onde está a bola em relação ao jogador (x à frente, z à direita, y para cima), se aparecer. */
   bola?: { x: number; y: number; z: number; vx?: number; vz?: number };
 }
@@ -38,6 +40,11 @@ const COLUNAS: Coluna[] = [
   { nome: "Passe (bola vai à esquerda)", anim: ANIM.passe, goleiro: false, vel: 0, dura: 0.3, bola: { x: 0.6, y: 0.11, z: 0, vx: 15, vz: -8 } },
   { nome: "Recepção (bola de frente)", anim: ANIM.recepcao, goleiro: false, vel: 0, dura: 0.3, bola: { x: 1, y: 0.3, z: 0 } },
   { nome: "Recepção (bola ao lado)", anim: ANIM.recepcao, goleiro: false, vel: 0, dura: 0.3, bola: { x: 0.9, y: 0.3, z: -0.9 } },
+  // O bote não tem estado próprio no servidor: é a corrida na velocidade do bote (10 m/s no humano), por 0,25 s
+  { nome: "Bote (bola à esquerda)", anim: ANIM.corrida, goleiro: false, vel: 10, dura: 0.25, bola: { x: 0.6, y: 0.11, z: -0.3 } },
+  // O carrinho dura 1,0 s e depois quem o deu fica 0,8 s no chão: o levantar toca nesse tempo, do mesmo lado do carrinho
+  { nome: "Carrinho e levantar (bola à direita)", anim: ANIM.carrinho, goleiro: false, vel: 0, dura: 1, depois: { anim: ANIM.queda, dura: 0.8 }, bola: { x: 0.6, y: 0.11, z: 0.3 } },
+  { nome: "Carrinho e levantar (bola à esquerda)", anim: ANIM.carrinho, goleiro: false, vel: 0, dura: 1, depois: { anim: ANIM.queda, dura: 0.8 }, bola: { x: 0.6, y: 0.11, z: -0.3 } },
 ];
 
 const LARGURA = 1600;
@@ -70,7 +77,7 @@ export async function abrirVitrineBoneco(raiz: HTMLElement): Promise<void> {
   }
   const base = await obterBoneco(import.meta.env.BASE_URL);
   if (!base) {
-    aviso("O boneco não carregou (public/boneco/model-brasilero-3d-rig-1malha.glb).");
+    aviso("O boneco não carregou (public/boneco/model-brasilero-3d-rig-1malha-v2.glb).");
     return;
   }
 
@@ -155,7 +162,8 @@ export async function abrirVitrineBoneco(raiz: HTMLElement): Promise<void> {
     for (const it of itens) {
       const c = it.coluna;
       const ativo = u < c.dura;
-      const anim = ativo ? c.anim : c.goleiro ? ANIM.goleiroParado : ANIM.parado;
+      const emDepois = !ativo && c.depois !== undefined && u < c.dura + c.depois.dura;
+      const anim = ativo ? c.anim : emDepois ? c.depois!.anim : c.goleiro ? ANIM.goleiroParado : ANIM.parado;
       // A bola em relação ao jogador (a altura é a do chão: as linhas só ficam em alturas diferentes na cena para não aparecerem uma na outra)
       const bola = c.bola ? { ...c.bola, x: it.x + c.bola.x, z: it.z + c.bola.z } : undefined;
       it.figura.atualizar({ anim, vel: ativo ? c.vel : 0, x: it.x, z: it.z, dir: 0 }, dt, bola);

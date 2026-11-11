@@ -2,11 +2,11 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as clonarComEsqueleto } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { JOGADOR, criarRng, type BolaSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
-import { CLIPE, ControladorDeRosto, decidir, velocidadeDaCorrida, type Decisao } from "./animacoes-boneco";
+import { CLIPE, CLIPES_QUE_SEGURAM_A_ULTIMA_POSE, ControladorDeRosto, decidir, estadoDoBoneco, velocidadeDaCorrida, type Decisao } from "./animacoes-boneco";
 import { aparenciaDoSlot, caminhosDoBoneco, chaveDoCabelo, kitDoJogador, offsetDoRosto, type KitDeSkin } from "./boneco-dados";
 import { desenharSkinGerada } from "./skin-gerada";
 
-// O boneco novo (rig-v1, H5): um `model-brasilero-3d-rig-1malha.glb` (o corpo numa malha só, mais o rosto) com esqueleto de 17 ossos e 9 animações, clonado por jogador
+// O boneco novo (rig-v1, H5): um `model-brasilero-3d-rig-1malha-v2.glb` (o corpo numa malha só, mais o rosto) com esqueleto de 17 ossos e 21 animações, clonado por jogador
 // (SkeletonUtils.clone, um AnimationMixer cada), com skin por time, rosto de atlas e cabelo em .glb à parte. Se o arquivo não
 // carrega, o jogo segue com o jogador feito por código: nada depende do modelo.
 //
@@ -345,7 +345,10 @@ export class FiguraBoneco {
   private readonly mixer: THREE.AnimationMixer;
   private readonly acoes = new Map<string, THREE.AnimationAction>();
   private atual: { nome: string; acao: THREE.AnimationAction } | null = null;
+  /** O estado que o boneco enxerga (o do snapshot, ou o bote reconhecido pela velocidade, ver `estadoDoBoneco`); -1 antes do primeiro. */
   private estado = -1;
+  /** O clipe que o `estado` pediu quando começou (não o que está tocando: o laço ou o fim do clipe podem tê-lo trocado). */
+  private clipeDoEstado: string | null = null;
   private readonly rostoCtl: ControladorDeRosto;
   private rostoMapa: THREE.Texture | null = null;
   private rostoMaterial: THREE.Material | null = null;
@@ -369,7 +372,7 @@ export class FiguraBoneco {
     this.raiz.rotation.y = Math.PI / 2; // o boneco olha para +Z; o jogo, para +X
     this.mixer = new THREE.AnimationMixer(this.cena);
     this.mixer.addEventListener("finished", (e) => {
-      if (this.atual && e.action === this.atual.acao) this.voltarAoRepouso();
+      if (this.atual && e.action === this.atual.acao && !CLIPES_QUE_SEGURAM_A_ULTIMA_POSE.has(this.atual.nome)) this.voltarAoRepouso();
     });
     this.rostoCtl = new ControladorDeRosto(criarRng(slot * 7919 + 13).proximo);
     this.tipoRosto = tipoRosto;
@@ -475,9 +478,12 @@ export class FiguraBoneco {
   /** Escolhe o clipe pelo estado do snapshot, troca com crossfade e avança `dt` segundos. A bola decide o pé do chute, do passe e da recepção, e a defesa alta. */
   atualizar(e: EntradaDoBoneco, dt: number, bola?: Pick<BolaSnap, "x" | "y" | "z"> & Partial<Pick<BolaSnap, "vx" | "vz">>): void {
     this.ultimaEntrada = e;
-    if (e.anim !== this.estado) {
-      this.estado = e.anim;
-      const d = decidir(e.anim, this.contexto(e, bola), this.base.duracoes);
+    const estado = estadoDoBoneco(e.anim, e.vel);
+    if (estado !== this.estado) {
+      const anterior = this.estado === -1 ? null : { anim: this.estado, clipe: this.clipeDoEstado };
+      this.estado = estado;
+      const d = decidir(estado, { ...this.contexto(e, bola), anterior }, this.base.duracoes);
+      this.clipeDoEstado = d?.clipe ?? null;
       if (d) this.tocar(d);
     } else if (this.atual?.nome === CLIPE.correr) {
       this.atual.acao.timeScale = velocidadeDaCorrida(e.vel); // o passo acompanha a velocidade real

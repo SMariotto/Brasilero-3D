@@ -73,5 +73,35 @@
     "quadros": 12,
     "fps": 30,
     "loop": false
+  },
+  "bote": {
+    "quadros": 8,
+    "fps": 30,
+    "loop": false
+  },
+  "bote_esq": {
+    "quadros": 8,
+    "fps": 30,
+    "loop": false
+  },
+  "carrinho": {
+    "quadros": 30,
+    "fps": 30,
+    "loop": false
+  },
+  "carrinho_esq": {
+    "quadros": 30,
+    "fps": 30,
+    "loop": false
+  },
+  "levantar": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
+  },
+  "levantar_esq": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
   }
 }

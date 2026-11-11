@@ -57,7 +57,7 @@ function poseNoQuadro(nome: string, quadro: number): THREE.Vector3[] {
 /** O maior deslocamento de um osso entre duas poses, em metros do jogo (o osso que mais se mexe). */
 const maiorDeslocamento = (a: THREE.Vector3[], b: THREE.Vector3[]): number => Math.max(...a.map((p, i) => p.distanceTo(b[i]!))) * base.escala;
 
-describe("o corpo (model-brasilero-3d-rig-1malha.glb)", () => {
+describe("o corpo (model-brasilero-3d-rig-1malha-v2.glb)", () => {
   it("é um GLB, e as imagens embutidas saem sem o GLTFLoader precisar abrir nenhuma", () => {
     const bytes = bytesDe(NOME_DO_CORPO);
     expect(ehGlb(bytes)).toBe(true);
@@ -71,11 +71,11 @@ describe("o corpo (model-brasilero-3d-rig-1malha.glb)", () => {
     expect(Buffer.from(im.b64, "base64").subarray(1, 4).toString("latin1")).toBe("PNG");
   });
 
-  it("tem o esqueleto de 17 ossos e os 9 clipes com os nomes exatos", () => {
+  it("tem o esqueleto de 17 ossos e os 21 clipes com os nomes exatos", () => {
     expect(base.ossos).toHaveLength(17);
     for (const o of ["Raiz", "Quadril", "Peito", "Pescoco", "Cabeca", "BracoL", "BracoR", "PeL", "PeR"]) expect(base.ossos, o).toContain(o);
     expect(new Set(base.clipes.map((c) => c.name))).toEqual(new Set(TODOS_OS_CLIPES));
-    expect(base.clipes).toHaveLength(15);
+    expect(base.clipes).toHaveLength(21);
   });
 
   it("o corpo vem em uma malha só, mais o rosto (o glb de malha única)", () => {
@@ -161,6 +161,95 @@ describe("FiguraBoneco", () => {
     expect(f.clipeAtual).toBe(CLIPE.comemorar);
     passo(ANIM.comemoracao, 1.5); // comemorar dura 1,2 s: com o estado ainda valendo, volta a parado
     expect(f.clipeAtual).toBe(CLIPE.parado);
+  });
+
+  describe("bote, carrinho e levantar (H5), no boneco de verdade", () => {
+    const e = { anim: ANIM.parado, vel: 0, x: 0, z: 0, dir: 0 };
+    /** A bola 0,6 m à frente e `lateral` m à esquerda do corpo (de frente para +X, a esquerda é -Z). */
+    const bola = (lateral: number) => ({ x: 0.6, y: 0.11, z: -lateral });
+    const andar = (f: FiguraBoneco, anim: number, seg: number, vel = 0, lateral = 0): void => {
+      for (let t = 0; t < seg - 1e-9; t += 1 / 60) f.atualizar({ ...e, anim, vel }, 1 / 60, bola(lateral));
+    };
+
+    it("bote: a corrida na velocidade do bote toca bote (pé pelo lado da bola) e, no fim do avanço, volta à corrida ou ao repouso", () => {
+      const f = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(f, ANIM.corrida, 0.3, 7.6); // correndo à toda: ainda é correr
+      expect(f.clipeAtual).toBe(CLIPE.correr);
+      andar(f, ANIM.corrida, 0.05, 10, -0.2);
+      expect(f.clipeAtual).toBe(CLIPE.bote);
+      andar(f, ANIM.corrida, 0.1, 10, -0.2); // o avanço segue: o mesmo clipe, sem recomeçar
+      expect(f.clipeAtual).toBe(CLIPE.bote);
+      andar(f, ANIM.parado, 0.05, 0); // o avanço acabou
+      expect(f.clipeAtual).toBe(CLIPE.parado);
+
+      const g = new FiguraBoneco(base, SKIN, null, 1, false);
+      andar(g, ANIM.parado, 0.2);
+      andar(g, ANIM.corrida, 0.05, 9.5, 0.3); // bote do bot, bola à esquerda
+      expect(g.clipeAtual).toBe(CLIPE.boteEsq);
+      andar(g, ANIM.corrida, 0.1, 6.84, 0.3); // o humano roubou e saiu do avanço a 6,84 m/s: volta a correr
+      expect(g.clipeAtual).toBe(CLIPE.correr);
+    });
+
+    it("bote: o clipe inteiro (0,251 s) acaba perto do fim do avanço de 0,25 s e volta a parado", () => {
+      const f = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(f, ANIM.corrida, 0.1, 10, -0.2);
+      andar(f, ANIM.corrida, 0.2, 10, -0.2); // 0,3 s: o clipe (0,251 s) já acabou com o estado ainda valendo
+      expect(f.clipeAtual).toBe(CLIPE.parado);
+    });
+
+    it("carrinho → levantar: quem dá o carrinho levanta do mesmo lado, e depois volta a parado", () => {
+      const f = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(f, ANIM.corrida, 0.2, 7, -0.3);
+      andar(f, ANIM.carrinho, 0.05, 0, -0.3);
+      expect(f.clipeAtual).toBe(CLIPE.carrinho);
+      andar(f, ANIM.carrinho, 0.95, 0, -0.3); // 1,0 s de deslize
+      expect(f.clipeAtual).toBe(CLIPE.carrinho);
+      andar(f, ANIM.queda, 0.05);
+      expect(f.clipeAtual).toBe(CLIPE.levantar);
+      andar(f, ANIM.queda, 0.5);
+      expect(f.clipeAtual).toBe(CLIPE.levantar);
+      andar(f, ANIM.queda, 0.3); // 0,85 s no chão: o clipe (0,799 s) acabou e volta a parado
+      expect(f.clipeAtual).toBe(CLIPE.parado);
+      andar(f, ANIM.parado, 0.1);
+      expect(f.clipeAtual).toBe(CLIPE.parado);
+
+      const g = new FiguraBoneco(base, SKIN, null, 1, false);
+      andar(g, ANIM.parado, 0.1);
+      andar(g, ANIM.carrinho, 0.05, 0, 0.4); // bola à esquerda
+      expect(g.clipeAtual).toBe(CLIPE.carrinhoEsq);
+      andar(g, ANIM.queda, 0.05, 0, -0.4); // a bola mudou de lado: o levantar segue o lado do carrinho
+      expect(g.clipeAtual).toBe(CLIPE.levantarEsq);
+    });
+
+    it("o clipe do carrinho acaba uns milissegundos antes do estado e fica na última pose, sem voltar a parado, até o levantar", () => {
+      const f = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(f, ANIM.carrinho, 0.2, 0, 0);
+      andar(f, ANIM.carrinho, 0.85, 0, 0); // 1,05 s: bem depois do fim do clipe (0,997 s)
+      expect(f.clipeAtual).toBe(CLIPE.carrinho);
+      andar(f, ANIM.queda, 0.02);
+      expect(f.clipeAtual).toBe(CLIPE.levantar);
+    });
+
+    it("falta: quem deu o carrinho e é cortado no meio (carrinho → queda) também levanta", () => {
+      const f = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(f, ANIM.carrinho, 0.3, 0, 0);
+      andar(f, ANIM.queda, 0.05);
+      expect(f.clipeAtual).toBe(CLIPE.levantar);
+    });
+
+    it("o adversário atingido (queda sem carrinho antes) e o goleiro depois do mergulho não levantam: seguem no repouso, como antes", () => {
+      const v = new FiguraBoneco(base, SKIN, null, 0, false);
+      andar(v, ANIM.corrida, 0.3, 6);
+      andar(v, ANIM.queda, 0.05);
+      expect(v.clipeAtual).toBe(CLIPE.parado);
+      andar(v, ANIM.queda, 1.15); // 1,2 s no chão
+      expect(v.clipeAtual).toBe(CLIPE.parado);
+
+      const g = new FiguraBoneco(base, SKIN, null, 1, true);
+      andar(g, ANIM.goleiroMergulhoDir, 0.2);
+      andar(g, ANIM.queda, 0.05);
+      expect(g.clipeAtual).toBe(CLIPE.gkParado);
+    });
   });
 
   it("o goleiro usa os clipes de goleiro", () => {
@@ -249,6 +338,49 @@ describe("as animações têm o que o jogo supõe", () => {
       ["dominio_puxar", 12],
       ["dominio_puxar_esq", 12],
     ] as const) expect(base.duracoes.get(clipe), clipe).toBeCloseTo((quadros - 1) / 30, 3);
+  });
+
+  it("a duração dos clipes de bote, carrinho e levantar é a do glb v2: 8, 30 e 24 quadros (e os _esq iguais)", () => {
+    for (const [clipe, quadros] of [
+      ["bote", 8],
+      ["bote_esq", 8],
+      ["carrinho", 30],
+      ["carrinho_esq", 30],
+      ["levantar", 24],
+      ["levantar_esq", 24],
+    ] as const) expect(base.duracoes.get(clipe), clipe).toBeCloseTo((quadros - 1) / 30, 3);
+  });
+
+  it("bote e carrinho: o pé direito vai à frente nos clipes base e o esquerdo nos _esq (espelhos), no quadro do alcance máximo", () => {
+    const adiante = (clipe: string, quadro: number, osso: string): number => {
+      const q = amostrar(clipe, [osso, "Quadril"])[quadro]!;
+      return (q[osso]!.z - q["Quadril"]!.z) * base.escala;
+    };
+    for (const [clipe, quadro, esq] of [
+      ["bote", 3, false],
+      ["bote_esq", 3, true],
+      ["carrinho", 6, false],
+      ["carrinho_esq", 6, true],
+    ] as const) {
+      const [forte, fraco] = esq ? ["PeL", "PeR"] : ["PeR", "PeL"];
+      expect(adiante(clipe, quadro, forte!) - adiante(clipe, quadro, fraco!), clipe).toBeGreaterThan(0.2);
+    }
+    // O bote chega o mais longe à frente no quadro 3 (0,1 s), como diz o LEIA-ME do rig
+    const z = amostrar("bote", ["PeR", "Quadril"]).map((q) => q["PeR"]!.z - q["Quadril"]!.z);
+    expect(z.indexOf(Math.max(...z))).toBe(3);
+  });
+
+  it("o levantar parte da pose final do carrinho (do mesmo lado) e termina perto do repouso; o carrinho sozinho terminaria longe dele", () => {
+    for (const [carrinho, levantar] of [
+      ["carrinho", "levantar"],
+      ["carrinho_esq", "levantar_esq"],
+    ] as const) {
+      const fimDoCarrinho = Math.round(base.duracoes.get(carrinho)! * 30);
+      const fimDoLevantar = Math.round(base.duracoes.get(levantar)! * 30);
+      expect(maiorDeslocamento(poseNoQuadro(carrinho, fimDoCarrinho), poseNoQuadro(levantar, 0)), `${carrinho} → ${levantar}`).toBeLessThan(0.02);
+      expect(maiorDeslocamento(poseNoQuadro(levantar, fimDoLevantar), poseNoQuadro("parado", 0)), `${levantar} → parado`).toBeLessThan(0.1);
+      expect(maiorDeslocamento(poseNoQuadro(carrinho, fimDoCarrinho), poseNoQuadro("parado", 0)), `${carrinho} → parado`).toBeGreaterThan(0.5);
+    }
   });
 
   it("o mergulho 'esq' vai para +X do boneco (a esquerda dele) e o 'dir' para -X", () => {
