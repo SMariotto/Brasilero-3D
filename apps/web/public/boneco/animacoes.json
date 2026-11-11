@@ -45,32 +45,32 @@
     "loop": false
   },
   "passar": {
-    "quadros": 16,
+    "quadros": 12,
     "fps": 30,
     "loop": false
   },
   "passar_esq": {
-    "quadros": 16,
+    "quadros": 12,
     "fps": 30,
     "loop": false
   },
   "dominio": {
-    "quadros": 22,
+    "quadros": 10,
     "fps": 30,
     "loop": false
   },
   "dominio_esq": {
-    "quadros": 22,
+    "quadros": 10,
     "fps": 30,
     "loop": false
   },
   "dominio_puxar": {
-    "quadros": 24,
+    "quadros": 12,
     "fps": 30,
     "loop": false
   },
   "dominio_puxar_esq": {
-    "quadros": 24,
+    "quadros": 12,
     "fps": 30,
     "loop": false
   }

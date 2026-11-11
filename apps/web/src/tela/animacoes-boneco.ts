@@ -1,4 +1,4 @@
-import { ANIM, ANIMACAO, RECEPCAO, RECEPCAO_PASSE } from "@b3d/core";
+import { ANIM, ANIMACAO } from "@b3d/core";
 import { EXPRESSAO, FPS_DO_ROSTO, QUADROS_POR_EXPRESSAO } from "./boneco-dados";
 
 // Que animação do boneco novo (rig-v1, H5) tocar para cada estado do snapshot, e como (velocidade, pé, rosto). Lógica pura, sem
@@ -29,6 +29,11 @@ export const CLIPES_COM_LOOP: ReadonlySet<string> = new Set([CLIPE.parado, CLIPE
 
 /** Tempo (s) da troca entre dois clipes. */
 export const CROSSFADE_S = 0.12;
+/**
+ * Tempo (s) da troca ao entrar nos clipes de jogada curta (passe e recepção). O toque da bola vem logo (0,06 a 0,11 s depois do
+ * começo do estado), então a troca tem de acabar antes dele: com 0,12 s o pé ainda estaria misturado com a pose anterior no toque.
+ */
+export const CROSSFADE_DA_JOGADA_S = 0.06;
 
 // --- corrida ---------------------------------------------------------------------------------------------------------------
 
@@ -57,24 +62,32 @@ export const ATRASO_DO_CONTATO_S = 0.1;
 /** Perto desta distância (m) da linha do corpo a bola está "de frente": chuta com o pé direito. */
 export const FOLGA_DO_PE_M = 0.08;
 
-/** No clipe `passar` (16 quadros, 0,5 s) o pé toca a bola no quadro 8 (LEIA-ME do rig). */
-export const CONTATO_DO_PASSE_S = 8 / 30;
+/**
+ * No clipe `passar` (12 quadros, 0,367 s) o pé toca a bola no quadro 2 (LEIA-ME do rig). O servidor solta a bola no instante em que o
+ * estado começa; o clipe já nasce com o toque no começo, então toca do quadro 0 e sem deslocamento.
+ */
+export const CONTATO_DO_PASSE_S = 2 / 30;
+/** Velocidade do `passar` (e do `passar_esq`): o gesto de 0,367 s acaba em 0,306 s, no fim do estado de passe do servidor (0,3 s). */
+export const ESCALA_DO_PASSE = 1.2;
 /** Passe para a esquerda do corpo (seno do ângulo da bola em relação à frente, a partir deste valor, ~15°) usa o pé esquerdo. */
 export const LADO_MINIMO_DO_PASSE = 0.26;
 
 // --- recepção (domínio) ----------------------------------------------------------------------------------------------------
 
-/** No clipe `dominio` (22 quadros, 0,7 s) o pé toca a bola no quadro 8, no ponto mais alto. */
-export const CONTATO_DO_DOMINIO_S = 8 / 30;
-/** No `dominio_puxar` (24 quadros, 0,77 s) o pé toca a bola entre os quadros 7 e 11 (pé esticado para o lado); usa o do meio. */
-export const CONTATO_DO_DOMINIO_PUXAR_S = 9 / 30;
+/** No clipe `dominio` (10 quadros, 0,3 s) o pé toca a bola no quadro 4, no ponto mais alto. */
+export const CONTATO_DO_DOMINIO_S = 4 / 30;
+/** No `dominio_puxar` (12 quadros, 0,367 s) o pé toca a bola no quadro 4, com a perna esticada para o lado; depois puxa. */
+export const CONTATO_DO_DOMINIO_PUXAR_S = 4 / 30;
 /** Bola a mais disto (m) do lado do corpo: o pé estica para o lado e puxa a bola (`dominio_puxar`); mais de frente, só amortece (`dominio`). */
 export const LATERAL_DO_DOMINIO_PUXAR_M = 0.5;
 /**
- * O estado de recepção dura 0,2 s (recepção comum) ou 0,3 s (de passe) no servidor, e o snapshot não diz qual: o clipe toca para caber
- * na média, o que dá ~×3. Se parecer rápido demais, o caminho é o servidor segurar o estado por mais tempo (`RECEPCAO.duracaoS`).
+ * Velocidades fixas dos clipes de recepção (a duração do estado no servidor é 0,2 s na recepção comum e 0,3 s na de passe, e o snapshot
+ * não diz qual; por isso não há regra por duração). O `dominio` (0,3 s) acaba em 0,25 s; o `dominio_puxar` (0,367 s), em 0,262 s.
+ * Se o estado do servidor acabar antes, o clipe é cortado pela troca para o próximo, depois do toque. Para mudar o ritmo, o caminho é
+ * mexer aqui ou em `RECEPCAO.duracaoS` / `RECEPCAO_PASSE.duracaoS`.
  */
-export const DURACAO_DA_RECEPCAO_S = (RECEPCAO.duracaoS + RECEPCAO_PASSE.duracaoS) / 2;
+export const ESCALA_DO_DOMINIO = 1.2;
+export const ESCALA_DO_DOMINIO_PUXAR = 1.4;
 
 export interface ContextoDaAnimacao {
   goleiro: boolean;
@@ -130,6 +143,8 @@ export interface Decisao {
   inicioS: number;
   /** Falso quando o estado ainda não tem animação própria e usa a reserva. */
   propria: boolean;
+  /** Tempo (s) da troca do clipe anterior para este. */
+  crossfadeS: number;
 }
 
 const limite = (v: number, min: number, max: number): number => Math.min(max, Math.max(min, v));
@@ -142,7 +157,14 @@ export function decidir(anim: number, ctx: ContextoDaAnimacao, duracoes: Readonl
   const tem = (n: string): boolean => duracoes.has(n);
   const repouso = ctx.goleiro && tem(CLIPE.gkParado) ? CLIPE.gkParado : CLIPE.parado;
   if (!tem(repouso)) return null;
-  const simples = (clipe: string, propria: boolean, velocidade = 1, inicioS = 0): Decisao => ({ clipe, repete: CLIPES_COM_LOOP.has(clipe), velocidade, inicioS, propria });
+  const simples = (clipe: string, propria: boolean, velocidade = 1, inicioS = 0, crossfadeS = CROSSFADE_S): Decisao => ({
+    clipe,
+    repete: CLIPES_COM_LOOP.has(clipe),
+    velocidade,
+    inicioS,
+    propria,
+    crossfadeS,
+  });
   const reserva = (): Decisao => simples(repouso, false);
 
   switch (anim) {
@@ -165,10 +187,7 @@ export function decidir(anim: number, ctx: ContextoDaAnimacao, duracoes: Readonl
       // O pé é o do lado para onde a bola sai. Com o modelo antigo (sem o clipe de passe), vale o gesto do chute.
       const esq = pePorRumoDoPasse(ctx) === "esq";
       const dur = duracoes.get(esq ? CLIPE.passarEsq : CLIPE.passar);
-      if (dur !== undefined) {
-        const velocidade = limite(dur / ANIMACAO.passeS, 1, 4);
-        return simples(esq ? CLIPE.passarEsq : CLIPE.passar, true, velocidade, Math.max(0, CONTATO_DO_PASSE_S - ATRASO_DO_CONTATO_S * velocidade));
-      }
+      if (dur !== undefined) return simples(esq ? CLIPE.passarEsq : CLIPE.passar, true, ESCALA_DO_PASSE, 0, CROSSFADE_DA_JOGADA_S);
       const chutar = pePorLado(ctx) === "esq" ? CLIPE.chutarEsq : CLIPE.chutar;
       const durChute = duracoes.get(chutar);
       if (durChute === undefined) return reserva();
@@ -184,11 +203,8 @@ export function decidir(anim: number, ctx: ContextoDaAnimacao, duracoes: Readonl
       const puxar = Math.abs(lateral) >= LATERAL_DO_DOMINIO_PUXAR_M;
       const esq = lateral > FOLGA_DO_PE_M;
       const clipe = puxar ? (esq ? CLIPE.dominioPuxarEsq : CLIPE.dominioPuxar) : esq ? CLIPE.dominioEsq : CLIPE.dominio;
-      const dur = duracoes.get(clipe);
-      if (dur === undefined) return reserva();
-      const velocidade = limite(dur / DURACAO_DA_RECEPCAO_S, 1, 4);
-      const contato = puxar ? CONTATO_DO_DOMINIO_PUXAR_S : CONTATO_DO_DOMINIO_S;
-      return simples(clipe, true, velocidade, Math.max(0, contato - ATRASO_DO_CONTATO_S * velocidade));
+      if (!tem(clipe)) return reserva();
+      return simples(clipe, true, puxar ? ESCALA_DO_DOMINIO_PUXAR : ESCALA_DO_DOMINIO, 0, CROSSFADE_DA_JOGADA_S);
     }
 
     case ANIM.comemoracao:

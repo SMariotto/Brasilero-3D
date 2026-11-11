@@ -222,24 +222,33 @@ describe("as animações têm o que o jogo supõe", () => {
 
   it("o toque da bola dos clipes novos bate com o pé: passar logo depois do pico de velocidade, dominio no pé mais alto, dominio_puxar com o pé esticado para o lado", () => {
     const q = (clipe: string): Array<Record<string, THREE.Vector3>> => amostrar(clipe, ["PeR", "Quadril"]);
-    // passar: o pico de velocidade do pé vem 1 a 3 quadros antes do toque (quadro 8)
+    // passar (toque no quadro 2): o pé corre nos quadros 0 a 2 (a ~10 m/s) e para logo depois do toque (~1 m/s), sem outra pancada
     const p = q("passar");
-    const v = p.slice(1).map((f, i) => f["PeR"]!.distanceTo(p[i]!["PeR"]!));
-    const quadroDoPico = v.indexOf(Math.max(...v)) + 1;
+    const v = p.slice(1).map((f, i) => f["PeR"]!.distanceTo(p[i]!["PeR"]!) * 30 * base.escala); // m/s do jogo; v[i] é do quadro i ao i+1
     const contatoPasse = Math.round(CONTATO_DO_PASSE_S * 30);
-    expect(contatoPasse).toBeGreaterThanOrEqual(quadroDoPico);
-    expect(contatoPasse - quadroDoPico).toBeLessThanOrEqual(3);
-    // dominio: o pé está no ponto mais alto no quadro do toque
+    expect(contatoPasse).toBe(2);
+    expect(v[contatoPasse - 1]!, "o pé chega ao toque em velocidade de chute").toBeGreaterThan(8);
+    expect(v[contatoPasse]!, "e para depois do toque").toBeLessThan(3);
+    expect(v.indexOf(Math.max(...v)) + 1, "o pico de velocidade é no quadro 1 ou 2").toBeLessThanOrEqual(contatoPasse);
+    // dominio (toque no quadro 4): o pé está no ponto mais alto no quadro do toque
     const d = q("dominio").map((f) => f["PeR"]!.y);
     expect(Math.abs(d.indexOf(Math.max(...d)) - Math.round(CONTATO_DO_DOMINIO_S * 30))).toBeLessThanOrEqual(1);
-    // dominio_puxar: o pé fica o mais para o lado (direita = -X) entre os quadros 7 e 11, e o toque cai nessa faixa
+    // dominio_puxar (toque no quadro 4): o pé está o mais para o lado (direita = -X) no quadro do toque, e depois puxa para o corpo
     const pu = q("dominio_puxar").map((f) => f["PeR"]!.x - f["Quadril"]!.x);
-    const maisParaOLado = pu.indexOf(Math.min(...pu));
-    expect(maisParaOLado).toBeGreaterThanOrEqual(7);
-    expect(maisParaOLado).toBeLessThanOrEqual(11);
     const contatoPuxar = Math.round(CONTATO_DO_DOMINIO_PUXAR_S * 30);
-    expect(contatoPuxar).toBeGreaterThanOrEqual(7);
-    expect(contatoPuxar).toBeLessThanOrEqual(11);
+    expect(Math.abs(pu.indexOf(Math.min(...pu)) - contatoPuxar)).toBeLessThanOrEqual(1);
+    expect(pu[pu.length - 1]!, "no fim o pé volta para perto do corpo").toBeGreaterThan(pu[contatoPuxar]!);
+  });
+
+  it("a duração dos clipes de passe e recepção é a do glb novo: passar 12 quadros, dominio 10 e dominio_puxar 12 (e os _esq iguais)", () => {
+    for (const [clipe, quadros] of [
+      ["passar", 12],
+      ["passar_esq", 12],
+      ["dominio", 10],
+      ["dominio_esq", 10],
+      ["dominio_puxar", 12],
+      ["dominio_puxar_esq", 12],
+    ] as const) expect(base.duracoes.get(clipe), clipe).toBeCloseTo((quadros - 1) / 30, 3);
   });
 
   it("o mergulho 'esq' vai para +X do boneco (a esquerda dele) e o 'dir' para -X", () => {

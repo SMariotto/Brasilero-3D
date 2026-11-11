@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as clonarComEsqueleto } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { JOGADOR, criarRng, type BolaSnap, type UniformeResolvido, type VagaElenco } from "@b3d/core";
-import { CLIPE, CROSSFADE_S, ControladorDeRosto, decidir, velocidadeDaCorrida, type Decisao } from "./animacoes-boneco";
+import { CLIPE, ControladorDeRosto, decidir, velocidadeDaCorrida, type Decisao } from "./animacoes-boneco";
 import { aparenciaDoSlot, caminhosDoBoneco, chaveDoCabelo, kitDoJogador, offsetDoRosto, type KitDeSkin } from "./boneco-dados";
 import { desenharSkinGerada } from "./skin-gerada";
 
@@ -455,7 +455,7 @@ export class FiguraBoneco {
     a.enabled = true;
     a.timeScale = d.velocidade;
     a.time = d.inicioS;
-    if (this.atual && this.atual.acao !== a) a.crossFadeFrom(this.atual.acao, CROSSFADE_S, false);
+    if (this.atual && this.atual.acao !== a) a.crossFadeFrom(this.atual.acao, d.crossfadeS, false);
     a.play();
     this.atual = { nome: d.clipe, acao: a };
   }

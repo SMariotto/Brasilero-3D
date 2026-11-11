@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ANIM, ANIMACAO, JOGADOR } from "@b3d/core";
+import { ANIM, ANIMACAO, JOGADOR, RECEPCAO_PASSE, TEMPO } from "@b3d/core";
 import {
   ALTURA_DA_DEFESA_ALTA_M,
   ATRASO_DO_CONTATO_S,
@@ -9,8 +9,12 @@ import {
   CONTATO_DO_DOMINIO_PUXAR_S,
   CONTATO_DO_DOMINIO_S,
   CONTATO_DO_PASSE_S,
+  CROSSFADE_DA_JOGADA_S,
+  CROSSFADE_S,
   ControladorDeRosto,
-  DURACAO_DA_RECEPCAO_S,
+  ESCALA_DO_DOMINIO,
+  ESCALA_DO_DOMINIO_PUXAR,
+  ESCALA_DO_PASSE,
   LATERAL_DO_DOMINIO_PUXAR_M,
   ESCALA_MAX_DA_CORRIDA,
   ESCALA_MIN_DA_CORRIDA,
@@ -117,10 +121,18 @@ describe("passe", () => {
     expect(decidir(ANIM.passe, LINHA, DURACOES)?.clipe).toBe("passar");
   });
 
-  it("o toque da bola acontece logo depois de o estado começar e o gesto cabe no estado de passe", () => {
+  it("o clipe começa no quadro 0, a ×1,2, com troca curta, e o toque da bola aparece a 0,056 s do começo do estado (a bola sai no instante 0)", () => {
+    for (const d of [passe(15, 0), passe(15, -8)]) {
+      expect(d).toMatchObject({ inicioS: 0, velocidade: ESCALA_DO_PASSE, crossfadeS: CROSSFADE_DA_JOGADA_S });
+      expect(CONTATO_DO_PASSE_S / d.velocidade).toBeCloseTo(2 / 30 / 1.2, 10); // 0,0556 s
+      expect(CONTATO_DO_PASSE_S / d.velocidade).toBeLessThanOrEqual(CROSSFADE_DA_JOGADA_S + 0.01); // o pé já está no clipe quando toca
+    }
+    expect(ESCALA_DO_PASSE).toBe(1.2);
+  });
+
+  it("o gesto inteiro (0,306 s) acaba no máximo um intervalo de snapshot depois do fim do estado de passe (0,3 s)", () => {
     const d = passe(15, 0);
-    expect((CONTATO_DO_PASSE_S - d.inicioS) / d.velocidade).toBeCloseTo(ATRASO_DO_CONTATO_S, 5);
-    expect((DURACOES.get("passar")! - d.inicioS) / d.velocidade).toBeLessThanOrEqual(ANIMACAO.passeS + 1e-9);
+    expect(DURACOES.get("passar")! / d.velocidade).toBeLessThanOrEqual(ANIMACAO.passeS + 1 / TEMPO.snapHz);
   });
 
   it("com o modelo antigo (sem os clipes de passe) usa o gesto do chute e diz que não é próprio", () => {
@@ -150,14 +162,30 @@ describe("recepção (domínio)", () => {
     expect(decidir(ANIM.recepcao, LINHA, DURACOES)).toMatchObject({ clipe: "dominio", propria: true });
   });
 
-  it("o toque da bola vem cedo (~0,1 s) e o gesto cabe na duração média da recepção do servidor", () => {
-    for (const [lateral, contato] of [
-      [0, CONTATO_DO_DOMINIO_S],
-      [0.9, CONTATO_DO_DOMINIO_PUXAR_S],
+  it("os clipes começam no quadro 0, com troca curta, a ×1,2 (dominio) e ×1,4 (dominio_puxar), e nenhum passa de ×1,5", () => {
+    for (const [lateral, escala] of [
+      [0, ESCALA_DO_DOMINIO],
+      [0.3, ESCALA_DO_DOMINIO],
+      [0.9, ESCALA_DO_DOMINIO_PUXAR],
+      [-0.9, ESCALA_DO_DOMINIO_PUXAR],
     ] as const) {
       const d = recebe(lateral);
-      expect((contato - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeLessThanOrEqual(ATRASO_DO_CONTATO_S + 1e-9);
-      expect((DURACOES.get(d.clipe)! - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeLessThanOrEqual(DURACAO_DA_RECEPCAO_S + 1e-9);
+      expect(d, `lateral ${lateral}`).toMatchObject({ inicioS: 0, velocidade: escala, crossfadeS: CROSSFADE_DA_JOGADA_S });
+      expect(d.velocidade).toBeLessThanOrEqual(1.5);
+    }
+    expect(ESCALA_DO_DOMINIO).toBe(1.2);
+    expect(ESCALA_DO_DOMINIO_PUXAR).toBe(1.4);
+  });
+
+  it("o toque da bola aparece a 0,111 s (dominio) e 0,095 s (dominio_puxar) do começo do estado e o gesto acaba em 0,25 s e 0,262 s, dentro da recepção de passe do servidor (0,3 s)", () => {
+    for (const [lateral, contato, toqueS, fimS] of [
+      [0, CONTATO_DO_DOMINIO_S, 4 / 30 / 1.2, 0.3 / 1.2],
+      [0.9, CONTATO_DO_DOMINIO_PUXAR_S, 4 / 30 / 1.4, (11 / 30) / 1.4],
+    ] as const) {
+      const d = recebe(lateral);
+      expect((contato - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeCloseTo(toqueS, 10);
+      expect((DURACOES.get(d.clipe)! - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeCloseTo(fimS, 10);
+      expect((DURACOES.get(d.clipe)! - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeLessThanOrEqual(RECEPCAO_PASSE.duracaoS);
     }
   });
 
@@ -221,6 +249,16 @@ describe("chute e passe: o pé", () => {
     // O estado dura ANIMACAO.chuteS: o clipe inteiro cabe nele e o pé bate ~0,1 s depois do começo
     expect(DURACOES.get("chutar")! - dir.inicioS).toBeLessThanOrEqual(ANIMACAO.chuteS * dir.velocidade + 1e-9);
     expect((CONTATO_DO_CHUTE_S - dir.inicioS) / dir.velocidade).toBeCloseTo(ATRASO_DO_CONTATO_S, 5);
+  });
+
+  it("a troca curta (no máximo 0,06 s) vale só para passe e recepção; os outros clipes mantêm a troca de 0,12 s", () => {
+    expect(CROSSFADE_DA_JOGADA_S).toBeLessThanOrEqual(0.06);
+    expect(CROSSFADE_S).toBe(0.12);
+    const bola = { x: 0.5, y: 0, z: 0.4, vx: 15, vz: 0 };
+    for (const anim of [ANIM.parado, ANIM.chute, ANIM.comemoracao]) expect(decidir(anim, { ...LINHA, bola }, DURACOES)!.crossfadeS, `anim ${anim}`).toBe(CROSSFADE_S);
+    expect(decidir(ANIM.corrida, { ...LINHA, vel: 5 }, DURACOES)!.crossfadeS).toBe(CROSSFADE_S);
+    expect(decidir(ANIM.goleiroMergulhoEsq, { ...GOLEIRO, bola }, DURACOES)!.crossfadeS).toBe(CROSSFADE_S);
+    for (const anim of [ANIM.passe, ANIM.recepcao]) expect(decidir(anim, { ...LINHA, bola }, DURACOES)!.crossfadeS, `anim ${anim}`).toBe(CROSSFADE_DA_JOGADA_S);
   });
 });
 
