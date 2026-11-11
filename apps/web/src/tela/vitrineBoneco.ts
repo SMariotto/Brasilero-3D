@@ -9,7 +9,7 @@ import { PADROES } from "./uniforme";
 // estado do jogo, feito pelo mesmo caminho da partida (`prepararBoneco` + `FiguraBoneco`) e com a mesma duração do estado no servidor.
 //   ?times=vasco,flamengo   os clubes das linhas (a segunda linha é o visitante: troca para a camisa reserva se as cores brigam)
 //   ?cam=lado               de perfil (padrão: de frente)
-//   ?colunas=0,4            só estas colunas (0 = parado ... 7 = defesa alta), maiores na tela
+//   ?colunas=0,4            só estas colunas (0 = parado ... 7 = defesa alta, 8 = passe, 9 e 10 = recepção), maiores na tela
 //   ?h=700                  altura de cada linha, em pixels (padrão 400)
 //   ?padrao=faixa-diagonal  veste todos com esse padrão de camisa (e sem skin PNG): mostra a skin gerada por código
 //   ?t=0.2                  congela nesse instante (s) do ciclo, para foto
@@ -22,7 +22,7 @@ interface Coluna {
   /** Quanto tempo (s) o estado dura antes de voltar ao repouso (como no servidor); `Infinity` fica sempre. */
   dura: number;
   /** Onde está a bola em relação ao jogador (x à frente, z à direita, y para cima), se aparecer. */
-  bola?: { x: number; y: number; z: number };
+  bola?: { x: number; y: number; z: number; vx?: number; vz?: number };
 }
 
 const COLUNAS: Coluna[] = [
@@ -34,6 +34,10 @@ const COLUNAS: Coluna[] = [
   { nome: "Goleiro parado", anim: ANIM.goleiroParado, goleiro: true, vel: 0, dura: Infinity },
   { nome: "Mergulho (dir.)", anim: ANIM.goleiroMergulhoDir, goleiro: true, vel: 0, dura: 0.45, bola: { x: 1.5, y: 0.5, z: 1.2 } },
   { nome: "Defesa alta", anim: ANIM.goleiroMergulhoEsq, goleiro: true, vel: 0, dura: 0.45, bola: { x: 0.5, y: 2.2, z: -0.3 } },
+  // A bola sai (vx, vz) um pouco para a esquerda do corpo (de frente para +X a esquerda é -Z): pé esquerdo
+  { nome: "Passe (bola vai à esquerda)", anim: ANIM.passe, goleiro: false, vel: 0, dura: 0.3, bola: { x: 0.6, y: 0.11, z: 0, vx: 15, vz: -8 } },
+  { nome: "Recepção (bola de frente)", anim: ANIM.recepcao, goleiro: false, vel: 0, dura: 0.3, bola: { x: 1, y: 0.3, z: 0 } },
+  { nome: "Recepção (bola ao lado)", anim: ANIM.recepcao, goleiro: false, vel: 0, dura: 0.3, bola: { x: 0.9, y: 0.3, z: -0.9 } },
 ];
 
 const LARGURA = 1600;
@@ -153,7 +157,7 @@ export async function abrirVitrineBoneco(raiz: HTMLElement): Promise<void> {
       const ativo = u < c.dura;
       const anim = ativo ? c.anim : c.goleiro ? ANIM.goleiroParado : ANIM.parado;
       // A bola em relação ao jogador (a altura é a do chão: as linhas só ficam em alturas diferentes na cena para não aparecerem uma na outra)
-      const bola = c.bola ? { x: it.x + c.bola.x, y: c.bola.y, z: it.z + c.bola.z } : undefined;
+      const bola = c.bola ? { ...c.bola, x: it.x + c.bola.x, z: it.z + c.bola.z } : undefined;
       it.figura.atualizar({ anim, vel: ativo ? c.vel : 0, x: it.x, z: it.z, dir: 0 }, dt, bola);
     }
   };

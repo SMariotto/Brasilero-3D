@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ANIM, JOGADOR } from "@b3d/core";
-import { CLIPE, CONTATO_DO_CHUTE_S, TODOS_OS_CLIPES, VELOCIDADE_DA_CORRIDA_GRAVADA, velocidadeDaCorrida } from "./animacoes-boneco";
+import { CLIPE, CONTATO_DO_CHUTE_S, CONTATO_DO_DOMINIO_PUXAR_S, CONTATO_DO_DOMINIO_S, CONTATO_DO_PASSE_S, TODOS_OS_CLIPES, VELOCIDADE_DA_CORRIDA_GRAVADA, velocidadeDaCorrida } from "./animacoes-boneco";
 import { NOME_DO_CORPO, TODAS_AS_CHAVES_DE_CABELO } from "./boneco-dados";
 import { FiguraBoneco, ehGlb, imagemDoGlb, lerCabelo, lerCorpo, semTexturas, type BonecoBase } from "./boneco";
 
@@ -75,7 +75,7 @@ describe("o corpo (model-brasilero-3d-rig-1malha.glb)", () => {
     expect(base.ossos).toHaveLength(17);
     for (const o of ["Raiz", "Quadril", "Peito", "Pescoco", "Cabeca", "BracoL", "BracoR", "PeL", "PeR"]) expect(base.ossos, o).toContain(o);
     expect(new Set(base.clipes.map((c) => c.name))).toEqual(new Set(TODOS_OS_CLIPES));
-    expect(base.clipes).toHaveLength(9);
+    expect(base.clipes).toHaveLength(15);
   });
 
   it("o corpo vem em uma malha só, mais o rosto (o glb de malha única)", () => {
@@ -207,6 +207,39 @@ describe("as animações têm o que o jogo supõe", () => {
       const zs = a.map((q) => q[forte]!.z);
       expect(Math.abs(zs.indexOf(Math.max(...zs)) - CONTATO_DO_CHUTE_S * 30), clipe).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("passar, dominio e dominio_puxar são com o pé direito e os _esq com o esquerdo (espelhos)", () => {
+    const movimento = (clipe: string, osso: string): number => {
+      const a = amostrar(clipe, [osso]);
+      return (["x", "y", "z"] as const).reduce((s, eixo) => s + Math.max(...a.map((q) => q[osso]![eixo])) - Math.min(...a.map((q) => q[osso]![eixo])), 0);
+    };
+    for (const base_ of ["passar", "dominio", "dominio_puxar"]) {
+      expect(movimento(base_, "PeR"), base_).toBeGreaterThan(movimento(base_, "PeL") * 3);
+      expect(movimento(`${base_}_esq`, "PeL"), `${base_}_esq`).toBeGreaterThan(movimento(`${base_}_esq`, "PeR") * 3);
+    }
+  });
+
+  it("o toque da bola dos clipes novos bate com o pé: passar logo depois do pico de velocidade, dominio no pé mais alto, dominio_puxar com o pé esticado para o lado", () => {
+    const q = (clipe: string): Array<Record<string, THREE.Vector3>> => amostrar(clipe, ["PeR", "Quadril"]);
+    // passar: o pico de velocidade do pé vem 1 a 3 quadros antes do toque (quadro 8)
+    const p = q("passar");
+    const v = p.slice(1).map((f, i) => f["PeR"]!.distanceTo(p[i]!["PeR"]!));
+    const quadroDoPico = v.indexOf(Math.max(...v)) + 1;
+    const contatoPasse = Math.round(CONTATO_DO_PASSE_S * 30);
+    expect(contatoPasse).toBeGreaterThanOrEqual(quadroDoPico);
+    expect(contatoPasse - quadroDoPico).toBeLessThanOrEqual(3);
+    // dominio: o pé está no ponto mais alto no quadro do toque
+    const d = q("dominio").map((f) => f["PeR"]!.y);
+    expect(Math.abs(d.indexOf(Math.max(...d)) - Math.round(CONTATO_DO_DOMINIO_S * 30))).toBeLessThanOrEqual(1);
+    // dominio_puxar: o pé fica o mais para o lado (direita = -X) entre os quadros 7 e 11, e o toque cai nessa faixa
+    const pu = q("dominio_puxar").map((f) => f["PeR"]!.x - f["Quadril"]!.x);
+    const maisParaOLado = pu.indexOf(Math.min(...pu));
+    expect(maisParaOLado).toBeGreaterThanOrEqual(7);
+    expect(maisParaOLado).toBeLessThanOrEqual(11);
+    const contatoPuxar = Math.round(CONTATO_DO_DOMINIO_PUXAR_S * 30);
+    expect(contatoPuxar).toBeGreaterThanOrEqual(7);
+    expect(contatoPuxar).toBeLessThanOrEqual(11);
   });
 
   it("o mergulho 'esq' vai para +X do boneco (a esquerda dele) e o 'dir' para -X", () => {

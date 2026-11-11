@@ -43,5 +43,35 @@
     "quadros": 24,
     "fps": 30,
     "loop": false
+  },
+  "passar": {
+    "quadros": 16,
+    "fps": 30,
+    "loop": false
+  },
+  "passar_esq": {
+    "quadros": 16,
+    "fps": 30,
+    "loop": false
+  },
+  "dominio": {
+    "quadros": 22,
+    "fps": 30,
+    "loop": false
+  },
+  "dominio_esq": {
+    "quadros": 22,
+    "fps": 30,
+    "loop": false
+  },
+  "dominio_puxar": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
+  },
+  "dominio_puxar_esq": {
+    "quadros": 24,
+    "fps": 30,
+    "loop": false
   }
 }

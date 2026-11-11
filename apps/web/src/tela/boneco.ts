@@ -468,12 +468,12 @@ export class FiguraBoneco {
     if (d) this.tocar(d);
   }
 
-  private contexto(e: EntradaDoBoneco, bola: Pick<BolaSnap, "x" | "y" | "z"> | undefined): Parameters<typeof decidir>[1] {
+  private contexto(e: EntradaDoBoneco, bola: (Pick<BolaSnap, "x" | "y" | "z"> & Partial<Pick<BolaSnap, "vx" | "vz">>) | undefined): Parameters<typeof decidir>[1] {
     return { goleiro: this.goleiro, x: e.x, z: e.z, dir: e.dir, vel: e.vel, bola };
   }
 
-  /** Escolhe o clipe pelo estado do snapshot, troca com crossfade e avança `dt` segundos. A bola decide o pé do chute e a defesa alta. */
-  atualizar(e: EntradaDoBoneco, dt: number, bola?: Pick<BolaSnap, "x" | "y" | "z">): void {
+  /** Escolhe o clipe pelo estado do snapshot, troca com crossfade e avança `dt` segundos. A bola decide o pé do chute, do passe e da recepção, e a defesa alta. */
+  atualizar(e: EntradaDoBoneco, dt: number, bola?: Pick<BolaSnap, "x" | "y" | "z"> & Partial<Pick<BolaSnap, "vx" | "vz">>): void {
     this.ultimaEntrada = e;
     if (e.anim !== this.estado) {
       this.estado = e.anim;

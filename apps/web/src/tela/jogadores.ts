@@ -345,8 +345,8 @@ export class Jogadores {
     this.materiaisDaCor.clear();
   }
 
-  /** `bola`: a posição da bola neste quadro (o boneco escolhe o pé do chute e a defesa alta por ela). */
-  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0, bola?: Pick<BolaSnap, "x" | "y" | "z">): void {
+  /** `bola`: a posição da bola neste quadro (o boneco escolhe o pé do chute, do passe e da recepção, e a defesa alta por ela). */
+  atualizar(jogadores: Array<Omit<JogadorSnap, "dir"> & { dir: number }>, dominante: number, dtS = 0, bola?: Pick<BolaSnap, "x" | "y" | "z"> & Partial<Pick<BolaSnap, "vx" | "vz">>): void {
     this.anel.visible = false;
     this.posicionarMiras(jogadores);
     if (this.usandoProcedural) this.procedural!.atualizar(jogadores, dtS);

@@ -6,7 +6,12 @@ import {
   ATRASO_DO_CONTATO_S,
   CLIPES_COM_LOOP,
   CONTATO_DO_CHUTE_S,
+  CONTATO_DO_DOMINIO_PUXAR_S,
+  CONTATO_DO_DOMINIO_S,
+  CONTATO_DO_PASSE_S,
   ControladorDeRosto,
+  DURACAO_DA_RECEPCAO_S,
+  LATERAL_DO_DOMINIO_PUXAR_M,
   ESCALA_MAX_DA_CORRIDA,
   ESCALA_MIN_DA_CORRIDA,
   TODOS_OS_CLIPES,
@@ -28,7 +33,7 @@ const GOLEIRO: ContextoDaAnimacao = { ...LINHA, goleiro: true };
 const nome = (anim: number, ctx = LINHA): string | undefined => decidir(anim, ctx, DURACOES)?.clipe;
 
 describe("animacoes.json", () => {
-  it("tem exatamente os 9 clipes do boneco, a 30 fps, e os loops são parado, correr e gk_parado", () => {
+  it("tem exatamente os 15 clipes do boneco, a 30 fps, e os loops são parado, correr e gk_parado", () => {
     expect(Object.keys(TABELA).sort()).toEqual([...TODOS_OS_CLIPES].sort());
     for (const i of Object.values(TABELA)) expect(i.fps).toBe(30);
     expect(new Set(Object.entries(TABELA).filter(([, i]) => i.loop).map(([n]) => n))).toEqual(CLIPES_COM_LOOP);
@@ -50,15 +55,15 @@ describe("decidir: um clipe para cada estado do jogo", () => {
   });
 
   it("os estados sem animação própria usam a reserva e dizem isso (propria = false)", () => {
-    const semClipe = [ANIM.carrinho, ANIM.queda, ANIM.cabeceio, ANIM.cobranca, ANIM.recepcao];
+    const semClipe = [ANIM.carrinho, ANIM.queda, ANIM.cabeceio, ANIM.cobranca];
     for (const anim of semClipe) {
       const d = decidir(anim, LINHA, DURACOES)!;
       expect(d, `anim ${anim}`).toMatchObject({ clipe: "parado", propria: false });
       expect(decidir(anim, GOLEIRO, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
     }
     expect(decidir(ANIM.goleiroComBola, GOLEIRO, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
-    // O passe usa o gesto do chute, mas não é um clipe de passe
-    expect(decidir(ANIM.passe, LINHA, DURACOES)).toMatchObject({ clipe: "chutar", propria: false });
+    // O goleiro não tem clipe de recepção: fica agachado
+    expect(decidir(ANIM.recepcao, GOLEIRO, DURACOES)).toMatchObject({ clipe: "gk_parado", propria: false });
   });
 
   it("todo estado do protocolo recebe algum clipe que existe", () => {
@@ -87,6 +92,86 @@ describe("decidir: um clipe para cada estado do jogo", () => {
     expect(decidir(ANIM.corrida, { ...LINHA, vel: 5 }, DURACOES)?.repete).toBe(true);
     expect(decidir(ANIM.goleiroParado, GOLEIRO, DURACOES)?.repete).toBe(true);
     for (const anim of [ANIM.chute, ANIM.comemoracao, ANIM.goleiroMergulhoEsq]) expect(decidir(anim, GOLEIRO, DURACOES)?.repete, `anim ${anim}`).toBe(false);
+  });
+});
+
+describe("passe", () => {
+  /** A bola sai com a velocidade (vx, vz); de frente para +X a esquerda do jogador é o lado -Z. */
+  const passe = (vx: number, vz: number, duracoes = DURACOES, ctx = LINHA) => decidir(ANIM.passe, { ...ctx, bola: { x: 0.5, y: 0.1, z: 0, vx, vz } }, duracoes)!;
+
+  it("usa o clipe de passe, com o pé do lado para onde a bola sai", () => {
+    expect(passe(15, 0)).toMatchObject({ clipe: "passar", propria: true });
+    expect(passe(15, 8).clipe).toBe("passar"); // para a direita
+    expect(passe(15, -8).clipe).toBe("passar_esq"); // para a esquerda
+    expect(passe(15, -3).clipe).toBe("passar"); // quase reto: pé direito
+  });
+
+  it("vale para qualquer direção do corpo (virado para +Z, a esquerda é +X)", () => {
+    const virado = { ...LINHA, dir: Math.PI / 2 };
+    expect(passe(8, 15, DURACOES, virado).clipe).toBe("passar_esq");
+    expect(passe(-8, 15, DURACOES, virado).clipe).toBe("passar");
+  });
+
+  it("sem a velocidade da bola usa o pé direito", () => {
+    expect(decidir(ANIM.passe, { ...LINHA, bola: { x: 0.5, y: 0.1, z: -1 } }, DURACOES)?.clipe).toBe("passar");
+    expect(decidir(ANIM.passe, LINHA, DURACOES)?.clipe).toBe("passar");
+  });
+
+  it("o toque da bola acontece logo depois de o estado começar e o gesto cabe no estado de passe", () => {
+    const d = passe(15, 0);
+    expect((CONTATO_DO_PASSE_S - d.inicioS) / d.velocidade).toBeCloseTo(ATRASO_DO_CONTATO_S, 5);
+    expect((DURACOES.get("passar")! - d.inicioS) / d.velocidade).toBeLessThanOrEqual(ANIMACAO.passeS + 1e-9);
+  });
+
+  it("com o modelo antigo (sem os clipes de passe) usa o gesto do chute e diz que não é próprio", () => {
+    const antigo = new Map([...DURACOES].filter(([n]) => !n.startsWith("passar") && !n.startsWith("dominio")));
+    expect(passe(15, 0, antigo)).toMatchObject({ clipe: "chutar", propria: false });
+    expect(passe(15, -8, antigo)).toMatchObject({ clipe: "chutar", propria: false }); // sem a bola ao lado, pé direito
+  });
+});
+
+describe("recepção (domínio)", () => {
+  /** A bola está `lateral` m para a esquerda do corpo (de frente para +X, a esquerda é -Z) e 1 m à frente. */
+  const recebe = (lateral: number, duracoes = DURACOES, ctx = LINHA) => decidir(ANIM.recepcao, { ...ctx, bola: { x: 1, y: 0.3, z: -lateral } }, duracoes)!;
+
+  it("bola de frente: só amortece (dominio); o pé é o do lado da bola", () => {
+    expect(recebe(0)).toMatchObject({ clipe: "dominio", propria: true });
+    expect(recebe(-0.3).clipe).toBe("dominio");
+    expect(recebe(0.3).clipe).toBe("dominio_esq");
+  });
+
+  it("bola ao lado do corpo: o pé estica e puxa (dominio_puxar), com o pé daquele lado", () => {
+    expect(recebe(LATERAL_DO_DOMINIO_PUXAR_M + 0.3).clipe).toBe("dominio_puxar_esq");
+    expect(recebe(-(LATERAL_DO_DOMINIO_PUXAR_M + 0.3)).clipe).toBe("dominio_puxar");
+    expect(recebe(LATERAL_DO_DOMINIO_PUXAR_M - 0.05).clipe).toBe("dominio_esq"); // logo abaixo do limite
+  });
+
+  it("sem saber onde está a bola, amortece com o pé direito", () => {
+    expect(decidir(ANIM.recepcao, LINHA, DURACOES)).toMatchObject({ clipe: "dominio", propria: true });
+  });
+
+  it("o toque da bola vem cedo (~0,1 s) e o gesto cabe na duração média da recepção do servidor", () => {
+    for (const [lateral, contato] of [
+      [0, CONTATO_DO_DOMINIO_S],
+      [0.9, CONTATO_DO_DOMINIO_PUXAR_S],
+    ] as const) {
+      const d = recebe(lateral);
+      expect((contato - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeLessThanOrEqual(ATRASO_DO_CONTATO_S + 1e-9);
+      expect((DURACOES.get(d.clipe)! - d.inicioS) / d.velocidade, `lateral ${lateral}`).toBeLessThanOrEqual(DURACAO_DA_RECEPCAO_S + 1e-9);
+    }
+  });
+
+  it("com o modelo antigo (sem os clipes de domínio) fica no repouso", () => {
+    const antigo = new Map([...DURACOES].filter(([n]) => !n.startsWith("dominio")));
+    expect(recebe(0, antigo)).toMatchObject({ clipe: "parado", propria: false });
+  });
+
+  it("os seis clipes novos existem na lista e na tabela, e nenhum repete", () => {
+    for (const n of ["passar", "passar_esq", "dominio", "dominio_esq", "dominio_puxar", "dominio_puxar_esq"]) {
+      expect(TODOS_OS_CLIPES).toContain(n);
+      expect(DURACOES.has(n), n).toBe(true);
+      expect(CLIPES_COM_LOOP.has(n), n).toBe(false);
+    }
   });
 });
 
