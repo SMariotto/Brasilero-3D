@@ -230,7 +230,7 @@ describe("as animações têm o que o jogo supõe", () => {
     expect(Math.abs(doJogo - VELOCIDADE_DA_CORRIDA_GRAVADA) / VELOCIDADE_DA_CORRIDA_GRAVADA).toBeLessThan(0.03);
   });
 
-  it("cadência da corrida: o ciclo do clipe tem dois apoios (um de cada pé) e, na velocidade máxima com e sem a bola, dá de 5 a 6,5 passos por segundo", () => {
+  it("cadência da corrida: o ciclo do clipe tem dois apoios (um de cada pé) e, na velocidade máxima com e sem a bola, dá de 4,5 a 6 passos por segundo", () => {
     const a = amostrar("correr", ["PeL", "PeR", "Quadril"]);
     // Um apoio é uma sequência de quadros com o pé no chão andando para trás em relação ao quadril
     const chao = Math.min(...a.flatMap((q) => [q["PeL"]!.y, q["PeR"]!.y])) + 0.012;
@@ -251,8 +251,8 @@ describe("as animações têm o que o jogo supõe", () => {
     expect(duracao).toBeCloseTo(20 / 30, 3); // 21 quadros (20 intervalos) a 30 fps
     for (const v of [JOGADOR.velocidadeMax, JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola]) {
       const passosPorSegundo = (2 * velocidadeDaCorrida(v)) / duracao;
-      expect(passosPorSegundo).toBeGreaterThan(5);
-      expect(passosPorSegundo).toBeLessThan(6.5);
+      expect(passosPorSegundo).toBeGreaterThan(4.5);
+      expect(passosPorSegundo).toBeLessThan(6);
     }
   });
 

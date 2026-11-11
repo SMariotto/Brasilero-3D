@@ -28,12 +28,12 @@ export const CROSSFADE_S = 0.12;
 
 /**
  * Velocidade (m/s do jogo, com o boneco em 1,8 m) em que o pé de apoio do clipe `correr` anda para trás na velocidade do chão, a 1x.
- * Medida no clipe (0,667 s, passada com fase de voo): a mediana da velocidade do pé de apoio em relação ao quadril é 0,882 m/s no
- * rig (0,44 m de altura) e o boneco é ampliado ×4,10: 3,62 m/s. A 7,6 m/s (6,84 com a bola) isso pede ×2,10 (×1,89), abaixo do
- * teto: na máxima o pé não desliza. O teto é só segurança; o piso evita pernas em câmera lenta (abaixo de 1,81 m/s o clipe toca a
+ * Medida no clipe (0,667 s, passada com fase de voo): a mediana da velocidade do pé de apoio em relação ao quadril é 1,019 m/s no
+ * rig (0,44 m de altura) e o boneco é ampliado ×4,10: 4,18 m/s. A 7,6 m/s (6,84 com a bola) isso pede ×1,82 (×1,64), abaixo do
+ * teto: na máxima o pé não desliza. O teto é só segurança; o piso evita pernas em câmera lenta (abaixo de 2,09 m/s o clipe toca a
  * ×0,5 e o pé desliza um pouco ao arrancar e ao parar).
  */
-export const VELOCIDADE_DA_CORRIDA_GRAVADA = 3.62;
+export const VELOCIDADE_DA_CORRIDA_GRAVADA = 4.18;
 export const ESCALA_MIN_DA_CORRIDA = 0.5;
 export const ESCALA_MAX_DA_CORRIDA = 2.5;
 
