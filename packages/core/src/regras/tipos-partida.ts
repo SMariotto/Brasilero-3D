@@ -90,6 +90,8 @@ export interface JogadorPartida {
   recepcaoProntaEm: number;
   /** A recepção em andamento é a do passe (H3): raio e força maiores. */
   recepcaoForte: boolean;
+  /** Quando o humano roubou a bola com o bote pela última vez (s de jogo); a "pegada" dura `FACILIDADE_DO_HUMANO.roubo.pegadaS` (H6). */
+  roubouEm: number;
   bote: Bote | null;
   boteProntoEm: number;
   mergulho: Mergulho | null;

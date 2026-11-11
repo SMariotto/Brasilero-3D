@@ -247,7 +247,9 @@ export interface BoteSimulado {
 /**
  * Um bote de humano. O portador (Casa, humano de mentira) corre para o gol com a bola, em reta ou em zigue-zague, a toda a velocidade.
  * O defensor (Visitante, humano de mentira) corre para a bola, vindo `jeito` (de frente, do lado ou por trás), e aperta PASSE (bote)
- * quando chega a `distancia` m da bola. Ele parte um pouco mais longe que isso, para chegar logo. Sucesso = evento `roubo` dele.
+ * quando chega a `distancia` m da bola, com uma imprecisão de ±0,3 m (um humano não aperta no ponto exato; o sorteio é pela semente, então
+ * o resultado é sempre o mesmo). Ele parte um pouco mais longe que isso, para chegar logo. Sucesso = houve o evento `roubo` dele E 0,4 s
+ * depois ele está com a bola (um "roubo" que larga a bola solta, ou que o dono antigo retoma na hora, não conta).
  */
 export function simularBote(jeito: JeitoDeChegar, distancia: number, zigue: boolean, semente: number): BoteSimulado {
   const p = new Partida({
@@ -278,12 +280,14 @@ export function simularBote(jeito: JeitoDeChegar, distancia: number, zigue: bool
     d.corpo.dir = 0;
   }
   const fase = (semente % 11) * 0.5;
+  const distanciaDoAperto = distancia + ((((semente * 2654435761) >>> 0) % 1000) / 1000 - 0.5) * 2 * 0.3;
   for (let i = 0; i < 20; i++) p.passo();
   let apertou = false;
   let apertouEm = -1;
   let roubou = false;
+  let conferirEm = -1;
   const limite = TEMPO.tickHz * 8;
-  for (let i = 0; i < limite && !roubou; i++) {
+  for (let i = 0; i < limite; i++) {
     const c = p.jogador(1)!;
     const t = p.t;
     const alvoZ = zigue ? Math.sin(t * 4.2 + fase) * 5 : 0;
@@ -294,15 +298,19 @@ export function simularBote(jeito: JeitoDeChegar, distancia: number, zigue: bool
     const dist = Math.hypot(b.x - d.corpo.x, b.z - d.corpo.z);
     const angD = Math.atan2(-(b.z - d.corpo.z), b.x - d.corpo.x);
     const cmd: Comando = { ...comandoParado(), ang: anguloParaByte(angD), mag: magParaByte(1), seguros: 0 };
-    if (!apertou && dist <= distancia && p.dominante === 1) {
+    if (!apertou && dist <= distanciaDoAperto && p.dominante === 1) {
       cmd.seguros = BOTAO.passe;
       apertou = true;
       apertouEm = t;
     }
     p.definirComandoDoHumano(2, cmd);
     p.passo();
-    for (const e of p.eventosPendentes()) if (e.tipo === "roubo" && e.dados.slot === 7) roubou = true;
-    if (apertou && t - apertouEm > 0.6) break;
+    for (const e of p.eventosPendentes()) if (e.tipo === "roubo" && e.dados.slot === 7 && conferirEm < 0) conferirEm = p.t + 0.4;
+    if (conferirEm >= 0 && p.t >= conferirEm) {
+      roubou = p.dominante === 7;
+      break;
+    }
+    if (apertou && t - apertouEm > 0.6 && conferirEm < 0) break;
   }
   return { apertou, roubou };
 }

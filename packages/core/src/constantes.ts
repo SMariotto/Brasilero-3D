@@ -43,21 +43,35 @@ export const PAREDE_ALTURA = 1;
 // ---------------------------------------------------------------------------
 export const FACILIDADE_DO_HUMANO = {
   /**
-   * Roubo de bola (bote e carrinho do humano). Medir: `npm run roubo`.
-   * Alvo (aperto a 1,5 m da bola, portador a toda a velocidade): de frente >= 95%, de lado >= 55%, por trás >= 40%.
+   * Roubo de bola (bote e carrinho do humano). Medir: `npm run roubo`. Entre parênteses, o valor de antes da H6.
+   * Alvo (aperto a 1,5 m da bola, portador a toda a velocidade, com 0,3 m de imprecisão do aperto): de frente >= 95%, de lado >= 55%,
+   * por trás >= 40%, e a chance cair com a distância (a 2,5 m de lado ~20%, por trás ~0%): roubar tem de pedir chegar perto.
+   * Antes: 100% / 0% / 0%. Agora: 100% / 100% / 100% a 1,5 m; a 2,0 m, 100% / ~90% / ~50%; a 2,5 m, 100% / ~20% / 0%.
    */
   roubo: {
-    /** Durante o bote, se a bola fica a menos disto (m) do corpo, rouba. */
-    boteRaioRoubo: 0.8,
-    boteVelocidade: 9.5,
+    /** Durante o bote, se a bola fica a menos disto (m) do corpo, rouba. (0,8) */
+    boteRaioRoubo: 1.2,
+    /** Velocidade do avanço do bote (m/s). (9,5) */
+    boteVelocidade: 10,
+    /** Duração do avanço (s). Alcance do bote = velocidade x duração. (0,25) */
     boteDuracaoS: 0.25,
-    boteRecargaS: 0.8,
-    /** O bote mira onde a bola estará daqui a este tempo (s), não onde ela está agora (os bots já fazem isso). 0 = onde ela está. */
-    boteMiraS: 0,
-    /** O bote parte para a bola se ela está a menos disto (m); mais longe, parte para onde o corpo olha. */
-    boteDistanciaMaxM: 6,
-    /** Alcance do carrinho até a bola, além do raio do corpo e da bola (m). */
-    carrinhoAlcanceExtraM: 0.45,
+    /** Espera (s) para poder dar outro bote. (0,8) */
+    boteRecargaS: 0.7,
+    /** O bote mira onde a bola estará daqui a este tempo (s), não onde ela está agora (os bots já fazem isso). 0 = onde ela está. (0) */
+    boteMiraS: 0.1,
+    /** O bote parte para a bola se ela está a menos disto (m); mais longe, parte para onde o corpo olha. (6) */
+    boteDistanciaMaxM: 8,
+    /** Alcance do carrinho até a bola, além do raio do corpo e da bola (m). (0,45) */
+    carrinhoAlcanceExtraM: 0.6,
+    /**
+     * A "pegada" (H6): depois de roubar a bola com o bote, o humano ganha este alcance de domínio extra (m), perde o limite de velocidade
+     * relativa do domínio (`DOMINIO.velocidadeRelativaMax`) e o dono antigo fica bloqueado, tudo por `pegadaS` segundos. Antes, o "roubo"
+     * de frente disparava, mas a bola (a 16 m/s contra o avanço dele, acima do limite de 14) ricocheteava a −12 m/s no corpo do ladrão;
+     * o raio de roubo é maior que o alcance do domínio (0,7 m), a bola escapava do pé quando ele freava e o dono antigo (bloqueado só
+     * 0,25 s, `DOMINIO.bloqueioAposChuteS`) a retomava por "disputa", principalmente quando o defensor vinha por trás.
+     */
+    pegadaAlcanceExtraM: 0.4,
+    pegadaS: 0.5,
   },
 } as const;
 

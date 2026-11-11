@@ -168,6 +168,7 @@ export class Partida {
       recepcaoAte: 0,
       recepcaoProntaEm: 0,
       recepcaoForte: false,
+      roubouEm: -1e9,
       bote: null,
       boteProntoEm: 0,
       mergulho: null,
@@ -632,6 +633,11 @@ export class Partida {
     const mira = controladoPorBot(j) ? miraS : FACILIDADE_DO_HUMANO.roubo.boteMiraS;
     let dx = b.x + b.vx * mira - j.corpo.x;
     let dz = b.z + b.vz * mira - j.corpo.z;
+    if (!controladoPorBot(j) && b.vx * (b.x - j.corpo.x) + b.vz * (b.z - j.corpo.z) <= 0) {
+      // Humano com a bola vindo na direção dele: mirar à frente desviaria o bote para o lado. Vai onde a bola está agora.
+      dx = b.x - j.corpo.x;
+      dz = b.z - j.corpo.z;
+    }
     const d = Math.hypot(dx, dz);
     if (d < 1e-6 || d > n.distanciaMaxM) {
       [dx, dz] = [Math.cos(j.corpo.dir), Math.sin(j.corpo.dir)];
@@ -669,14 +675,30 @@ export class Partida {
 
   private resolverBote(j: JogadorPartida): void {
     if (this.passeEmVoo?.garantido && this.passeEmVoo.time !== j.vaga.time) return;
+    // H6: o humano que roubou com a bola ainda longe do pé (o raio de roubo dele é maior que o alcance do domínio) segue no avanço até
+    // pegá-la; quando ela já é dele, o avanço acaba
+    if (!controladoPorBot(j) && this.dominante === j.vaga.slot) {
+      j.bote = null;
+      // Sai do avanço na velocidade normal de correr com a bola, não a 10 m/s: senão a bola, arrastada junto, passa do pé quando ele freia
+      const c = j.corpo;
+      const maxima = JOGADOR.velocidadeMax * JOGADOR.fatorVelocidadeComBola;
+      const v = Math.hypot(c.vx, c.vz);
+      if (v > maxima) {
+        c.vx *= maxima / v;
+        c.vz *= maxima / v;
+      }
+      return;
+    }
     const dono = this.dominante !== null ? this.jogador(this.dominante) : undefined;
     if (!dono || dono.vaga.time === j.vaga.time || dono.vaga.goleiro) return;
     const b = this.bola;
     if (Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) >= j.bote!.raioRoubo) return;
     // Roubou: a bola passa para ele e o antigo dono não retoma por um instante
-    dono.bloqueioAte = this.t + DOMINIO.bloqueioAposChuteS;
+    dono.bloqueioAte = this.t + (controladoPorBot(j) ? DOMINIO.bloqueioAposChuteS : FACILIDADE_DO_HUMANO.roubo.pegadaS);
     this.dominante = j.vaga.slot;
-    j.bote = null;
+    j.roubouEm = this.t;
+    // O bot acaba o avanço na hora. O humano só se a bola já está ao alcance do domínio; senão continua (ver acima)
+    if (controladoPorBot(j) || Math.hypot(b.x - j.corpo.x, b.z - j.corpo.z) <= DOMINIO.alcance) j.bote = null;
     j.bloqueioAte = 0;
     this.registrarToque(j);
     this.desarmesPorSlot.set(j.vaga.slot, (this.desarmesPorSlot.get(j.vaga.slot) ?? 0) + 1);
@@ -1129,9 +1151,12 @@ export class Partida {
       const c = j.corpo;
       const goleiro = j.vaga.goleiro;
       // O goleiro que acabou de segurar a bola no mergulho a mantém (a mola a traz às mãos) mesmo a até o alcance do mergulho
-      const alcance = recebeLance ? GOLEIRO.lance.raioDominioM : goleiro ? (this.dominante === j.vaga.slot ? GOLEIRO.alcanceMergulhando : GOLEIRO.alcanceEmPe) : DOMINIO.alcance;
+      // H6, a pegada: o humano que acabou de roubar a bola com o bote domina de mais longe e sem o limite de velocidade relativa (a bola
+      // vem de frente a 16 m/s contra o avanço dele, e sem isso ela ricocheteava no corpo dele a −12 m/s)
+      const pegada = !controladoPorBot(j) && this.t - j.roubouEm < FACILIDADE_DO_HUMANO.roubo.pegadaS;
+      const alcance = recebeLance ? GOLEIRO.lance.raioDominioM : goleiro ? (this.dominante === j.vaga.slot ? GOLEIRO.alcanceMergulhando : GOLEIRO.alcanceEmPe) : DOMINIO.alcance + (pegada ? FACILIDADE_DO_HUMANO.roubo.pegadaAlcanceExtraM : 0);
       const altura = recebeLance ? 2.6 : goleiro ? GOLEIRO.alturaEmPe : DOMINIO.alturaMax;
-      const velMax = recebeLance ? Infinity : goleiro ? GOLEIRO.encaixaAteVelocidade : DOMINIO.velocidadeRelativaMax;
+      const velMax = recebeLance || pegada ? Infinity : goleiro ? GOLEIRO.encaixaAteVelocidade : DOMINIO.velocidadeRelativaMax;
       if (Math.hypot(b.x - c.x, b.z - c.z) > alcance) continue;
       if (b.y > altura) continue;
       if (Math.hypot(b.vx - c.vx, b.vy, b.vz - c.vz) >= velMax) continue;

@@ -2,7 +2,8 @@
 //   npm run roubo                                   (60 botes por célula, 6 partidas de 8 min, bots no Médio)
 //   npm run roubo -- --botes 100 --partidas 10 --seg 480 --dificuldade facil --semente 3
 // Parte 1: o portador corre a toda a velocidade (em reta ou em zigue-zague) e o defensor vem de frente, do lado ou por trás e aperta o
-// bote quando chega a D m da bola (D é a distância ao centro da bola). Parte 2: o defensor numa partida inteira contra bots.
+// bote quando chega a D m da bola (D é a distância ao centro da bola, com ±0,3 m de imprecisão: um humano não aperta no ponto exato).
+// Parte 2: o defensor numa partida inteira contra bots (só uma medida de segurança: ele aperta com o timing perfeito).
 // Os bots não entram nos números da parte 1 (humano contra humano de mentira) e na parte 2 só jogam contra ele: o que muda aqui é
 // o que a H6 mexe para o HUMANO (`FACILIDADE_DO_HUMANO.roubo`); o bote dos bots não muda.
 import { simularBote, simularDefensor, type Dificuldade, type JeitoDeChegar } from "@b3d/core";
