@@ -14,3 +14,11 @@ export function salaSemLider(jogadores: readonly JogadorLobby[]): boolean {
 export function podeTornarLider(j: JogadorLobby, mestre: boolean): boolean {
   return mestre && j.conectado && !j.dono;
 }
+
+/**
+ * O botão "Expulsar" aparece só para o PC mestre, e em qualquer controle da sala, inclusive o líder e quem está sem sinal (expulsar quem
+ * está sem sinal libera a vaga sem esperar os 30 s). O servidor confere a permissão de novo.
+ */
+export function podeExpulsar(_j: JogadorLobby, mestre: boolean): boolean {
+  return mestre;
+}

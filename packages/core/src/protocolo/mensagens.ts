@@ -22,8 +22,10 @@ export type CodigoErro =
   | "SEM_PERMISSAO"
   | "MENSAGEM_INVALIDA"
   | "TOKEN_EXPIRADO"
-  /** H7: o jogador pedido (`lider`) não existe ou está sem sinal. Não é fatal. */
-  | "ALVO_INVALIDO";
+  /** H7: o jogador pedido não existe mais (`expulsar`, `lider`) ou, em `lider`, está sem sinal. Não é fatal. */
+  | "ALVO_INVALIDO"
+  /** H7.2: o líder ou o PC tirou este aparelho da sala (ou ele tenta voltar de um aparelho bloqueado). Fatal; vem com o fechamento 4005. */
+  | "EXPULSO";
 
 /** Erros depois dos quais o aparelho não deve tentar de novo sozinho. */
 export const ERROS_FATAIS: readonly CodigoErro[] = [
@@ -33,6 +35,7 @@ export const ERROS_FATAIS: readonly CodigoErro[] = [
   "TELAS_CHEIAS",
   "SERVIDOR_CHEIO",
   "APELIDO_INVALIDO",
+  "EXPULSO",
 ];
 
 // ---------------------------------------------------------------------------
@@ -57,6 +60,12 @@ export interface OlaControle {
   sala: string;
   apelido: string;
   token?: string;
+  /**
+   * H7.2: um identificador que o navegador do celular sorteia uma vez e guarda (`localStorage`). Quem é expulso fica bloqueado nesta
+   * sala por esse identificador até a sala fechar. Não vai a ninguém (nem no `lobby`). Sem ele (página velha, armazenamento bloqueado)
+   * o expulso sai, mas não há como bloqueá-lo.
+   */
+  aparelho?: string;
 }
 
 export type Ola = OlaTela | OlaControle;
@@ -72,6 +81,8 @@ export type MensagemCliente =
   | { t: "zerar" }
   /** H7: passa a liderança da sala ao jogador `id` (o líder, ou o telão mestre). */
   | { t: "lider"; id: number }
+  /** H7.2: tira o jogador `id` da sala e bloqueia o aparelho dele (o líder, ou o telão mestre). */
+  | { t: "expulsar"; id: number }
   | { t: "camera"; modo: "tv" | "aerea" }
   | { t: "ping"; c: number };
 
@@ -314,6 +325,7 @@ export function pareceOla(m: unknown): m is Ola {
   if (o["t"] !== "ola" || typeof o["versao"] !== "number") return false;
   if ("sala" in o && (typeof o["sala"] !== "string" || o["sala"].length > 16)) return false;
   if ("chave" in o && (typeof o["chave"] !== "string" || o["chave"].length > 64)) return false;
+  if ("aparelho" in o && (typeof o["aparelho"] !== "string" || o["aparelho"].length > 64)) return false;
   if ("apelido" in o) {
     if (typeof o["sala"] !== "string" || typeof o["apelido"] !== "string") return false;
     if ("token" in o && (typeof o["token"] !== "string" || o["token"].length > 64)) return false;
@@ -359,7 +371,8 @@ export function lerMensagemCliente(texto: string): MensagemCliente | null {
     case "zerar":
       return { t: o["t"] };
     case "lider":
-      return typeof o["id"] === "number" && Number.isInteger(o["id"]) && o["id"] >= 0 && o["id"] <= 1_000_000 ? { t: "lider", id: o["id"] } : null;
+    case "expulsar":
+      return typeof o["id"] === "number" && Number.isInteger(o["id"]) && o["id"] >= 0 && o["id"] <= 1_000_000 ? { t: o["t"], id: o["id"] } : null;
     case "camera":
       return o["modo"] === "tv" || o["modo"] === "aerea" ? { t: "camera", modo: o["modo"] } : null;
     case "ping":

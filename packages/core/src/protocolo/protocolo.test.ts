@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CONFIG_PADRAO,
+  ERROS_FATAIS,
   VERSAO_PROTOCOLO,
   lerConfigParcial,
   lerMensagemCliente,
@@ -41,6 +42,16 @@ describe("ola", () => {
     expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: "a".repeat(65) })).toBe(false);
     expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: 123 })).toBe(false);
     expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: null })).toBe(false);
+  });
+
+  it("H7.2: o ola do controle leva o identificador do aparelho (texto de até 64 caracteres); outro tipo ou tamanho é recusado", () => {
+    const base = { t: "ola", versao: VERSAO_PROTOCOLO, sala: "ABCD", apelido: "Ana" };
+    expect(pareceOla({ ...base, aparelho: "a".repeat(32) })).toBe(true);
+    expect(pareceOla({ ...base, aparelho: "a".repeat(64), token: "t" })).toBe(true);
+    expect(pareceOla({ ...base, aparelho: "a".repeat(65) })).toBe(false);
+    expect(pareceOla({ ...base, aparelho: 7 })).toBe(false);
+    expect(pareceOla({ ...base, aparelho: null })).toBe(false);
+    expect(pareceOla(base)).toBe(true); // sem ele também vale (página velha, armazenamento bloqueado)
   });
 
   it("H7: a versão do protocolo subiu para 2 (telão com chave, mensagens lider e aviso)", () => {
@@ -135,6 +146,17 @@ describe("lerMensagemCliente", () => {
     expect(ler({ t: "camera", modo: "lateral" })).toBeNull();
     expect(ler({ t: "ping", c: "agora" })).toBeNull();
     expect(ler({ t: "ping", c: null })).toBeNull();
+  });
+
+  it("H7.2: lê expulsar com um id inteiro e recusa o resto, como o lider", () => {
+    expect(ler({ t: "expulsar", id: 4 })).toEqual({ t: "expulsar", id: 4 });
+    for (const id of [-1, 1.5, "4", null, undefined, 2_000_000, NaN]) expect(ler({ t: "expulsar", id }), String(id)).toBeNull();
+    expect(ler({ t: "expulsar" })).toBeNull();
+  });
+
+  it("H7.2: EXPULSO é um erro fatal (o aparelho não tenta de novo) e ALVO_INVALIDO não", () => {
+    expect(ERROS_FATAIS).toContain("EXPULSO");
+    expect(ERROS_FATAIS).not.toContain("ALVO_INVALIDO");
   });
 
   it("H7: lê lider com um id inteiro e recusa o resto", () => {

@@ -29,9 +29,18 @@ export interface OpcoesCliente {
   aoEstado(estado: EstadoCliente): void;
   /** Ping médio (ms) das últimas medidas. */
   aoPing?(ms: number): void;
-  /** O servidor fechou de propósito e o cliente não vai tentar de novo: 4002 = o mesmo jogador entrou em outro aparelho, 4004 = sala encerrada. */
+  /**
+   * O servidor fechou de propósito e o cliente não vai tentar de novo (`FECHAMENTOS_SEM_RECONEXAO`): 4002 = o mesmo jogador entrou em
+   * outro aparelho, 4004 = sala encerrada, 4005 = expulso da sala (H7.2).
+   */
   aoFechar?(codigo: number): void;
 }
+
+/**
+ * Os códigos de fechamento do WebSocket depois dos quais o cliente NÃO reconecta sozinho. Sem isto, um aparelho expulso (4005) ficaria
+ * tentando entrar de novo para sempre, e um aparelho substituído (4002) brigaria com o outro pela mesma vaga.
+ */
+export const FECHAMENTOS_SEM_RECONEXAO: readonly number[] = [4002, 4004, 4005];
 
 export interface Cliente {
   enviar(msg: Exclude<MensagemCliente, { t: "ola" }>): void;
@@ -103,7 +112,7 @@ export function criarCliente(op: OpcoesCliente): Cliente {
 
     socket.addEventListener("close", (e: CloseEvent) => {
       if (ws !== socket) return; // conexão antiga, já trocada
-      if (e.code === 4002 || e.code === 4004) {
+      if (FECHAMENTOS_SEM_RECONEXAO.includes(e.code)) {
         encerrado = true;
         op.aoFechar?.(e.code);
       }

@@ -284,6 +284,104 @@ describe("telão mestre pelo WebSocket (H7.1)", () => {
   });
 });
 
+describe("expulsar pelo WebSocket (H7.2)", () => {
+  const AP = (n: number): string => n.toString(16).padStart(32, "0");
+
+  async function entrarComAparelho(sala: string, apelido: string, aparelho: string): Promise<{ c: Aparelho; bv: Msg }> {
+    const c = await novo();
+    c.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido, aparelho });
+    return { c, bv: await c.esperar("bemvindo") };
+  }
+
+  it("o PC expulsa: o celular recebe EXPULSO e o fechamento 4005, e os outros veem o aviso e o lobby sem ele", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    const ana = await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+
+    tela.enviar({ t: "expulsar", id: beto.bv["id"] });
+    expect(await beto.c.esperar("erro")).toMatchObject({ codigo: "EXPULSO" });
+    expect(await beto.c.esperarFechar()).toBe(4005);
+    expect(await tela.esperar("aviso")).toEqual({ t: "aviso", texto: "Removido da sala: Beto." });
+    expect(await ana.c.esperar("aviso")).toEqual({ t: "aviso", texto: "Removido da sala: Beto." });
+    await new Promise((r) => setTimeout(r, 50));
+    const lobby = ana.c.fila.filter((m) => m["t"] === "lobby").at(-1)!;
+    expect(lobby["jogadores"].map((j: Msg) => j["apelido"])).toEqual(["Ana"]);
+    expect(tela.fechou).toBeNull();
+  });
+
+  it("o aparelho expulso que tenta voltar recebe EXPULSO e é fechado de novo com 4005; outro aparelho entra", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+    tela.enviar({ t: "expulsar", id: beto.bv["id"] });
+    await beto.c.esperarFechar();
+
+    // Tenta voltar: mesmo aparelho, com o token que tinha e depois sem token
+    for (const token of [beto.bv["token"] as string, undefined]) {
+      const volta = await novo();
+      volta.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Beto", aparelho: AP(2), ...(token ? { token } : {}) });
+      expect(await volta.esperar("erro")).toMatchObject({ codigo: "EXPULSO" });
+      expect(await volta.esperarFechar()).toBe(4005);
+    }
+    // Outro aparelho entra normalmente
+    const outro = await entrarComAparelho(sala, "Beto", AP(9));
+    expect(outro.bv).toMatchObject({ papel: "controle", dono: false });
+  });
+
+  it("o token do expulso, sem o identificador do aparelho, dá TOKEN_EXPIRADO e a conexão continua aberta", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    await entrarControle(sala, "Ana");
+    const { c, bv } = await entrarControle(sala, "Beto");
+    tela.enviar({ t: "expulsar", id: bv["id"] });
+    await c.esperarFechar();
+    const volta = await novo();
+    volta.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Beto", token: bv["token"] });
+    expect(await volta.esperar("erro")).toMatchObject({ codigo: "TOKEN_EXPIRADO" });
+    expect(volta.fechou).toBeNull();
+  });
+
+  it("o líder expulsa pelo celular; quem não é líder recebe SEM_PERMISSAO e fica", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const ana = await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+    const caio = await entrarComAparelho(sala, "Caio", AP(3));
+
+    beto.c.enviar({ t: "expulsar", id: caio.bv["id"] });
+    expect(await beto.c.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    expect(caio.c.fechou).toBeNull();
+
+    ana.c.enviar({ t: "expulsar", id: caio.bv["id"] });
+    expect(await caio.c.esperarFechar()).toBe(4005);
+    ana.c.enviar({ t: "expulsar", id: ana.bv["id"] });
+    expect(await ana.c.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" }); // o líder não se expulsa
+  });
+
+  it("telão que só assiste não expulsa: SEM_PERMISSAO, sem fechar a conexão dele nem a do jogador", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const ana = await entrarComAparelho(sala, "Ana", AP(1));
+    const extra = await novo();
+    extra.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala });
+    await extra.esperar("bemvindo");
+    extra.enviar({ t: "expulsar", id: ana.bv["id"] });
+    expect(await extra.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    expect(extra.fechou).toBeNull();
+    expect(ana.c.fechou).toBeNull();
+  });
+
+  it("um ola com o identificador do aparelho do tipo errado não entra", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const c = await novo();
+    c.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Ana", aparelho: 5 });
+    expect(await c.esperar("erro")).toMatchObject({ codigo: "MENSAGEM_INVALIDA" });
+  });
+});
+
 describe("erros de entrada", () => {
   it("versão errada recebe VERSAO e a conexão fecha", async () => {
     await subir();

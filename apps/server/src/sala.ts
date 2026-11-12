@@ -54,6 +54,11 @@ export interface Jogador {
   /** Última mensagem `voce` mandada (texto) e quando, para mandar só quando muda (no máximo 10 por segundo). */
   ultimoVoce: string;
   ultimoVoceEm: number;
+  /**
+   * H7.2: o identificador que o navegador do celular mandou no `ola` (o último, se ele voltou com outro). Nunca sai da sala: serve só
+   * para bloquear o aparelho se o jogador for expulso. `null` se o celular não mandou.
+   */
+  aparelho: string | null;
 }
 
 export interface Tela {
@@ -119,6 +124,8 @@ export class Sala {
   /** A chave do telão mestre (H7). `null` até um telão criar a sala. Nunca sai em `lobby`: só no `bemvindo` de quem criou. */
   private chaveDoTelao: string | null = null;
   private readonly gerarChave: () => string;
+  /** H7.2: os aparelhos expulsos. Ficam bloqueados nesta sala até ela fechar (a lista some junto com a sala). */
+  private readonly bloqueados = new Set<string>();
   private proximoId = 0;
   private vazioDesde: number | null;
   private cores: [string, string] = ["#C8102E", "#006437"];
@@ -239,9 +246,12 @@ export class Sala {
    * Entra um controle. Com `token` válido volta para o mesmo jogador (a vaga guardada); sem token, vira jogador novo.
    * Token que não existe mais (a vaga venceu) dá `TOKEN_EXPIRADO` e o aparelho pode tentar de novo sem token.
    */
-  entrarControle(canal: Canal, apelido: unknown, token?: string): Resultado<Jogador> {
+  entrarControle(canal: Canal, apelido: unknown, token?: string, aparelho?: string): Resultado<Jogador> {
     let jogador: Jogador | undefined;
     let assumiuVaga = false;
+
+    // H7.2: aparelho expulso não entra, nem com token (o token dele já foi apagado) nem sem. Vem antes de tudo.
+    if (aparelho !== undefined && this.bloqueados.has(aparelho)) return falha("EXPULSO", "Você foi removido da sala.");
 
     if (token !== undefined) {
       jogador = this.jogadores.find((j) => j.token === token);
@@ -251,6 +261,7 @@ export class Sala {
       jogador.canal = canal;
       jogador.venceEm = null;
       jogador.ultimoVoce = "";
+      if (aparelho !== undefined) jogador.aparelho = aparelho; // se voltou com outro, o bloqueio vale para o de agora
       if (jogador.time !== null) {
         this.partida?.definirAusenteHumano(jogador.id, false);
         this.aposMudancaDeControle();
@@ -273,6 +284,7 @@ export class Sala {
         time: null,
         ultimoVoce: "",
         ultimoVoceEm: 0,
+        aparelho: aparelho ?? null,
       };
       this.jogadores.push(jogador);
       // O primeiro controle da sala é o líder provisório. Se a sala está esperando o PC escolher o novo líder, o recém-chegado não assume.
@@ -319,13 +331,14 @@ export class Sala {
 
   /**
    * Mensagem de um telão. O telão que só assiste manda `camera` e mais nada. O telão mestre (o PC, H7) também passa a liderança
-   * (`lider`) e faz tudo que o líder faz na gestão da sala (`config`, `comecar`, `revanche`, `lobby`, `zerar`): o PC tem a última palavra.
+   * (`lider`), expulsa (`expulsar`, H7.2) e faz tudo que o líder faz na gestão da sala (`config`, `comecar`, `revanche`, `lobby`, `zerar`): o PC tem a última palavra.
    * O resto (`lado`, `pronto`...) é de quem joga. Recusar não fecha a conexão: manda um erro que não é fatal.
    */
   tratarTela(tela: Tela, msg: MensagemCliente): void {
     if (msg.t === "camera") return;
     if (tela.mestre) {
       if (msg.t === "lider") return this.passarLideranca(tela.canal, msg.id, null);
+      if (msg.t === "expulsar") return this.expulsar(tela.canal, msg.id, null);
       if (this.gerir(tela.canal, msg)) return;
     }
     this.erro(tela.canal, "SEM_PERMISSAO", "O telão só observa.");
@@ -366,6 +379,10 @@ export class Sala {
       case "lider":
         if (!this.ehLider(jogador)) return this.negarSemLider(canal, "passa a liderança");
         this.passarLideranca(canal, msg.id, jogador);
+        return;
+      case "expulsar":
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, "expulsa");
+        this.expulsar(canal, msg.id, jogador);
         return;
       case "camera":
         this.erro(canal, "SEM_PERMISSAO", "Isso é coisa do telão.");
@@ -730,6 +747,41 @@ export class Sala {
     if (!alvo || alvo.canal === null) return this.erro(canal, "ALVO_INVALIDO", "Esse jogador não está na sala ou está sem sinal.");
     if (alvo.id === this.liderId) return;
     this.definirLider(alvo, por === null ? "pc" : "passou", por?.apelido);
+    this.transmitirLobby();
+  }
+
+  /**
+   * `expulsar` (H7.2): tira o controle `id` da sala e bloqueia o aparelho dele até a sala fechar. `por` é o líder que expulsa, ou `null`
+   * quando é o telão mestre (o PC). Vale no lobby e na partida, e para quem está sem sinal (libera a vaga sem esperar os 30 s).
+   * O líder não se expulsa. Expulsar o líder deixa a sala sem líder (vale o prazo de `cuidarDoLider`).
+   *
+   * Na partida o jogador que ele controlava vira bot na hora, no lugar onde está (a mesma saída de `varrer` quando a vaga vence).
+   */
+  private expulsar(canal: Canal, id: number, por: Jogador | null): void {
+    const alvo = this.jogadorPorId(id);
+    if (!alvo) return this.erro(canal, "ALVO_INVALIDO", "Esse jogador não está mais na sala.");
+    if (por !== null && alvo.id === por.id) return this.erro(canal, "SEM_PERMISSAO", "Você não pode expulsar a si mesmo.");
+
+    // O `close` que o servidor recebe depois de fechar a conexão chama `desconectarControle`, que só age se `jogador.canal` for o mesmo
+    // canal: soltar o canal antes de fechar faz esse `close` não valer nada (o jogador já saiu da lista).
+    const canalDele = alvo.canal;
+    alvo.canal = null;
+    if (alvo.aparelho !== null) this.bloqueados.add(alvo.aparelho);
+    this.jogadores = this.jogadores.filter((j) => j !== alvo);
+
+    if (alvo.time !== null) this.partida?.removerHumano(alvo.id);
+    if (this.liderId === alvo.id) this.liderId = null; // o novo vem de `cuidarDoLider`, logo abaixo
+
+    canalDele?.enviar({ t: "erro", codigo: "EXPULSO", msg: "Você foi removido da sala." });
+    canalDele?.fechar(4005, "expulso");
+
+    if (alvo.time !== null) {
+      this.aposMudancaDeControle();
+      this.elencoMudou();
+    }
+    this.transmitir({ t: "aviso", texto: `Removido da sala: ${alvo.apelido}.` });
+    this.cuidarDoLider(this.agora()); // se era o líder, o aviso "sem líder" vem depois do de quem saiu
+    this.atualizarVazio();
     this.transmitirLobby();
   }
 

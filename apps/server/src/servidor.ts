@@ -188,7 +188,8 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots,
       const recusar = (codigo: CodigoErro, msg: string): void => {
         erro(codigo, msg);
         // Token vencido não é o fim: o aparelho pode mandar um `ola` novo, sem token, nesta mesma conexão.
-        if (codigo !== "TOKEN_EXPIRADO") ws.close(4003, codigo);
+        // 4005 (H7.2): aparelho expulso que tenta voltar; o site não reconecta sozinho, como com o 4002 e o 4004.
+        if (codigo !== "TOKEN_EXPIRADO") ws.close(codigo === "EXPULSO" ? 4005 : 4003, codigo);
       };
 
       if (papelDoOla(ola) === "tela") {
@@ -209,7 +210,7 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots,
         const o = ola as Extract<Ola, { apelido: string }>;
         const sala = salas.achar(o.sala);
         if (!sala) return recusar("SALA_NAO_EXISTE", "Não achei essa sala.");
-        const r = sala.entrarControle(canal, o.apelido, o.token);
+        const r = sala.entrarControle(canal, o.apelido, o.token, o.aparelho);
         if (!r.ok) return recusar(r.codigo, r.msg);
         contexto = { tipo: "controle", sala, jogador: r.valor };
       }

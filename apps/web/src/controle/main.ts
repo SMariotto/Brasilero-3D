@@ -4,6 +4,7 @@ import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./controle.css";
 import "../comum/marca.css";
+import { identificadorDoAparelho, type ArmazenamentoDoAparelho } from "./aparelho";
 import { dadosDoNavegador, deveMostrarDicaDeInstalar, dicaJaDispensada, dispensarDica, TEXTO_DICA_IPHONE } from "./dicas";
 import { JogoControle } from "./jogo";
 import { criarLobbyControle } from "./lobby";
@@ -51,6 +52,20 @@ function guardarTexto(storage: "local" | "sessao", chave: string, valor: string 
     // sem armazenamento: o jogo funciona, só não lembra
   }
 }
+
+/**
+ * O identificador deste aparelho (H7.2), sorteado uma vez e guardado no `localStorage`: vai em todo `ola` e é o que deixa a sala bloquear
+ * o aparelho se o líder ou o PC expulsarem este jogador. Calculado uma vez por página (vale mesmo que o navegador não guarde nada).
+ */
+const aparelho = identificadorDoAparelho(
+  (() => {
+    try {
+      return localStorage as ArmazenamentoDoAparelho;
+    } catch {
+      return null; // o acesso ao localStorage pode até lançar erro (aba anônima)
+    }
+  })(),
+);
 
 // --- telas -----------------------------------------------------------------
 
@@ -155,6 +170,11 @@ function paramsDaUrl(codigo: string): string {
 
 function tratarErro(codigo: string, texto: string): void {
   switch (codigo) {
+    case "EXPULSO":
+      // O líder ou o PC tiraram este aparelho da sala (H7.2): esquece a vaga e volta à entrada, sem reconectar nem entrar sozinho
+      guardarTexto("sessao", chaveToken(sala), null);
+      voltarAEntrar(texto);
+      return;
     case "TOKEN_EXPIRADO":
       // A vaga venceu: esquece o token e entra de novo como jogador novo, na mesma conexão.
       guardarTexto("sessao", chaveToken(sala), null);
@@ -182,6 +202,11 @@ function aoEstado(estado: EstadoCliente): void {
 function aoFechar(codigo: number): void {
   if (codigo === 4002) voltarAEntrar("Você entrou nessa sala por outro aparelho.");
   else if (codigo === 4004) voltarAEntrar("A sala foi encerrada.");
+  else if (codigo === 4005) {
+    // Expulso (H7.2). O `erro` EXPULSO costuma chegar antes e já fez isto; o fechamento 4005 garante o mesmo se só ele chegar.
+    guardarTexto("sessao", chaveToken(sala), null);
+    voltarAEntrar("Você foi removido da sala.");
+  }
 }
 
 function entrar(): void {
@@ -190,7 +215,7 @@ function entrar(): void {
   cliente = criarCliente({
     gerarOla: () => {
       const token = lerTexto("sessao", chaveToken(sala));
-      return { t: "ola", sala, apelido, ...(token ? { token } : {}) };
+      return { t: "ola", sala, apelido, aparelho, ...(token ? { token } : {}) };
     },
     aoMensagem,
     aoEstado,

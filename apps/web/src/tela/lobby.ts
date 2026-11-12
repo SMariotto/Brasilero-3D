@@ -1,7 +1,8 @@
 import { CLUBE_ALEATORIO, acharTime, type Config, type JogadorLobby, type Lobby, type Time } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { distintivo } from "../comum/escudo";
-import { podeTornarLider, salaSemLider } from "./lider";
+import { Confirmacao } from "./confirmar";
+import { podeExpulsar, podeTornarLider, salaSemLider } from "./lider";
 
 const MODOS = { campo: "Campo", arena: "Arena" } as const;
 const DIFICULDADES = { facil: "Fácil", medio: "Médio", dificil: "Difícil" } as const;
@@ -18,11 +19,22 @@ function resumoConfig(c: Config): string {
 }
 
 /** `aoTornarLider` só vem para o PC mestre (H7): aparece o botão "Tornar líder" nos celulares conectados que não são o líder. */
-function linhaJogador(j: JogadorLobby, aoTornarLider: ((id: number) => void) | null): HTMLElement {
-  let botao: HTMLElement | null = null;
-  if (aoTornarLider && podeTornarLider(j, true)) {
-    botao = el("button", { type: "button", class: "tornar-lider", title: `Passar a liderança da sala para ${j.apelido}` }, "Tornar líder");
-    botao.addEventListener("click", () => aoTornarLider(j.id));
+function linhaJogador(j: JogadorLobby, pc: AcoesDoPC | null): HTMLElement {
+  let tornar: HTMLElement | null = null;
+  let expulsar: HTMLElement | null = null;
+  if (pc && podeTornarLider(j, true)) {
+    tornar = el("button", { type: "button", class: "tornar-lider", title: `Passar a liderança da sala para ${j.apelido}` }, "Tornar líder");
+    tornar.addEventListener("click", () => pc.aoTornarLider(j.id));
+  }
+  if (pc && podeExpulsar(j, true)) {
+    // Dois cliques (como "Zerar campeonato" no celular): o primeiro pede a confirmação, o segundo expulsa
+    const pedindo = pc.confirmacao.pendente(j.id);
+    expulsar = el(
+      "button",
+      { type: "button", class: `expulsar${pedindo ? " confirmar" : ""}`, title: `Tirar ${j.apelido} da sala e bloquear o aparelho dele` },
+      pedindo ? "Confirmar?" : "Expulsar",
+    );
+    expulsar.addEventListener("click", () => pc.aoExpulsar(j.id));
   }
   return el(
     "li",
@@ -31,17 +43,25 @@ function linhaJogador(j: JogadorLobby, aoTornarLider: ((id: number) => void) | n
     j.dono && el("span", { class: "etiqueta" }, "Líder"),
     !j.conectado && el("span", { class: "etiqueta alerta" }, "sem sinal"),
     j.pronto && el("span", { class: "visto" }, "pronto"),
-    botao,
+    tornar,
+    expulsar,
   );
+}
+
+/** O que o PC mestre pode fazer em cada linha do lobby (H7): escolher o líder e expulsar (com confirmação). */
+interface AcoesDoPC {
+  aoTornarLider(id: number): void;
+  aoExpulsar(id: number): void;
+  confirmacao: Confirmacao;
 }
 
 const nomeDoClube = (id: string, time: Time | undefined): string => (id === CLUBE_ALEATORIO ? "Aleatório" : (time?.nome ?? "?"));
 
-function colunaTime(classe: "casa" | "visitante", titulo: string, id: string, humanos: JogadorLobby[], n: number, aoTornarLider: ((id: number) => void) | null): HTMLElement {
+function colunaTime(classe: "casa" | "visitante", titulo: string, id: string, humanos: JogadorLobby[], n: number, pc: AcoesDoPC | null): HTMLElement {
   const time = acharTime(id);
   const vagas = Math.max(n, humanos.length);
   const lista = el("ul", { class: "vagas" });
-  for (const j of humanos) lista.append(linhaJogador(j, aoTornarLider));
+  for (const j of humanos) lista.append(linhaJogador(j, pc));
   for (let i = humanos.length; i < vagas; i++) lista.append(el("li", { class: "bot" }, "bot"));
   lista.append(el("li", { class: "bot goleiro" }, "goleiro: bot"));
 
@@ -57,6 +77,8 @@ function colunaTime(classe: "casa" | "visitante", titulo: string, id: string, hu
 export interface AcoesDoLobbyTela {
   /** O PC escolhe o líder da sala. */
   lider(id: number): void;
+  /** O PC expulsa um jogador (já confirmado com o segundo clique); o servidor bloqueia o aparelho dele até a sala fechar. */
+  expulsar(id: number): void;
 }
 
 export interface LobbyTela {
@@ -96,6 +118,15 @@ export function criarLobby(raiz: HTMLElement, acoes: AcoesDoLobbyTela): LobbyTel
 
   let mestre = false;
   let ehPrincipal = false;
+  // O segundo clique do "Expulsar" tem de chegar em até 3 s; o lobby é redesenhado a cada mensagem, então o estado mora aqui
+  const confirmacao = new Confirmacao(3000, () => performance.now(), () => desenhar());
+  const pc: AcoesDoPC = {
+    aoTornarLider: (id) => acoes.lider(id),
+    aoExpulsar: (id) => {
+      if (confirmacao.clicar(id)) acoes.expulsar(id);
+    },
+    confirmacao,
+  };
   let ultimo: Lobby | null = null;
 
   /** O canto de baixo diz o que este telão é: o principal (toca o som) e/ou o PC da sala (escolhe o líder). Não ocupa altura nova. */
@@ -107,7 +138,7 @@ export function criarLobby(raiz: HTMLElement, acoes: AcoesDoLobbyTela): LobbyTel
     if (!ultimo) return;
     const { config, jogadores } = ultimo;
     resumo.textContent = resumoConfig(config);
-    const aoTornarLider = mestre ? acoes.lider : null;
+    const aoPC = mestre ? pc : null;
 
     // Sala sem líder (a vaga dele venceu): o PC escolhe um, senão o mais antigo assume em 15 s
     const sem = salaSemLider(jogadores);
@@ -122,14 +153,14 @@ export function criarLobby(raiz: HTMLElement, acoes: AcoesDoLobbyTela): LobbyTel
 
     trocar(
       times,
-      colunaTime("casa", "Casa", config.casa, casa, config.n, aoTornarLider),
-      colunaTime("visitante", "Visitante", config.visitante, visitante, config.n, aoTornarLider),
+      colunaTime("casa", "Casa", config.casa, casa, config.n, aoPC),
+      colunaTime("visitante", "Visitante", config.visitante, visitante, config.n, aoPC),
     );
 
     trocar(
       semLado,
       tanto.length > 0 && el("small", {}, "Sem lado (tanto faz)"),
-      tanto.length > 0 && el("ul", { class: "vagas solto" }, ...tanto.map((j) => linhaJogador(j, aoTornarLider))),
+      tanto.length > 0 && el("ul", { class: "vagas solto" }, ...tanto.map((j) => linhaJogador(j, aoPC))),
     );
 
     const prontos = jogadores.filter((j) => j.pronto).length;

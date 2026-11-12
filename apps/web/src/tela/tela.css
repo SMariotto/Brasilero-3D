@@ -168,7 +168,8 @@ button:hover {
 .times {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr): sem isto os botões do PC (Tornar líder, Expulsar) alargam a coluna e empurram o Visitante para fora da tela */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2vw;
   min-height: 0;
 }
@@ -221,6 +222,7 @@ button:hover {
 
 .vagas li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.6em;
   padding: 0.35em 0.7em;
@@ -1045,12 +1047,13 @@ body.tela:has(.vitrine:not([hidden])) {
 /* H7: o PC (telão mestre) escolhe o líder da sala */
 .tornar-lider {
   margin-left: auto;
-  padding: 0.15em 0.7em;
+  padding: 0.1em 0.6em;
   border-radius: 1em;
   border: 2px solid #ffd54a;
   background: transparent;
   color: #ffd54a;
-  font-size: 0.7em;
+  white-space: nowrap;
+  font-size: 0.6em;
   font-weight: 800;
   cursor: pointer;
 }
@@ -1074,4 +1077,33 @@ body.tela:has(.vitrine:not([hidden])) {
 .aviso-telao.grande {
   font-size: 1.8em;
   border-color: #5ee08a;
+}
+
+/* H7.2: expulsar (pede confirmação com um segundo clique) */
+.expulsar {
+  margin-left: 0.5em;
+  padding: 0.1em 0.6em;
+  border-radius: 1em;
+  border: 2px solid #ff8a65;
+  background: transparent;
+  color: #ff8a65;
+  white-space: nowrap;
+  font-size: 0.6em;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.expulsar:hover,
+.expulsar.confirmar {
+  background: #ff8a65;
+  color: #111;
+}
+
+/* O "Tornar líder" já empurra para a direita; o "Expulsar" vem logo depois dele, ou sozinho quando não há "Tornar líder" */
+.tornar-lider + .expulsar {
+  margin-left: 0.5em;
+}
+
+.jogador > .expulsar:first-of-type:not(.tornar-lider + .expulsar) {
+  margin-left: auto;
 }

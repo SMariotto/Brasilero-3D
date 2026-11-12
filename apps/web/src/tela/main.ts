@@ -34,8 +34,11 @@ function avisarNoTelao(texto: string, grande = false): void {
   timerAvisoTelao = setTimeout(() => (avisoTelao.hidden = true), AVISO_DO_TELAO_MS);
 }
 
-// O PC escolhe o líder pelo lobby (só o telão mestre vê os botões; o servidor confere a permissão de novo)
-const lobby = criarLobby(lobbyEl, { lider: (id) => cliente?.enviar({ t: "lider", id }) });
+// O PC escolhe o líder e expulsa pelo lobby (só o telão mestre vê os botões; o servidor confere a permissão de novo)
+const lobby = criarLobby(lobbyEl, {
+  lider: (id) => cliente?.enviar({ t: "lider", id }),
+  expulsar: (id) => cliente?.enviar({ t: "expulsar", id }),
+});
 
 // Som (SPEC 8): só o telão principal toca por padrão. O navegador libera o áudio no primeiro clique, toque ou tecla.
 const som = new Som();

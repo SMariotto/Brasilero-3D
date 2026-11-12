@@ -262,7 +262,7 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 |---|---|---|
 | **H7.0** | **Pré-requisitos (feita):** o telão não volta ao início em qualquer erro; `Interpolador.pausar` e `retomar`; `Partida.aoRetomar` | Nada muda no jogo; só os testes e a verificação do telão com um erro não fatal |
 | **H7.1** | **Feita:** líder de verdade, PC mestre (chave no navegador, vale ao recarregar), permissões no servidor, aviso de quem virou líder, botão "Tornar líder" no lobby do PC, "Dono" virou "Líder" nos textos | PC + 2 celulares: o primeiro celular é líder; no lobby do PC o botão "Tornar líder" funciona e todo mundo vê o aviso; F5 no PC e ele continua mandando; um telão de outro PC só assiste |
-| **H7.2** | Expulsar (e o bloqueio do aparelho, com o 4005), pelo PC no lobby | No lobby do telão, "Expulsar" funciona; o expulso vê a mensagem e não volta sozinho (o "Tornar líder" já veio na H7.1) |
+| **H7.2** | **Feita:** expulsar (e o bloqueio do aparelho, com o 4005), pelo PC no lobby | No lobby do telão, "Expulsar" funciona; o expulso vê a mensagem e não volta sozinho (o "Tornar líder" já veio na H7.1) |
 | **H7.3** | Pausar e retomar (PC, líder e celular), sem o menu completo | Pausar no meio de um lance, esperar, retomar: nada pula; apertos durante a pausa não valem |
 | **H7.4** | O menu (telão e celular) com Pausar, Acabar a partida, Convidar e a lista com Expulsar | Abrir o menu pelo `Esc`, pelo mouse e pelo ☰ do celular do líder |
 | **H7.5** | Trocar de time na partida (próprio, mover e permutar) | Trocar de time com a bola rolando; tentar entrar no time com 3; permutar na sala cheia |
@@ -286,7 +286,16 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 - Mensagem `aviso` (2.5, D2) e o aviso de quem virou líder.
 - **Testes** (`sala.test.ts`, `servidor.test.ts`): o primeiro controle é líder provisório; telão que criou é mestre; telão que só digitou o código não é; telão com a chave certa (depois de reconectar) é mestre; chave errada não é; mestre manda `config`/`comecar`/`lobby`; telão visitante recebe `SEM_PERMISSAO` e **continua conectado**; líder some e o prazo de 15 s passa a liderança; sem mestre conectado a escolha é na hora; `lider` do PC tira os poderes do antigo; os testes "Dono" de hoje passam a ler `liderId`. Os tokens `token0`, `token1` não mudam.
 
-### H7.2: Expulsar e escolher o líder pelo PC
+### H7.2: Expulsar e escolher o líder pelo PC (FEITA)
+**Como ficou, comparado com o que estava escrito abaixo** (o texto original foi mantido para registro):
+- O "escolher o líder" já tinha vindo na H7.1; a H7.2 ficou com o **Expulsar** (`expulsar` no servidor, o botão no lobby do PC, o bloqueio por aparelho e o 4005).
+- O botão do PC pede **dois cliques** (o primeiro vira "Confirmar?" por 3 s). O celular do líder ainda não tem botão de expulsar: o servidor já aceita a mensagem do líder, e a tela vem com o menu na H7.4.
+- O texto do aviso ficou **"Removido da sala: Fulano."** (sem flexão de gênero do apelido).
+- `ALVO_INVALIDO` também vale para `expulsar` (id que não existe mais). `EXPULSO` é fatal e vale tanto para quem é expulso quanto para o aparelho bloqueado que tenta voltar.
+- O "perdoar" (limpar a lista de bloqueados) continua previsto como item do menu da H7.4, junto do "Trancar sala"; **nada disso foi feito na H7.2**.
+- Testes: `sala.expulsar.test.ts` (22), `servidor.test.ts` (6 novos, com WebSocket de verdade), `comum/cliente.test.ts` (5, com um WebSocket de mentira: com 4005 não abre socket novo; com 1006 abre), `controle/aparelho.test.ts` (5), `tela/confirmar.test.ts` (5), mais os de protocolo e de `lider.ts`. Verificado num navegador de verdade (o PC e dois celulares reais).
+- Layout: com os dois botões na linha, a grade do lobby estourava a largura; a grade passou a `minmax(0, 1fr)` e a linha do jogador quebra para uma segunda linha quando falta espaço.
+
 - `sala.ts`: `expulsar(id)` (remove de `jogadores`, `Partida.removerHumano`, `aposMudancaDeControle`, `elencoMudou`, `erro EXPULSO`, fechamento 4005, bloqueio do aparelho); o `ola` do controle confere `bloqueados`.
 - `apps/web/src/comum/cliente.ts`: 4005 vira "não reconectar", como 4002 e 4004 (`aoFechar`).
 - `apps/web/src/tela/lobby.ts`: botões por jogador ("Tornar líder", "Expulsar") só para o mestre; aviso "sala sem líder, escolha um" com a lista; `main.ts` da tela passa as ações.
