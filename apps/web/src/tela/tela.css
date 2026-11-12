@@ -19,6 +19,7 @@ body.tela {
 .botao-menu[hidden],
 .menu[hidden],
 .menu-nota[hidden],
+.trancada-aviso[hidden],
 .aviso-telao[hidden] {
   display: none;
 }
@@ -1239,4 +1240,175 @@ body.tela:has(.vitrine:not([hidden])) {
 .menu-item:hover,
 .menu-fechar:hover {
   filter: brightness(1.15);
+}
+
+/* H7.4b: sala trancada: o QR, a dica e o endereço somem do lobby; o código fica */
+.entrada.trancada .qr,
+.entrada.trancada .dica,
+.entrada.trancada .endereco {
+  display: none;
+}
+
+.trancada-aviso {
+  max-width: 14em;
+  margin: 0.4em 0;
+  padding: 0.5em 0.8em;
+  border-radius: 0.6em;
+  background: rgba(255, 138, 101, 0.18);
+  border: 2px solid #ff8a65;
+  font-size: 1em;
+  font-weight: 700;
+}
+
+.trancada-aviso[hidden] {
+  display: none;
+}
+
+/* H7.4b: o menu agora tem Convidar e a lista de jogadores: o painel cresce e vira duas colunas (as ações e a lista à esquerda, o convite à direita) */
+.menu-painel {
+  width: min(94vw, 40em);
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.menu-corpo {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.8em 1.4em;
+  align-items: start;
+  text-align: left;
+}
+
+.menu-itens {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.menu-convite {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  text-align: center;
+}
+
+.menu-jogadores {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.menu-convite[hidden],
+.menu-jogadores[hidden] {
+  display: none;
+}
+
+.menu-painel h3 {
+  margin: 0 0 0.3em;
+  font-size: 0.95em;
+  color: #ffd54a;
+}
+
+.menu-codigo {
+  display: block;
+  font-size: 2.2em;
+  letter-spacing: 0.25em;
+  color: #ffd54a;
+}
+
+.menu-qr {
+  display: block;
+  width: 9em;
+  height: 9em;
+  margin: 0.3em auto;
+  border-radius: 0.4em;
+  background: #fff;
+}
+
+.menu-endereco {
+  margin: 0.2em 0;
+  font-size: 0.75em;
+  opacity: 0.8;
+  word-break: break-all;
+}
+
+.menu-trancada {
+  max-width: 12em;
+  margin: 0.4em auto;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+.menu-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  margin: 0 0 0.7em;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.3em 0.6em;
+  border-radius: 0.5em;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.menu-linha .nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-linha.sem-sinal .nome {
+  opacity: 0.6;
+}
+
+.menu-linha .etiqueta {
+  padding: 0.05em 0.5em;
+  border-radius: 0.5em;
+  background: #ffd54a;
+  color: #111;
+  font-size: 0.7em;
+  font-weight: 800;
+}
+
+.menu-linha .etiqueta.alerta {
+  background: #ff8a65;
+}
+
+.menu-expulsar,
+.menu-perdoar {
+  padding: 0.15em 0.7em;
+  border: 2px solid #ff8a65;
+  border-radius: 1em;
+  background: transparent;
+  color: #ff8a65;
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.menu-expulsar:hover,
+.menu-expulsar.armado {
+  background: #ff8a65;
+  color: #111;
+}
+
+.menu-perdoar {
+  border-color: #5ee08a;
+  color: #5ee08a;
+}
+
+.menu-perdoar:hover {
+  background: #5ee08a;
+  color: #111;
+}
+
+.menu-compartilhar {
+  display: none;
 }

@@ -1,6 +1,8 @@
 import { normalizarSala, validarApelido, type Lobby, type MensagemServidor } from "@b3d/core";
 import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
+import { enderecoParaMostrar, linkParaEntrar, type Convite } from "../comum/convite";
 import { porId } from "../comum/dom";
+import { visaoDoMenu, type LugarDoMenu } from "../comum/menu";
 import "../comum/estilo.css";
 import "./controle.css";
 import "../comum/marca.css";
@@ -8,6 +10,7 @@ import { identificadorDoAparelho, type ArmazenamentoDoAparelho } from "./aparelh
 import { dadosDoNavegador, deveMostrarDicaDeInstalar, dicaJaDispensada, dispensarDica, TEXTO_DICA_IPHONE } from "./dicas";
 import { JogoControle } from "./jogo";
 import { criarLobbyControle } from "./lobby";
+import { MenuControle } from "./menu";
 import { TelaAcesa } from "./tela-acesa";
 
 // Este arquivo nunca importa Three.js nem nada de src/tela/ (o build confere o tamanho).
@@ -28,6 +31,9 @@ let cliente: Cliente | null = null;
 let timerToast: ReturnType<typeof setTimeout> | undefined;
 let emJogo = false;
 let ultimoLobby: Lobby | null = null;
+/** Em que tela o celular está (H7.4b: o menu muda com ela) e se a partida já acabou (a tela de fim tem Revanche e Lobby, então o ☰ some). */
+let cenaAtual: "entrar" | "lobby" | "jogo" = "entrar";
+let partidaAcabou = false;
 /** Mantém a tela do celular acesa enquanto estamos numa sala (o celular é o controle: ninguém encosta nele sem querer). */
 const telaAcesa = new TelaAcesa();
 
@@ -73,6 +79,8 @@ function mostrar(cena: "entrar" | "lobby" | "jogo"): void {
   entrarEl.hidden = cena !== "entrar";
   lobbyEl.hidden = cena !== "lobby";
   jogoEl.hidden = cena !== "jogo";
+  cenaAtual = cena;
+  atualizarMenu();
 }
 
 function avisar(texto: string): void {
@@ -86,6 +94,8 @@ function voltarAEntrar(mensagem: string): void {
   telaAcesa.desligar();
   jogoUI.parar();
   emJogo = false;
+  partidaAcabou = false;
+  ultimoLobby = null; // o menu não pode mostrar a sala de antes enquanto a próxima não manda o lobby dela
   cliente?.fechar();
   cliente = null;
   reconectando.hidden = true;
@@ -108,6 +118,47 @@ const jogoUI = new JogoControle(jogoEl, {
   pausar: (valor) => cliente?.enviar({ t: "pausa", valor }),
 });
 
+/**
+ * O ☰ e o menu (H7.4): vale no lobby e no jogo. O líder gerencia (pausar, acabar a partida, trancar, expulsar, perdoar) e os outros só
+ * convidam. O servidor confere cada ação de novo; o que aparece vem do último `lobby` (`comum/menu.ts`).
+ */
+const menuUI = new MenuControle(
+  {
+    pausar: (valor) => cliente?.enviar({ t: "pausa", valor }),
+    acabar: () => cliente?.enviar({ t: "lobby" }),
+    trancar: (valor) => cliente?.enviar({ t: "trancar", valor }),
+    expulsar: (id) => cliente?.enviar({ t: "expulsar", id }),
+    perdoar: (id) => cliente?.enviar({ t: "perdoar", id }),
+  },
+  () => jogoUI.soltarDedos(),
+);
+
+function atualizarMenu(): void {
+  const lobby = ultimoLobby;
+  const lugar: LugarDoMenu = cenaAtual === "entrar" || !lobby ? "fora" : cenaAtual;
+  const eu = lobby?.jogadores.find((j) => j.id === meuId);
+  menuUI.definir(
+    visaoDoMenu({
+      papel: eu?.dono === true ? "lider" : "jogador",
+      lugar,
+      acabou: partidaAcabou,
+      pausada: lobby?.emPartida === true && lobby.pausada,
+      pausadaPor: lobby?.pausadaPor,
+      pcSemSinal: lobby?.pausaSemPc === true,
+      trancada: lobby?.trancada === true,
+      jogadores: lobby?.jogadores ?? [],
+      expulsos: lobby?.expulsos ?? [],
+      meuId,
+    }),
+  );
+}
+
+/** O convite que o menu mostra: o código e o link desta mesma página (o celular não tem o QR; quem tem câmera lê o QR do telão). */
+function conviteDa(codigo: string): Convite {
+  const link = linkParaEntrar(location.href, codigo);
+  return { codigo, endereco: enderecoParaMostrar(link), qr: null, link };
+}
+
 const souDono = (): boolean => ultimoLobby?.jogadores.find((j) => j.id === meuId)?.dono === true;
 
 // --- rede ------------------------------------------------------------------
@@ -119,6 +170,7 @@ function aoMensagem(msg: MensagemServidor): void {
       meuId = msg.id ?? -1;
       guardarTexto("sessao", chaveToken(sala), msg.token ?? null);
       history.replaceState(null, "", `${location.pathname}?${paramsDaUrl(sala)}`);
+      menuUI.definirConvite(conviteDa(sala));
       mostrar(emJogo ? "jogo" : "lobby");
       return;
     case "lobby":
@@ -129,12 +181,15 @@ function aoMensagem(msg: MensagemServidor): void {
       jogoUI.definirPausa(msg.emPartida && msg.pausada, msg.pausadaPor, msg.pausaSemPc === true);
       if (emJogo && !msg.emPartida) {
         emJogo = false;
+        partidaAcabou = false;
         jogoUI.parar();
         mostrar("lobby");
       }
+      atualizarMenu();
       return;
     case "partida":
       emJogo = true;
+      partidaAcabou = false;
       jogoUI.setNome(apelido);
       jogoUI.iniciar(msg, meuId);
       mostrar("jogo");
@@ -153,6 +208,8 @@ function aoMensagem(msg: MensagemServidor): void {
       return;
     case "fim":
       jogoUI.fim(msg, souDono());
+      partidaAcabou = true;
+      atualizarMenu(); // a tela de fim já tem Revanche e Lobby: o ☰ some
       return;
     case "aviso":
       avisar(msg.texto); // quem virou líder e por quê (H7)
@@ -190,12 +247,13 @@ function tratarErro(codigo: string, texto: string): void {
       return;
     case "VERSAO":
     case "SALA_CHEIA":
+    case "SALA_FECHADA": // H7.4b: a sala está trancada e este aparelho ainda não é dela: volta à entrada com o motivo, sem insistir
     case "SERVIDOR_CHEIO":
     case "APELIDO_INVALIDO":
       voltarAEntrar(texto);
       return;
     default:
-      avisar(texto); // LADO_CHEIO, SEM_PERMISSAO, MENSAGEM_INVALIDA
+      avisar(texto); // LADO_CHEIO, SEM_PERMISSAO, MENSAGEM_INVALIDA, ALVO_INVALIDO
   }
 }
 

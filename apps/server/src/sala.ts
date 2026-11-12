@@ -141,8 +141,13 @@ export class Sala {
   private pausaOrfaDesde: number | null = null;
   /** H7.4a: o último `lobby.pausaSemPc` que mandamos, para `varrer` mandar outro quando o prazo dos 30 s sem PC passa. */
   private pausaSemPcEnviada = false;
-  /** H7.2: os aparelhos expulsos. Ficam bloqueados nesta sala até ela fechar (a lista some junto com a sala). */
-  private readonly bloqueados = new Set<string>();
+  /**
+   * H7.2: os aparelhos expulsos, com o apelido de quem era. Ficam bloqueados nesta sala até ela fechar (a lista some junto com a sala) ou
+   * até o líder ou o PC "perdoarem" (H7.4b). Só entra aqui quem mandou o identificador do aparelho: sem ele não há o que bloquear.
+   */
+  private readonly expulsos: { id: number; apelido: string; aparelho: string }[] = [];
+  /** H7.4b: a sala está trancada: quem ainda não é da sala (`ola` sem token) recebe `SALA_FECHADA`. Quem já é da sala volta com o token. */
+  private trancada = false;
   private proximoId = 0;
   private vazioDesde: number | null;
   private cores: [string, string] = ["#C8102E", "#006437"];
@@ -218,6 +223,8 @@ export class Sala {
       config: { ...this.config },
       jogadores,
       telas: this.telas.length,
+      trancada: this.trancada,
+      expulsos: this.expulsos.map(({ id, apelido }) => ({ id, apelido })),
       emPartida: this.partida !== null,
       pausada: this.pausada !== null,
       ...(this.pausada ? { pausadaPor: this.pausada.por } : {}),
@@ -297,7 +304,7 @@ export class Sala {
     let assumiuVaga = false;
 
     // H7.2: aparelho expulso não entra, nem com token (o token dele já foi apagado) nem sem. Vem antes de tudo.
-    if (aparelho !== undefined && this.bloqueados.has(aparelho)) return falha("EXPULSO", "Você foi removido da sala.");
+    if (aparelho !== undefined && this.expulsos.some((e) => e.aparelho === aparelho)) return falha("EXPULSO", "Você foi removido da sala.");
 
     if (token !== undefined) {
       jogador = this.jogadores.find((j) => j.token === token);
@@ -313,6 +320,9 @@ export class Sala {
         this.aposMudancaDeControle();
       }
     } else {
+      // H7.4b: sala trancada: quem ainda não é da sala (sem token, ou com a vaga vencida) não entra. Vem depois do bloqueio do expulso, que
+      // continua valendo (EXPULSO) trancada ou não.
+      if (this.trancada) return falha("SALA_FECHADA", "A sala está trancada. Peça ao líder para destrancar.");
       const limpo = validarApelido(apelido);
       if (limpo === null) return falha("APELIDO_INVALIDO", `Escolha um apelido de 1 a 12 letras.`);
       if (this.jogadores.length >= SERVIDOR.maxControlesPorSala) {
@@ -386,6 +396,8 @@ export class Sala {
       if (msg.t === "lider") return this.passarLideranca(tela.canal, msg.id, null);
       if (msg.t === "expulsar") return this.expulsar(tela.canal, msg.id, null);
       if (msg.t === "pausa") return this.definirPausa(tela.canal, msg.valor, "tela");
+      if (msg.t === "trancar") return this.trancar(msg.valor);
+      if (msg.t === "perdoar") return this.perdoar(tela.canal, msg.id);
       if (this.gerir(tela.canal, msg)) return;
     }
     this.erro(tela.canal, "SEM_PERMISSAO", "O telão só observa.");
@@ -434,6 +446,14 @@ export class Sala {
       case "pausa":
         if (!this.ehLider(jogador)) return this.negarSemLider(canal, "pausa o jogo");
         this.definirPausa(canal, msg.valor, "lider");
+        return;
+      case "trancar":
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, "tranca a sala");
+        this.trancar(msg.valor);
+        return;
+      case "perdoar":
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, "perdoa");
+        this.perdoar(canal, msg.id);
         return;
       case "camera":
         this.erro(canal, "SEM_PERMISSAO", "Isso é coisa do telão.");
@@ -909,7 +929,9 @@ export class Sala {
     // canal: soltar o canal antes de fechar faz esse `close` não valer nada (o jogador já saiu da lista).
     const canalDele = alvo.canal;
     alvo.canal = null;
-    if (alvo.aparelho !== null) this.bloqueados.add(alvo.aparelho);
+    if (alvo.aparelho !== null && !this.expulsos.some((e) => e.aparelho === alvo.aparelho)) {
+      this.expulsos.push({ id: alvo.id, apelido: alvo.apelido, aparelho: alvo.aparelho });
+    }
     this.jogadores = this.jogadores.filter((j) => j !== alvo);
 
     if (alvo.time !== null) this.partida?.removerHumano(alvo.id);
@@ -925,6 +947,30 @@ export class Sala {
     this.transmitir({ t: "aviso", texto: `Removido da sala: ${alvo.apelido}.` });
     this.cuidarDoLider(this.agoraSala()); // se era o líder, o aviso "sem líder" vem depois do de quem saiu
     this.atualizarVazio();
+    this.transmitirLobby();
+  }
+
+  /**
+   * `trancar` (H7.4b): tranca (`true`) ou destranca (`false`) a sala. Quem pode já foi conferido (o líder ou o telão mestre). Trancada, o
+   * `ola` de controle sem token recebe `SALA_FECHADA` (ver `entrarControle`); quem já é da sala e caiu volta com o token, em jogo ou
+   * pausado; o aparelho expulso continua barrado. Trancar não tira ninguém, não pausa nada e não afeta telões (a sala trancada é sobre quem
+   * joga). Repetir o mesmo valor não faz nada (nem `lobby` repetido). O estado fica na sala, não na partida: sobrevive a Revanche e Lobby.
+   */
+  private trancar(valor: boolean): void {
+    if (valor === this.trancada) return;
+    this.trancada = valor;
+    this.transmitirLobby();
+  }
+
+  /**
+   * `perdoar` (H7.4b): tira da lista de bloqueados o aparelho do removido `id` (um dos `lobby.expulsos`). Ele só volta a poder entrar:
+   * com a sala trancada continua recebendo `SALA_FECHADA`, e precisa digitar o código de novo (nada o traz de volta sozinho). `id` que não
+   * está na lista (já perdoado, ou nunca bloqueado) dá `ALVO_INVALIDO`, que não é fatal.
+   */
+  private perdoar(canal: Canal, id: number): void {
+    const i = this.expulsos.findIndex((e) => e.id === id);
+    if (i < 0) return this.erro(canal, "ALVO_INVALIDO", "Essa pessoa não está na lista de removidos.");
+    this.expulsos.splice(i, 1);
     this.transmitirLobby();
   }
 

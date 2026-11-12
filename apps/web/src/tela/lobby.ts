@@ -95,11 +95,15 @@ export function criarLobby(raiz: HTMLElement, acoes: AcoesDoLobbyTela): LobbyTel
   const codigo = el("div", { class: "codigo" }, "----");
   const qr = el("img", { class: "qr", alt: "QR code para entrar na sala", width: "320", height: "320" });
   const endereco = el("p", { class: "endereco" });
+  // H7.4b: sala trancada: o QR, a dica e o endereço somem (o código fica, para quem já é da sala) e esta frase explica
+  const trancadaAviso = el("p", { class: "trancada-aviso" }, "Sala trancada: só entra quem já estava na sala.");
+  trancadaAviso.hidden = true;
   const entrada = el(
     "aside",
     { class: "entrada" },
     el("small", {}, "Código da sala"),
     codigo,
+    trancadaAviso,
     qr,
     el("p", { class: "dica" }, "Aponte a câmera do celular para o QR"),
     endereco,
@@ -138,6 +142,8 @@ export function criarLobby(raiz: HTMLElement, acoes: AcoesDoLobbyTela): LobbyTel
     if (!ultimo) return;
     const { config, jogadores } = ultimo;
     resumo.textContent = resumoConfig(config);
+    entrada.classList.toggle("trancada", ultimo.trancada);
+    trancadaAviso.hidden = !ultimo.trancada;
     const aoPC = mestre ? pc : null;
 
     // Sala sem líder (a vaga dele venceu): o PC escolhe um, senão o mais antigo assume em 15 s

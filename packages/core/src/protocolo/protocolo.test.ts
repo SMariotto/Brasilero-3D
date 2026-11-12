@@ -155,6 +155,23 @@ describe("lerMensagemCliente", () => {
     expect(ler({ t: "pausa" })).toBeNull();
   });
 
+  it("H7.4b: lê trancar só com valor verdadeiro ou falso", () => {
+    expect(ler({ t: "trancar", valor: true })).toEqual({ t: "trancar", valor: true });
+    expect(ler({ t: "trancar", valor: false })).toEqual({ t: "trancar", valor: false });
+    for (const valor of ["sim", 1, 0, null, undefined, [], {}]) expect(ler({ t: "trancar", valor }), String(valor)).toBeNull();
+    expect(ler({ t: "trancar" })).toBeNull();
+  });
+
+  it("H7.4b: lê perdoar com um id inteiro e recusa o resto, como o expulsar", () => {
+    expect(ler({ t: "perdoar", id: 4 })).toEqual({ t: "perdoar", id: 4 });
+    for (const id of [-1, 1.5, "4", null, undefined, 2_000_000, NaN]) expect(ler({ t: "perdoar", id }), String(id)).toBeNull();
+    expect(ler({ t: "perdoar" })).toBeNull();
+  });
+
+  it("H7.4b: SALA_FECHADA é um erro fatal para o ola (o aparelho volta à entrada e não tenta sozinho)", () => {
+    expect(ERROS_FATAIS).toContain("SALA_FECHADA");
+  });
+
   it("H7.3: PAUSA_DO_TELAO não é um erro fatal (o líder continua na sala)", () => {
     expect(ERROS_FATAIS).not.toContain("PAUSA_DO_TELAO");
   });

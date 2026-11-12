@@ -27,7 +27,9 @@ export type CodigoErro =
   /** H7.2: o líder ou o PC tirou este aparelho da sala (ou ele tenta voltar de um aparelho bloqueado). Fatal; vem com o fechamento 4005. */
   | "EXPULSO"
   /** H7.3: o líder tentou retomar um jogo que o PC (telão mestre) pausou; só o PC retoma. Não é fatal. */
-  | "PAUSA_DO_TELAO";
+  | "PAUSA_DO_TELAO"
+  /** H7.4b: a sala está trancada e quem entra (`ola` sem token) não é da sala. Fatal para esse `ola`; quem já é da sala volta com o token. */
+  | "SALA_FECHADA";
 
 /** Erros depois dos quais o aparelho não deve tentar de novo sozinho. */
 export const ERROS_FATAIS: readonly CodigoErro[] = [
@@ -38,6 +40,7 @@ export const ERROS_FATAIS: readonly CodigoErro[] = [
   "SERVIDOR_CHEIO",
   "APELIDO_INVALIDO",
   "EXPULSO",
+  "SALA_FECHADA",
 ];
 
 // ---------------------------------------------------------------------------
@@ -87,6 +90,10 @@ export type MensagemCliente =
   | { t: "expulsar"; id: number }
   /** H7.3: pausa (`valor: true`) ou retoma (`false`) a partida (o líder, ou o telão mestre). Repetir o mesmo valor não faz nada. */
   | { t: "pausa"; valor: boolean }
+  /** H7.4b: tranca (`true`) ou destranca (`false`) a sala (o líder, ou o telão mestre). Trancada, quem ainda não é da sala não entra. */
+  | { t: "trancar"; valor: boolean }
+  /** H7.4b: tira o aparelho do jogador removido `id` (um dos `Lobby.expulsos`) da lista de bloqueados (o líder, ou o telão mestre). */
+  | { t: "perdoar"; id: number }
   | { t: "camera"; modo: "tv" | "aerea" }
   | { t: "ping"; c: number };
 
@@ -120,11 +127,24 @@ export interface JogadorLobby {
   conectado: boolean;
 }
 
+/** H7.4b: alguém que o líder ou o PC removeu da sala e cujo aparelho está bloqueado. O `id` é o que `perdoar` pede. */
+export interface ExpulsoLobby {
+  id: number;
+  apelido: string;
+}
+
 export interface Lobby {
   t: "lobby";
   sala: string;
   config: Config;
   jogadores: JogadorLobby[];
+  /**
+   * H7.4b: a sala está trancada: quem ainda não é da sala recebe `SALA_FECHADA`, e o QR e o link de convite somem das telas. Quem já é da
+   * sala e caiu volta com o token. O aparelho expulso continua barrado, trancada ou não.
+   */
+  trancada: boolean;
+  /** H7.4b: os removidos da sala com o aparelho bloqueado (só quem mandou o identificador no `ola`), na ordem em que saíram. */
+  expulsos: ExpulsoLobby[];
   /** Quantos telões estão olhando a sala. */
   telas: number;
   /** Há uma partida rolando (ou acabada, esperando Revanche ou Lobby). Telão e controle trocam de tela por isto. */
@@ -388,8 +408,11 @@ export function lerMensagemCliente(texto: string): MensagemCliente | null {
       return { t: o["t"] };
     case "pausa":
       return typeof o["valor"] === "boolean" ? { t: "pausa", valor: o["valor"] } : null;
+    case "trancar":
+      return typeof o["valor"] === "boolean" ? { t: "trancar", valor: o["valor"] } : null;
     case "lider":
     case "expulsar":
+    case "perdoar":
       return typeof o["id"] === "number" && Number.isInteger(o["id"]) && o["id"] >= 0 && o["id"] <= 1_000_000 ? { t: o["t"], id: o["id"] } : null;
     case "camera":
       return o["modo"] === "tv" || o["modo"] === "aerea" ? { t: "camera", modo: o["modo"] } : null;

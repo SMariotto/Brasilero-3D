@@ -1,13 +1,14 @@
 import { toDataURL } from "qrcode";
-import { SERVIDOR, decodificarSnapshot, normalizarSala, type Lobby, type MensagemServidor } from "@b3d/core";
+import { SERVIDOR, decodificarSnapshot, normalizarSala, type Lobby, type MensagemCliente, type MensagemServidor } from "@b3d/core";
 import { criarCliente, type Cliente, type EstadoCliente } from "../comum/cliente";
 import { esquecerServidor, lembrarServidorDaUrl, servidorLembrado } from "../comum/config";
+import type { Convite } from "../comum/convite";
 import { porId } from "../comum/dom";
 import "../comum/estilo.css";
 import "./tela.css";
 import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
-import { visaoDoMenu } from "../comum/menu";
+import { visaoDoMenu, type LugarDoMenu } from "../comum/menu";
 import { PainelDoMenu } from "../comum/menu-dom";
 import { visaoDaPausa, type QuemPausou } from "../comum/pausa";
 import { esquecerChave, guardarChave, lerChave, type Armazenamento } from "./chave";
@@ -129,11 +130,29 @@ let pausadaPor: QuemPausou | undefined;
 let pcSemSinal = false;
 /** A partida terminou (tela de fim): o menu do PC passa a ter só "Voltar ao lobby". */
 let partidaAcabou = false;
+/** O último `lobby`: o menu mostra a lista de jogadores, os removidos e se a sala está trancada a partir dele (H7.4b). */
+let ultimoLobby: Lobby | null = null;
+/** O convite do menu (H7.4b): o código, o endereço e o QR que `montarEntrada` calcula. `null` até ficar pronto. */
+let convite: Convite | null = null;
 
-/** O menu da partida (H7.4a): Esc ou o botão "☰ Menu" abrem e fecham. Só o PC tem. Troca o botão "Pausar (P)" da H7.3. */
+/** O PC manda uma ação ao servidor (o servidor confere a permissão de novo). */
+function pedirComoPC(msg: Extract<MensagemCliente, { t: "trancar" | "expulsar" | "perdoar" | "lobby" }>): void {
+  if (ehMestre) cliente?.enviar(msg);
+}
+
+/**
+ * O menu (H7.4): Esc ou o botão "☰ Menu" abrem e fecham. Só o PC tem, no lobby e na tela do jogo: Pausar/Retomar, Acabar a partida, Trancar a
+ * sala, Convidar (código e QR) e a lista de jogadores com Expulsar e Perdoar. Troca o botão "Pausar (P)" da H7.3.
+ */
 const menu = new PainelDoMenu(
   porId("menu"),
-  { pausar: (valor) => pedirPausa(valor), acabar: () => pedirAcabar() },
+  {
+    pausar: (valor) => pedirPausa(valor),
+    acabar: () => pedirComoPC({ t: "lobby" }),
+    trancar: (valor) => pedirComoPC({ t: "trancar", valor }),
+    expulsar: (id) => pedirComoPC({ t: "expulsar", id }),
+    perdoar: (id) => pedirComoPC({ t: "perdoar", id }),
+  },
   {
     atalhos: { pausar: "P", retomar: "P" },
     textoFechar: "Fechar (Esc)",
@@ -151,9 +170,21 @@ function desenharPausa(): void {
   pausaTitulo.textContent = v.titulo;
   pausaDetalhe.textContent = v.detalhe;
   pausaRetomar.hidden = !v.botaoRetomar;
-  const m = visaoDoMenu({ papel, noJogo, acabou: partidaAcabou, pausada: pausadaAtual, pausadaPor, pcSemSinal });
+  const lugar: LugarDoMenu = cenaAtual === "jogo" || cenaAtual === "lobby" ? cenaAtual : "fora";
+  const m = visaoDoMenu({
+    papel,
+    lugar,
+    acabou: partidaAcabou,
+    pausada: pausadaAtual,
+    pausadaPor,
+    pcSemSinal,
+    trancada: ultimoLobby?.trancada === true,
+    jogadores: ultimoLobby?.jogadores ?? [],
+    expulsos: ultimoLobby?.expulsos ?? [],
+    meuId: null, // o PC não é um jogador da lista
+  });
   botaoMenu.hidden = !m.disponivel;
-  menu.definirVisao(m); // fecha o menu se este telão deixou de ser o PC ou a partida saiu da tela
+  menu.definirVisao(m); // fecha o menu se este telão deixou de ser o PC ou saiu da sala
 }
 
 /** O `lobby` do servidor diz se a partida está pausada. Só quando muda é que a cena e o som são avisados. */
@@ -173,10 +204,6 @@ function pedirPausa(valor: boolean): void {
   if (ehMestre) cliente?.enviar({ t: "pausa", valor });
 }
 
-/** O PC acaba a partida e volta ao lobby (o mesmo `lobby` do líder; o servidor confere a permissão). */
-function pedirAcabar(): void {
-  if (ehMestre) cliente?.enviar({ t: "lobby" });
-}
 pausaRetomar.addEventListener("click", () => pedirPausa(false));
 window.addEventListener("keydown", (e) => {
   if ((e.key === "p" || e.key === "P") && !(e.target instanceof HTMLInputElement) && cenaAtual === "jogo") pedirPausa(!pausadaAtual);
@@ -215,6 +242,9 @@ function voltarAoInicio(aviso: string): void {
   if (sala) esquecerChave(sala, armazenamentos()); // sala que acabou ou que não existe: a chave não serve mais
   ehMestre = false;
   partidaAcabou = false;
+  ultimoLobby = null;
+  convite = null;
+  menu.definirConvite(null);
   aplicarPausa(false, undefined);
   tabela.atualizar({ t: "campeonato", partidas: 0, clubes: [], jogadores: [] });
   cliente?.fechar();
@@ -255,7 +285,10 @@ async function montarEntrada(codigo: string): Promise<void> {
     qr = null;
   }
   if (entradaMontadaPara !== codigo) return; // mudou de sala enquanto montava
-  lobby.definirEntrada(codigo, `${origem.replace(/^https?:\/\//, "")}/controle.html`, qr);
+  const endereco = `${origem.replace(/^https?:\/\//, "")}/controle.html`;
+  lobby.definirEntrada(codigo, endereco, qr);
+  convite = { codigo, endereco, qr, link: null }; // o menu mostra o mesmo código, endereço e QR do lobby (e os esconde se a sala estiver trancada)
+  menu.definirConvite(convite);
 }
 
 function aoMensagem(msg: MensagemServidor): void {
@@ -281,6 +314,7 @@ function aoMensagem(msg: MensagemServidor): void {
       mostrar(emJogo ? "jogo" : "lobby");
       return;
     case "lobby":
+      ultimoLobby = msg as Lobby;
       lobby.atualizar(msg as Lobby);
       aplicarPausa(msg.emPartida && msg.pausada, msg.pausadaPor, msg.pausaSemPc === true);
       if (emJogo && !msg.emPartida) {

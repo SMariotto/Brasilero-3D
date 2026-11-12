@@ -16,11 +16,12 @@ const TODOS: CodigoErro[] = [
   "ALVO_INVALIDO",
   "EXPULSO",
   "PAUSA_DO_TELAO",
+  "SALA_FECHADA",
 ];
 
 describe("reacaoAoErro: o telão só volta à tela inicial nos erros fatais", () => {
   it("os erros fatais (sala que não existe, servidor ou telões cheios, versão errada) voltam à tela inicial", () => {
-    for (const c of ["VERSAO", "SALA_NAO_EXISTE", "TELAS_CHEIAS", "SERVIDOR_CHEIO", "EXPULSO"] as const) expect(reacaoAoErro(c), c).toBe("voltar");
+    for (const c of ["VERSAO", "SALA_NAO_EXISTE", "TELAS_CHEIAS", "SERVIDOR_CHEIO", "EXPULSO", "SALA_FECHADA"] as const) expect(reacaoAoErro(c), c).toBe("voltar");
   });
 
   it("uma recusa de ação não tira o PC da sala: só avisa", () => {

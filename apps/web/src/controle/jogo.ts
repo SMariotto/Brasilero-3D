@@ -1,7 +1,5 @@
 import { CHUTE, SERVIDOR, type Evento, type Fim, type MiraDoPasse, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
-import { visaoDoMenu } from "../comum/menu";
-import { PainelDoMenu } from "../comum/menu-dom";
 import { visaoDaPausa, type QuemPausou } from "../comum/pausa";
 import { Botao } from "./botoes";
 import { Envio } from "./envio";
@@ -39,11 +37,7 @@ export class JogoControle {
   /** "Passe para #9": aparece só enquanto PASSE está apertado com a bola (H1). */
   private readonly miraEl = el("div", { class: "mira-passe" });
   private readonly fimPainel = el("div", { class: "fim-painel" });
-  /** H7.4a: o ☰ que abre o menu da partida (só o líder vê; fica no canto de cima, longe dos polegares) e o menu. Troca o ⏸ da H7.3. */
-  private readonly botaoMenu = el("button", { class: "botao-menu-c", type: "button", title: "Menu", "aria-label": "Abrir o menu" }, "☰");
-  private readonly menuEl = el("div", { class: "menu-c" });
-  private readonly menu: PainelDoMenu;
-  /** H7.3: a tela "Jogo pausado". */
+  /** H7.3: a tela "Jogo pausado". (O ☰ e o menu, H7.4, são do `controle/menu.ts`: valem também no lobby.) */
   private readonly pausaTitulo = el("strong", {});
   private readonly pausaDetalhe = el("span", {});
   private readonly pausaRetomar = el("button", { class: "retomar", type: "button" }, "Retomar");
@@ -87,26 +81,11 @@ export class JogoControle {
       this.aviso,
       this.fimPainel,
       this.pausaEl,
-      this.botaoMenu,
-      this.menuEl,
     );
     trocar(this.faixa, this.numero, this.nome, this.carga, this.ping);
     this.fimPainel.hidden = true;
     this.pausaEl.hidden = true;
-    this.botaoMenu.hidden = true;
     this.pausaRetomar.addEventListener("click", () => this.acoes.pausar(false));
-    this.menu = new PainelDoMenu(
-      this.menuEl,
-      { pausar: (valor) => this.acoes.pausar(valor), acabar: () => this.acoes.lobby() },
-      {
-        textoFechar: "Fechar",
-        // Com o menu aberto o dedo não está no jogo: larga o joystick e os botões (o jogador dele fica parado até fechar)
-        aoMudarAberto: (aberto) => {
-          if (aberto) this.soltarDedos();
-        },
-      },
-    );
-    this.botaoMenu.addEventListener("click", () => this.menu.alternar());
     this.aviso.hidden = true;
     this.miraEl.hidden = true;
 
@@ -150,7 +129,7 @@ export class JogoControle {
     this.quadro = requestAnimationFrame(this.animar);
   }
 
-  /** Este celular é o do líder (H7.3)? Só ele vê o ☰ do menu. */
+  /** Este celular é o do líder (H7.3)? Só ele vê o botão Retomar da tela de pausa (e só da pausa que pode retomar). */
   definirLider(souLider: boolean): void {
     this.souLider = souLider;
     this.desenharPausa();
@@ -169,14 +148,14 @@ export class JogoControle {
     if (comecou) this.soltarDedos();
   }
 
-  /** Larga o joystick e os botões: o que o dedo fez com o jogo parado, ou com o menu aberto, não vale. */
-  private soltarDedos(): void {
+  /** Larga o joystick e os botões: o que o dedo fez com o jogo parado, ou com o menu aberto (`controle/menu.ts`), não vale. */
+  soltarDedos(): void {
     this.joystick.zerar();
     this.chute.zerar();
     this.passe.zerar();
   }
 
-  /** A tela de pausa e o menu (H7.4a) acompanham o que o último `lobby` disse; o ☰ só aparece para quem tem menu. */
+  /** A tela de pausa acompanha o que o último `lobby` disse. */
   private desenharPausa(): void {
     const papel = this.souLider ? "lider" : "jogador";
     const v = visaoDaPausa(this.pausadaAtual, this.pausadaPor, papel, this.pcSemSinal);
@@ -184,10 +163,6 @@ export class JogoControle {
     this.pausaTitulo.textContent = v.titulo;
     this.pausaDetalhe.textContent = v.detalhe;
     this.pausaRetomar.hidden = !v.botaoRetomar;
-    const m = visaoDoMenu({ papel, noJogo: this.rodando, acabou: false, pausada: this.pausadaAtual, pausadaPor: this.pausadaPor, pcSemSinal: this.pcSemSinal });
-    this.botaoMenu.hidden = !m.disponivel;
-    this.faixa.classList.toggle("com-menu", m.disponivel); // dá lugar ao ☰ na ponta direita da faixa
-    this.menu.definirVisao(m); // fecha o menu se este celular deixou de ser o líder, ou se a partida acabou
   }
 
   parar(): void {

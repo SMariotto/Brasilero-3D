@@ -28,6 +28,8 @@ body.controle select {
 .botao-menu-c[hidden],
 .menu-c[hidden],
 .menu-nota[hidden],
+.menu-convite[hidden],
+.menu-jogadores[hidden],
 .toast[hidden] {
   display: none;
 }
@@ -293,7 +295,7 @@ button {
   background: #222;
   border: 2px solid #ffd54a;
   text-align: center;
-  z-index: 10;
+  z-index: 40; /* acima do menu (30), para o aviso sempre aparecer */
 }
 
 /* Jogo */
@@ -710,14 +712,14 @@ button {
 }
 
 /*
- * H7.4a: o ☰ do menu (só o líder). Fica solto no canto de cima da tela, e não dentro da faixa, para continuar clicável por cima da tela de
- * pausa (a faixa tem z-index próprio, mais baixo). A faixa abre espaço para ele com .com-menu.
+ * H7.4: o ☰ e o menu do celular ficam soltos na tela (fixos), para valerem no lobby e no jogo e continuarem por cima da tela de pausa (que é
+ * do jogo). Camadas: tela de pausa 8, ☰ 20, menu 30, aviso (toast) 40.
  */
 .botao-menu-c {
-  position: absolute;
+  position: fixed;
   top: 6px;
   right: 8px;
-  z-index: 9;
+  z-index: 20;
   width: 36px;
   height: 36px;
   padding: 0;
@@ -729,15 +731,19 @@ button {
   line-height: 1;
 }
 
-.faixa-time.com-menu {
+/* A faixa de cima do jogo e o topo do lobby abrem espaço para o ☰ */
+body.com-menu-c .faixa-time {
   padding-right: 52px;
 }
 
-/* O menu cobre o jogo, acima da tela de pausa (8) e do ☰ (9) e abaixo do aviso (toast, 10) */
+body.com-menu-c .topo {
+  padding-right: 44px;
+}
+
 .menu-c {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 9;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -748,8 +754,8 @@ button {
 .menu-c .menu-painel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: min(100%, 420px);
+  gap: 12px;
+  width: min(100%, 440px);
   max-height: 100%;
   overflow-y: auto;
   text-align: center;
@@ -759,6 +765,13 @@ button {
   margin: 0;
   font-size: 1.1rem;
   color: #ffd54a;
+}
+
+.menu-c h3 {
+  margin: 4px 0 6px;
+  font-size: 0.95rem;
+  color: #ffd54a;
+  text-align: left;
 }
 
 .menu-c .menu-nota {
@@ -796,5 +809,151 @@ button {
 }
 
 .menu-c .menu-fechar {
+  position: sticky; /* fica visível no pé do painel mesmo com a lista rolando */
+  bottom: 0;
+  flex-shrink: 0;
   background: #2b4a37;
+}
+
+/* Convidar: o código grande, o endereço e os botões de compartilhar */
+.menu-c .menu-convite h3 {
+  text-align: center;
+}
+
+.menu-c .menu-codigo {
+  display: block;
+  font-size: 2.2rem;
+  letter-spacing: 0.25em;
+  color: #ffd54a;
+  text-align: center;
+}
+
+.menu-c .menu-endereco {
+  margin: 4px 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  word-break: break-all;
+  text-align: center;
+}
+
+.menu-c .menu-trancada {
+  margin: 4px 0;
+  font-size: 0.95rem;
+  opacity: 0.9;
+  text-align: center;
+}
+
+.menu-c .menu-compartilhar {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.menu-c .menu-compartilhar .menu-item {
+  flex: 1;
+  min-height: 48px;
+  font-size: 1rem;
+}
+
+/* Jogadores e removidos */
+.menu-c .menu-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-c .menu-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  text-align: left;
+}
+
+.menu-c .menu-linha .nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-c .menu-linha.sem-sinal .nome {
+  opacity: 0.6;
+}
+
+.menu-c .menu-linha .etiqueta {
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: #ffd54a;
+  color: #111;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.menu-c .menu-linha .etiqueta.alerta {
+  background: #ff8a65;
+}
+
+.menu-c .menu-expulsar,
+.menu-c .menu-perdoar {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 2px solid #ff8a65;
+  border-radius: 10px;
+  background: transparent;
+  color: #ff8a65;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.menu-c .menu-expulsar.armado {
+  background: #ff8a65;
+  color: #111;
+}
+
+.menu-c .menu-perdoar {
+  border-color: #5ee08a;
+  color: #5ee08a;
+}
+
+/* Em paisagem (o celular como controle) o menu usa duas colunas, para caber melhor na altura: ações e jogadores à esquerda, convite à direita */
+@media (orientation: landscape) and (min-width: 600px) {
+  .menu-c .menu-painel {
+    width: min(100%, 720px);
+  }
+
+  .menu-c .menu-corpo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    align-items: start;
+  }
+
+  .menu-c .menu-itens {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .menu-c .menu-convite {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .menu-c .menu-jogadores {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  /* Sem ações nem lista (o jogador comum só convida): o convite ocupa a largura toda */
+  .menu-c .menu-itens:empty + .menu-convite {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
 }

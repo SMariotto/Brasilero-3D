@@ -382,6 +382,109 @@ describe("expulsar pelo WebSocket (H7.2)", () => {
   });
 });
 
+describe("trancar a sala e perdoar pelo WebSocket (H7.4b)", () => {
+  const AP = (n: number): string => n.toString(16).padStart(32, "0");
+
+  async function entrarComAparelho(sala: string, apelido: string, aparelho: string, token?: string): Promise<{ c: Aparelho; bv: Msg }> {
+    const c = await novo();
+    c.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido, aparelho, ...(token ? { token } : {}) });
+    return { c, bv: await c.esperar("bemvindo") };
+  }
+
+  it("o PC tranca: quem é novo recebe SALA_FECHADA e a conexão fecha; quem já estava e caiu volta com o token; destrancar abre de novo", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    const ana = await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+
+    tela.enviar({ t: "trancar", valor: true });
+    expect(await ana.c.esperar("lobby")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(ana.c.fila.filter((m) => m["t"] === "lobby").at(-1)).toMatchObject({ trancada: true });
+
+    // Novo, sem token: recusado e fechado (o fechamento comum de recusa, 4003)
+    const novato = await novo();
+    novato.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Caio", aparelho: AP(3) });
+    expect(await novato.esperar("erro")).toMatchObject({ codigo: "SALA_FECHADA" });
+    expect(await novato.esperarFechar()).toBe(4003);
+
+    // Quem já era da sala e caiu volta com o token e é o mesmo jogador
+    beto.c.fechar();
+    await beto.c.esperarFechar();
+    const volta = await entrarComAparelho(sala, "Beto", AP(2), beto.bv["token"]);
+    expect(volta.bv).toMatchObject({ papel: "controle", id: beto.bv["id"] });
+
+    tela.enviar({ t: "trancar", valor: false });
+    await new Promise((r) => setTimeout(r, 30));
+    const caio = await entrarComAparelho(sala, "Caio", AP(3));
+    expect(caio.bv).toMatchObject({ papel: "controle" });
+  });
+
+  it("o líder tranca pelo celular; quem não é líder recebe SEM_PERMISSAO e a sala continua aberta", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const ana = await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+
+    beto.c.enviar({ t: "trancar", valor: true });
+    expect(await beto.c.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    expect((await entrarComAparelho(sala, "Caio", AP(3))).bv).toMatchObject({ papel: "controle" });
+
+    ana.c.enviar({ t: "trancar", valor: true });
+    await new Promise((r) => setTimeout(r, 30));
+    const recusado = await novo();
+    recusado.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Dani" });
+    expect(await recusado.esperar("erro")).toMatchObject({ codigo: "SALA_FECHADA" });
+  });
+
+  it("telão que só digita o código entra com a sala trancada e vê trancada: true no lobby", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    tela.enviar({ t: "trancar", valor: true });
+    await new Promise((r) => setTimeout(r, 30));
+    const extra = await novo();
+    extra.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala });
+    await extra.esperar("bemvindo");
+    expect(await extra.esperar("lobby")).toMatchObject({ trancada: true });
+  });
+
+  it("o expulso continua barrado com a sala trancada; perdoar o libera, e o PC vê a lista de removidos", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    await entrarComAparelho(sala, "Ana", AP(1));
+    const beto = await entrarComAparelho(sala, "Beto", AP(2));
+    tela.enviar({ t: "expulsar", id: beto.bv["id"] });
+    await beto.c.esperarFechar();
+    tela.enviar({ t: "trancar", valor: true });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(tela.fila.filter((m) => m["t"] === "lobby").at(-1)).toMatchObject({ trancada: true, expulsos: [{ id: beto.bv["id"], apelido: "Beto" }] });
+
+    const volta = await novo();
+    volta.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Beto", aparelho: AP(2) });
+    expect(await volta.esperar("erro")).toMatchObject({ codigo: "EXPULSO" });
+    expect(await volta.esperarFechar()).toBe(4005);
+
+    tela.enviar({ t: "perdoar", id: beto.bv["id"] });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(tela.fila.filter((m) => m["t"] === "lobby").at(-1)).toMatchObject({ expulsos: [] });
+    const depois = await novo();
+    depois.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, sala, apelido: "Beto", aparelho: AP(2) });
+    expect(await depois.esperar("erro")).toMatchObject({ codigo: "SALA_FECHADA" }); // perdoado, mas a sala ainda está trancada
+  });
+
+  it("perdoar com id que não está na lista dá ALVO_INVALIDO (não fatal); mensagem com campo do tipo errado é MENSAGEM_INVALIDA", async () => {
+    await subir();
+    const { tela } = await criarSala();
+    tela.enviar({ t: "perdoar", id: 77 });
+    expect(await tela.esperar("erro")).toMatchObject({ codigo: "ALVO_INVALIDO" });
+    tela.enviar({ t: "trancar", valor: "sim" });
+    expect(await tela.esperar("erro")).toMatchObject({ codigo: "MENSAGEM_INVALIDA" });
+    tela.enviar({ t: "perdoar", id: -1 });
+    expect(await tela.esperar("erro")).toMatchObject({ codigo: "MENSAGEM_INVALIDA" });
+    expect(tela.fechou).toBeNull();
+  });
+});
+
 describe("pausa pelo WebSocket (H7.3)", () => {
   const espera = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
