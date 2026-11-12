@@ -135,6 +135,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "fim":
       jogoUI.fim(msg, souDono());
       return;
+    case "aviso":
+      avisar(msg.texto); // quem virou líder e por quê (H7)
+      return;
     case "erro":
       tratarErro(msg.codigo, msg.msg);
       return;

@@ -187,7 +187,7 @@ export class JogoControle {
       el("span", { class: "resultado" }, a === b ? "Empate" : a > b ? "Casa venceu" : "Visitante venceu"),
       souDono
         ? el("div", { class: "fim-botoes" }, this.botaoFim("Revanche", this.acoes.revanche), this.botaoFim("Lobby", this.acoes.lobby))
-        : el("span", { class: "espera" }, "Esperando o Dono: Revanche ou Lobby"),
+        : el("span", { class: "espera" }, "Esperando o líder: Revanche ou Lobby"),
     );
     this.fimPainel.hidden = false;
   }

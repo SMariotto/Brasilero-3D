@@ -631,3 +631,14 @@ export const SERVIDOR = {
   /** Acima disto (ms) o telão e o controle avisam "conexão lenta" (F4). */
   pingAvisoMs: 150,
 } as const;
+
+// ---------------------------------------------------------------------------
+// Menu da partida e líder da sala (H7)
+// ---------------------------------------------------------------------------
+export const MENU = {
+  /**
+   * A sala ficou sem líder (a vaga dele venceu, ou o PC o expulsou) e há celular conectado: o PC tem este tempo (s) para escolher o novo.
+   * Passado o prazo, o servidor escolhe o celular conectado mais antigo e avisa a todos. Sem PC mestre conectado, escolhe na hora.
+   */
+  liderAutoEscolheAposS: 15,
+} as const;

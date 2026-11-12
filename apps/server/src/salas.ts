@@ -8,6 +8,8 @@ export interface OpcoesSalas {
   /** Sorteia um inteiro em [0, max). Os testes trocam por algo previsível. */
   sortear?: (max: number) => number;
   gerarToken?: () => string;
+  /** Sorteia a chave do telão mestre de cada sala (H7). */
+  gerarChave?: () => string;
   /** Sorteia a semente de cada partida. */
   semente?: () => number;
   /** Só testes: partidas sem bots nem goleiros. */
@@ -20,6 +22,7 @@ export class Salas {
   private readonly agora: () => number;
   private readonly sortear: (max: number) => number;
   private readonly gerarToken: () => string;
+  private readonly gerarChave: () => string;
   private readonly maxSalas: number;
   private readonly semente: (() => number) | undefined;
   private readonly semBots: boolean;
@@ -31,6 +34,7 @@ export class Salas {
     this.agora = opcoes.agora ?? Date.now;
     this.sortear = opcoes.sortear ?? ((max) => randomInt(max));
     this.gerarToken = opcoes.gerarToken ?? (() => randomBytes(16).toString("hex"));
+    this.gerarChave = opcoes.gerarChave ?? (() => randomBytes(16).toString("hex"));
   }
 
   get total(): number {
@@ -49,7 +53,7 @@ export class Salas {
     for (;;) {
       const codigo = this.novoCodigo();
       if (this.mapa.has(codigo)) continue;
-      const sala = new Sala(codigo, this.agora, this.gerarToken, { ...(this.semente ? { semente: this.semente } : {}), semBots: this.semBots });
+      const sala = new Sala(codigo, this.agora, this.gerarToken, { ...(this.semente ? { semente: this.semente } : {}), semBots: this.semBots, gerarChave: this.gerarChave });
       this.mapa.set(codigo, sala);
       return sala;
     }

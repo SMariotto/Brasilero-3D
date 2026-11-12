@@ -98,10 +98,12 @@ As três recomendações (A) foram aprovadas. Ajustes pedidos e como entram no p
   - **A chave fica no navegador do PC** (`localStorage`, por código de sala, com `sessionStorage` de reserva se o primeiro falhar; sempre em `try/catch`).
   - **Recarregar o telão dono não perde o controle.** Hoje o F5 já volta à mesma sala como `assistir` (`tela/main.ts`: o `?sala=` da URL e `gerarOla`); passa a mandar a chave guardada no mesmo `ola`, e o servidor devolve `bemvindo.mestre = true`. O servidor aceita **dois telões com a mesma chave ao mesmo tempo** (o novo entra antes de o antigo ser notado como caído). Se o navegador não guardar nada (aba anônima), o telão avisa na tela "Sem a chave deste PC: este telão só assiste". Teste de recarregar, de duas abas com a mesma chave e de chave errada entram na H7.1.
 - **D2 (15 s e o celular mais antigo), com um ajuste:** **avisar na tela quem virou líder.** Mensagem nova do servidor, `{ t: "aviso", texto: string }` (H7.1), enviada a todos: o telão mostra o texto grande por alguns segundos (o mesmo aviso não fatal criado na H7.0) e o celular mostra um toast; o celular de quem virou líder ainda recebe "Você é o líder agora". Vale para toda mudança de líder (PC escolheu, líder passou, saída automática de 15 s, líder expulso). O mesmo `aviso` serve depois para "Fulano foi removido da sala".
-- **D3 (bloquear o aparelho até a sala fechar, com o 4005), com um ajuste:** **o líder pode esconder ou desligar o QR pelo menu.** Interpretei como dois interruptores (H7.4), e **peço sua confirmação antes da H7.4**:
-  1. **"Mostrar QR"**: esconde ou mostra o QR (e o link) no telão, no lobby e no Convidar; o código de 4 letras continua visível. Só visual.
-  2. **"Aceitar novas pessoas"**: desligado, quem **ainda não é da sala** recebe `SALA_FECHADA` e não entra, mesmo sabendo o código; quem já é da sala e reconecta (com o token) entra normal. É o "sala fechada" que eu tinha deixado de fora (D3, opção C), agora pedido.
-  Os dois estados vão no `lobby` (`qrVisivel`, `aceitaNovos`), então todo mundo vê o mesmo. O PC (mestre) também pode mexer neles. Se a sua ideia de "desligar" era outra, me diga e eu troco.
+- **D3 (bloquear o aparelho até a sala fechar, com o 4005), com um ajuste (decidido em 11/11/2026):** **um único botão "Trancar sala" no menu**, no lugar dos dois interruptores que eu tinha proposto. Trancada, a sala:
+  1. **esconde o QR** (e o link) no telão, no lobby e no "Convidar" (o código de 4 letras continua visível para quem já é da sala);
+  2. **recusa quem ainda não é da sala**: `ola` de controle **sem token** recebe `SALA_FECHADA` e não entra, mesmo sabendo o código;
+  3. **deixa voltar quem já está na sala e caiu**: `ola` **com token válido** entra normal, trancada ou não. Quem perdeu a vaga (passaram os 30 s e a vaga venceu) deixou de ser da sala: recebe `TOKEN_EXPIRADO` e, ao tentar entrar de novo sem token, `SALA_FECHADA`; o líder destranca para ele entrar;
+  4. **não afeta o bloqueio do expulso** (D3): o aparelho bloqueado continua recebendo `EXPULSO` com o fechamento 4005, trancada ou não, e destrancar não o libera.
+  O estado vai no `lobby` (`trancada: boolean`), então todo mundo vê o mesmo, e a mensagem é `trancar { valor: boolean }` (líder ou PC mestre). Trancar não tira ninguém e não pausa nada; telão que só assiste continua entrando (a sala trancada é sobre quem joga). Entra na **H7.4**, junto do menu; nada disso foi feito na H7.1.
 - **Autorização:** o Samuel autorizou atualizar `PROTOCOLO.md` e `SPEC.md` (`guia-claude-code/`). Cada fase que muda o protocolo atualiza os dois no mesmo commit; o `README.md` e o `PROGRESSO.md` também.
 - **Ordem de trabalho:** uma fase por vez, começando pelos pré-requisitos; ao fim de cada fase, testes verdes, um commit `H7:`, sem `git push` (o Samuel faz), e a entrega no formato padrão (comando de push, o que foi feito, o que testar, o que falta). **Parar e esperar a confirmação antes da fase seguinte.**
 
@@ -121,7 +123,8 @@ Tudo é acréscimo (campos opcionais e mensagens novas), menos a mudança de ver
 | `lado` (existente) | todos / líder / mestre | `+ id?: number` | Sem `id`: troca o próprio. Com `id`: move outro (líder ou mestre). Na partida só vale `casa` e `visitante`. **Passa a valer também com a partida rolando.** |
 | `permutar` (nova) | líder, mestre | `a: number, b: number` | Troca os times de dois humanos de lados opostos de uma vez (mantém 3 contra 3). |
 | `expulsar` (nova) | líder, mestre | `id: number` | Tira o controle da sala (no lobby ou na partida). |
-| `lider` (nova) | líder, mestre | `id: number` | Passa a liderança a um celular conectado. |
+| `lider` (nova, **H7.1 feita**) | líder, mestre | `id: number` | Passa a liderança a um celular conectado. |
+| `trancar` (nova, H7.4) | líder, mestre | `valor: boolean` | Tranca ou destranca a sala (D3): trancada, quem não é da sala recebe `SALA_FECHADA` e o QR some. Repetir o mesmo valor não faz nada. |
 | `lobby` (existente) | líder, mestre | nada | Acaba a partida e volta ao lobby (hoje só o Dono). |
 | `config`, `comecar`, `revanche`, `zerar` | líder, **mestre (novo)** | como hoje | Sem mudança de campos. |
 
@@ -132,8 +135,8 @@ Validação em `lerMensagemCliente` (`mensagens.ts:309`): `id`, `a`, `b` inteiro
 | Mensagem | O que muda |
 |---|---|
 | `bemvindo` (telão) | `+ mestre?: boolean`; `+ chave?: string` (só para o telão que criou a sala). |
-| `lobby` | `+ pausada: boolean`; `+ pausadaPor?: "lider" \| "tela"`; `JogadorLobby` ganha `time: 0 \| 1 \| null` (o time **de verdade** na partida; `lado` continua sendo a escolha do lobby). Sem líder, nenhum `jogadores[].dono` é verdadeiro. |
-| `erro` | Códigos novos: `ALVO_INVALIDO` (o `id` não existe, já saiu ou está sem sinal), `PAUSA_DO_TELAO` (o líder tentou retomar uma pausa do PC), `EXPULSO` (vai para o expulso e entra em `ERROS_FATAIS`). `LADO_CHEIO` é reaproveitado para "esse time já tem 3". |
+| `lobby` | `+ trancada: boolean` (H7.4); `+ pausada: boolean`; `+ pausadaPor?: "lider" \| "tela"`; `JogadorLobby` ganha `time: 0 \| 1 \| null` (o time **de verdade** na partida; `lado` continua sendo a escolha do lobby). Sem líder, nenhum `jogadores[].dono` é verdadeiro. |
+| `erro` | Códigos novos: `ALVO_INVALIDO` (o `id` não existe, já saiu ou está sem sinal), `PAUSA_DO_TELAO` (o líder tentou retomar uma pausa do PC), `EXPULSO` (vai para o expulso e entra em `ERROS_FATAIS`), `SALA_FECHADA` (a sala está trancada e quem entra não é da sala; fatal para esse `ola`, o aparelho mostra o motivo). `LADO_CHEIO` é reaproveitado para "esse time já tem 3". |
 | Fechamento do WebSocket | **4005** = expulso. O site não reconecta (junto com 4002 e 4004, `cliente.ts:106`). |
 | Snapshot binário | Não muda de formato. Parado, **não é mandado**; ao pausar e a quem entra pausado, manda-se um snapshot só. |
 | `partida`, `donos`, `voce` | Sem mudança de formato. Troca de time reenvia `partida` (mesmo `id`) e `donos`, como já fazem `removerHumano` e `promoverHumano`. |
@@ -168,7 +171,8 @@ Sempre no servidor: `Sala.tratarTela` e `Sala.tratarControle` conferem **cada** 
 | Trocar o **próprio** time | n/a | sim | sim | n/a |
 | Mover outro de time / permutar | sim | sim | não | não |
 | Passar a liderança | sim (a qualquer celular conectado) | sim (a um celular conectado) | não | não |
-| `config`, `comecar`, `revanche`, `zerar` | sim (novo) | sim | não | não |
+| `config`, `comecar`, `revanche`, `zerar` | sim (novo, feito na H7.1) | sim | não | não |
+| Trancar e destrancar a sala | sim | sim | não | não |
 | Ver o convite (código, link) | sim, com QR | sim, código e link | sim, código e link | só o código que já digitou |
 | `camera` | sim | n/a | n/a | sim |
 
@@ -238,7 +242,8 @@ Respostas: sem permissão → `SEM_PERMISSAO`; alvo inexistente → `ALVO_INVALI
 - O caminho já existe (`assumirVagaNoMeio`, 424): a pessoa vira humano no time com menos humanos, no lugar do bot mais perto da bola.
 - Novo: o convite fica à mão em jogo (item "Convidar" no menu do celular e do PC), a tela de pausa também mostra o código; o PC mostra QR (a biblioteca `qrcode` já está no telão).
 - Sala cheia (6 controles): `SALA_CHEIA`, o que o expulsar resolve.
-- Se o aparelho está bloqueado (D3, opção A): recusa com `EXPULSO` e fechamento 4005 também (ele vê "Você foi removido desta sala").
+- Se o aparelho está bloqueado (D3, opção A): recusa com `EXPULSO` e fechamento 4005 também (ele vê "Você foi removido desta sala"), **com a sala trancada ou não**.
+- **Sala trancada** (decisão de 11/11): quem ainda não é da sala recebe `SALA_FECHADA`; quem é da sala e caiu reconecta com o token normalmente (também durante a pausa e em jogo). Só perde o direito quem passou dos 30 s (a vaga venceu): o líder precisa destrancar. A recusa é checada no servidor, em `entrarControle`, no caminho sem token.
 - Entrando com a sala **pausada**: recebe o estado de pausa e fica parado como todos. A pessoa nova pode trocar de time pelo menu, como os outros.
 
 **6. PC e líder mandando comandos ao mesmo tempo.**
@@ -256,14 +261,22 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 | Fase | Entrega | Como o Samuel confere |
 |---|---|---|
 | **H7.0** | **Pré-requisitos (feita):** o telão não volta ao início em qualquer erro; `Interpolador.pausar` e `retomar`; `Partida.aoRetomar` | Nada muda no jogo; só os testes e a verificação do telão com um erro não fatal |
-| **H7.1** | Líder de verdade, PC mestre e permissões no servidor (quase sem tela) | PC + 2 celulares: o primeiro celular é líder; o PC (mestre) consegue mandar; um telão de outra aba não consegue |
-| **H7.2** | Expulsar e escolher o líder, pelo PC no lobby | No lobby do telão, clicar no nome: "Tornar líder" e "Expulsar" funcionam; o expulso vê a mensagem e não volta sozinho |
+| **H7.1** | **Feita:** líder de verdade, PC mestre (chave no navegador, vale ao recarregar), permissões no servidor, aviso de quem virou líder, botão "Tornar líder" no lobby do PC, "Dono" virou "Líder" nos textos | PC + 2 celulares: o primeiro celular é líder; no lobby do PC o botão "Tornar líder" funciona e todo mundo vê o aviso; F5 no PC e ele continua mandando; um telão de outro PC só assiste |
+| **H7.2** | Expulsar (e o bloqueio do aparelho, com o 4005), pelo PC no lobby | No lobby do telão, "Expulsar" funciona; o expulso vê a mensagem e não volta sozinho (o "Tornar líder" já veio na H7.1) |
 | **H7.3** | Pausar e retomar (PC, líder e celular), sem o menu completo | Pausar no meio de um lance, esperar, retomar: nada pula; apertos durante a pausa não valem |
 | **H7.4** | O menu (telão e celular) com Pausar, Acabar a partida, Convidar e a lista com Expulsar | Abrir o menu pelo `Esc`, pelo mouse e pelo ☰ do celular do líder |
 | **H7.5** | Trocar de time na partida (próprio, mover e permutar) | Trocar de time com a bola rolando; tentar entrar no time com 3; permutar na sala cheia |
 | **H7.6** | Revanche e Lobby pelo PC, textos, versão do protocolo e documentação | PC: Revanche e Lobby na tela de fim; "Líder" em todos os textos |
 
-### H7.1: Líder, PC mestre e permissões
+### H7.1: Líder, PC mestre e permissões (FEITA)
+**Como ficou, comparado com o que estava escrito abaixo** (o texto original foi mantido para registro):
+- O protocolo só ganhou o que a H7.1 usa: versão 2, `ola.chave`, `bemvindo.mestre` e `chave`, `lider`, `aviso` e `ALVO_INVALIDO`. `pausa`, `expulsar`, `permutar`, `lado.id`, `Lobby.pausada`, `JogadorLobby.time`, `PAUSA_DO_TELAO` e `EXPULSO` entram **na fase de cada ação**, para não existir mensagem que o servidor ignora em silêncio.
+- O botão **"Tornar líder"** no lobby do telão (só o mestre vê) e a faixa "A sala está sem líder" vieram para a H7.1, porque sem eles o PC não tinha como escolher o líder nem como o Samuel testar o aviso. A H7.2 fica só com o "Expulsar".
+- A troca de **"Dono" para "Líder" nos textos** (celular, telão, tela de fim) foi feita na H7.1; a H7.6 só confere o que sobrar.
+- A chave e a regra de 15 s estão em `sala.ts` (`entrarTela`, `cuidarDoLider`, `definirLider`); o gerador de chave é opcional na `Sala` e a `Salas` passa um aleatório (`randomBytes(16)`).
+- Testes: `sala.lider.test.ts` (28), `servidor.test.ts` (6 novos, com WebSocket de verdade), `protocolo.test.ts` (3 novos), `tela/chave.test.ts` e `tela/lider.test.ts`. Verificado num navegador de verdade (criar a sala, dois celulares, escolher o líder, F5, telão de outro PC, apagar a chave).
+- Documentação: `PROTOCOLO.md` (seção 14) e `SPEC.md` atualizados com a autorização do Samuel (a pasta `guia-claude-code/` fica fora do git do projeto).
+
 - `packages/core/src/protocolo/mensagens.ts`: `VERSAO_PROTOCOLO` = 2; `OlaTela.chave?`, `Bemvindo.mestre?` e `chave?`; `Lobby.pausada` (já vem `false`) e `JogadorLobby.time`; códigos `ALVO_INVALIDO`, `PAUSA_DO_TELAO`, `EXPULSO` (este em `ERROS_FATAIS`); mensagens novas no tipo e em `lerMensagemCliente` (`lider`, `permutar`, `expulsar`, `pausa`, `lado.id`). Só os tipos e a validação nesta fase; as ações entram nas fases certas.
 - `packages/core/src/constantes.ts`: bloco novo `MENU` com `liderAutoEscolheAposS: 15`.
 - `apps/server/src/sala.ts`: `liderId`, `semLiderDesde`, `chaveDoTelao`, `Tela.mestre`; `ehDono` vira `ehLider(jogador)`; novo `ehMestre(tela)`; `lobby()` e `entrarControle` usam `liderId`; `varrer` passa a liderança ou aplica o prazo; `tratarTela` aceita as ações do mestre e `lider`; `podeGerir` (líder ou mestre) vale para `config`, `comecar`, `revanche`, `lobby`, `zerar`.
@@ -290,7 +303,7 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 - `apps/web/src/tela/menu.ts` (novo): sobreposição do telão, com `Esc`, `P` e o botão "☰ Menu" (só para o mestre). Itens: Pausar/Retomar, Acabar a partida (com confirmação), Convidar (código, link e QR, reaproveitando `montarEntrada` de `tela/main.ts`), lista dos jogadores com Expulsar e Tornar líder. As funções que decidem "o que aparece para quem" ficam puras e com teste.
 - `apps/web/src/controle/menu.ts` (novo): o ☰ da faixa do time; para o líder: Pausar/Retomar, Acabar a partida (2 toques), Convidar (código, link, "Compartilhar" com `navigator.share` e cópia), lista com Expulsar; para os demais: só Convidar e (fase 5) Meu time. Sem `qrcode` no celular (o limite de 300 KB do controle, conferido no `build`, e a regra de nunca importar nada de `src/tela/`).
 - `apps/web/src/controle/jogo.ts`: o menu zera joystick e botões ao abrir.
-- Interruptores do QR (2.5, D3): `Lobby.qrVisivel` e `Lobby.aceitaNovos`; `SALA_FECHADA` em `CodigoErro` (aviso, não fatal para quem já está); o telão esconde o QR (`tela/lobby.ts`, `tela/menu.ts`). **Confirmar o sentido de "desligar" antes de começar.**
+- **"Trancar sala"** (2.5, D3, decidido em 11/11): `trancar` em `mensagens.ts`; `Lobby.trancada`; `SALA_FECHADA` em `CodigoErro`; `Sala.entrarControle` recusa o `ola` sem token quando trancada, e **não** mexe no caminho com token; o telão e o menu do celular escondem o QR e o link quando `trancada` (`tela/lobby.ts`, `tela/menu.ts`, `controle/menu.ts`); o botão "Trancar sala"/"Destrancar sala" é um item do menu para o líder e para o PC. Testes: sem token recebe `SALA_FECHADA`, com token reconecta, o bloqueado continua bloqueado, destrancar volta a aceitar, repetir não faz nada, telão visitante não manda `trancar`.
 - CSS dos dois menus.
 - **Testes:** lógica pura (quem vê qual item; texto da confirmação; o menu se redesenha a cada `lobby` e some se perdeu a permissão; o botão de pausa acompanha `pausada`); `build` confere que o controle não puxou Three.js nem o QR.
 

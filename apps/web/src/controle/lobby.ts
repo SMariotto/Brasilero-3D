@@ -7,7 +7,7 @@ export interface Acoes {
   pronto(valor: boolean): void;
   config(mudanca: Partial<Config>): void;
   comecar(): void;
-  /** Zera o campeonato da sala (só o Dono). */
+  /** Zera o campeonato da sala (só o líder). */
   zerar(): void;
 }
 
@@ -30,7 +30,7 @@ interface Selecao {
   definir(valor: string): void;
 }
 
-/** Linha "rótulo + lista" do painel do Dono. Não mexe no valor enquanto a pessoa está com a lista aberta. */
+/** Linha "rótulo + lista" do painel do líder. Não mexe no valor enquanto a pessoa está com a lista aberta. */
 function selecao(rotulo: string, opcoes: [string, string][], aoMudar: (valor: string) => void): Selecao {
   const s = el("select", {});
   for (const [valor, texto] of opcoes) s.append(el("option", { value: valor }, texto));
@@ -82,7 +82,7 @@ function selecaoClube(rotulo: string, aoMudar: (id: string) => void): Selecao {
   };
 }
 
-/** Lobby do celular (SPEC 3.2, item 2): lado, pronto e, para o Dono, a configuração da partida. */
+/** Lobby do celular (SPEC 3.2, item 2): lado, pronto e, para o líder, a configuração da partida. */
 export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyControle {
   const sala = el("strong", { class: "sala" });
   const ping = el("span", { class: "ping-c" });
@@ -123,7 +123,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
   const comecar = el("button", { type: "button", class: "comecar" }, "Começar");
   comecar.addEventListener("click", () => acoes.comecar());
 
-  // Campeonato da sala: todo mundo vê quantas partidas valem; o Dono pode zerar (precisa de dois toques, para não zerar sem querer)
+  // Campeonato da sala: todo mundo vê quantas partidas valem; o líder pode zerar (precisa de dois toques, para não zerar sem querer)
   const campeonatoTexto = el("span", {});
   const botaoZerar = el("button", { type: "button", class: "zerar" }, "Zerar campeonato");
   let timerZerar: ReturnType<typeof setTimeout> | undefined;
@@ -151,7 +151,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
   const painelDono = el(
     "section",
     { class: "painel-dono" },
-    el("h2", {}, "Você é o Dono da sala"),
+    el("h2", {}, "Você é o líder da sala"),
     casa.linha,
     visitante.linha,
     modo.linha,
@@ -163,7 +163,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
     comecar,
   );
   painelDono.hidden = true;
-  const esperaDono = el("p", { class: "espera" }, "Quem criou a sala escolhe os times e começa o jogo.");
+  const esperaDono = el("p", { class: "espera" }, "O líder da sala escolhe os times e começa o jogo.");
 
   trocar(raiz, topo, quem, el("h2", {}, "Seu lado"), ladoBox, botaoPronto, painelDono, esperaDono, campeonato, el("h2", {}, "Na sala"), lista);
 
@@ -212,7 +212,7 @@ export function criarLobbyControle(raiz: HTMLElement, acoes: Acoes): LobbyContro
             "li",
             { class: `${j.conectado ? "" : "sem-sinal"} ${j.id === meuId ? "eu" : ""}` },
             el("span", { class: "nome" }, j.apelido),
-            j.dono && el("span", { class: "etiqueta" }, "Dono"),
+            j.dono && el("span", { class: "etiqueta" }, "Líder"),
             el("span", { class: "lado-txt" }, NOME_LADO[j.lado]),
             j.pronto && el("span", { class: "visto" }, "✓"),
             !j.conectado && el("span", { class: "etiqueta alerta" }, "sem sinal"),

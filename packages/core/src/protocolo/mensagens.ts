@@ -5,7 +5,8 @@ import { lerConfigParcial, type Config } from "./config";
 // Mensagens JSON entre telão, controle e servidor (PROTOCOLO 2 e 3). Ficam aqui os tipos e a validação,
 // usados pelo servidor e pelo site. `partida`, `voce`, `evento` e `fim` entram na F2.
 
-export const VERSAO_PROTOCOLO = 1;
+/** 2 na H7: telão com chave (`mestre`), mensagens `lider` e `aviso`. Aparelho com a página velha em cache recebe `VERSAO` e atualiza. */
+export const VERSAO_PROTOCOLO = 2;
 
 export type Papel = "tela" | "controle";
 export type Lado = "casa" | "visitante" | "tanto";
@@ -20,7 +21,9 @@ export type CodigoErro =
   | "APELIDO_INVALIDO"
   | "SEM_PERMISSAO"
   | "MENSAGEM_INVALIDA"
-  | "TOKEN_EXPIRADO";
+  | "TOKEN_EXPIRADO"
+  /** H7: o jogador pedido (`lider`) não existe ou está sem sinal. Não é fatal. */
+  | "ALVO_INVALIDO";
 
 /** Erros depois dos quais o aparelho não deve tentar de novo sozinho. */
 export const ERROS_FATAIS: readonly CodigoErro[] = [
@@ -41,6 +44,11 @@ export interface OlaTela {
   versao: number;
   acao: "criar" | "assistir";
   sala?: string;
+  /**
+   * H7: a chave que o telão que criou a sala recebeu no `bemvindo` e guardou no navegador do PC. Com a chave certa o telão que
+   * entra (recarregou a página, caiu e voltou, ou é outra aba do mesmo PC) é o "mestre": o PC que manda. Sem ela, só assiste.
+   */
+  chave?: string;
 }
 
 export interface OlaControle {
@@ -62,6 +70,8 @@ export type MensagemCliente =
   | { t: "revanche" }
   | { t: "lobby" }
   | { t: "zerar" }
+  /** H7: passa a liderança da sala ao jogador `id` (o líder, ou o telão mestre). */
+  | { t: "lider"; id: number }
   | { t: "camera"; modo: "tv" | "aerea" }
   | { t: "ping"; c: number };
 
@@ -78,7 +88,12 @@ export interface Bemvindo {
   /** Só para controle. */
   id?: number;
   token?: string;
+  /** Este controle é o líder da sala? (o campo se chama `dono` desde a F1; na H7 "Dono" virou "Líder"). */
   dono?: boolean;
+  /** Só para telão (H7): este telão é o mestre (o PC que criou a sala) e pode agir? */
+  mestre?: boolean;
+  /** Só para o telão que criou a sala (H7): a chave secreta que ele guarda no navegador para continuar mestre ao recarregar. */
+  chave?: string;
 }
 
 export interface JogadorLobby {
@@ -117,6 +132,15 @@ export interface Erro {
   t: "erro";
   codigo: CodigoErro;
   msg: string;
+}
+
+/**
+ * Servidor para todos (H7): um aviso curto para mostrar na tela uns segundos (telão: faixa embaixo; celular: toast). Hoje diz quem virou
+ * líder da sala e por quê; vai servir também para "fulano foi removido". Não pede resposta.
+ */
+export interface AvisoMsg {
+  t: "aviso";
+  texto: string;
 }
 
 /** Medidas do campo que o telão desenha. `areaComp` é a profundidade da área (em X) e `areaLarg` a largura (em Z). */
@@ -262,7 +286,7 @@ export interface MiraMsg {
   miras: MiraDoPasse[];
 }
 
-export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg | DonosMsg | MiraMsg;
+export type MensagemServidor = Bemvindo | Lobby | Pong | Principal | Erro | AvisoMsg | PartidaMsg | Voce | Evento | Fim | CampeonatoMsg | DonosMsg | MiraMsg;
 
 // ---------------------------------------------------------------------------
 // Validação
@@ -289,6 +313,7 @@ export function pareceOla(m: unknown): m is Ola {
   const o = m as Record<string, unknown>;
   if (o["t"] !== "ola" || typeof o["versao"] !== "number") return false;
   if ("sala" in o && (typeof o["sala"] !== "string" || o["sala"].length > 16)) return false;
+  if ("chave" in o && (typeof o["chave"] !== "string" || o["chave"].length > 64)) return false;
   if ("apelido" in o) {
     if (typeof o["sala"] !== "string" || typeof o["apelido"] !== "string") return false;
     if ("token" in o && (typeof o["token"] !== "string" || o["token"].length > 64)) return false;
@@ -333,6 +358,8 @@ export function lerMensagemCliente(texto: string): MensagemCliente | null {
     case "lobby":
     case "zerar":
       return { t: o["t"] };
+    case "lider":
+      return typeof o["id"] === "number" && Number.isInteger(o["id"]) && o["id"] >= 0 && o["id"] <= 1_000_000 ? { t: "lider", id: o["id"] } : null;
     case "camera":
       return o["modo"] === "tv" || o["modo"] === "aerea" ? { t: "camera", modo: o["modo"] } : null;
     case "ping":

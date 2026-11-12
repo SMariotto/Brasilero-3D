@@ -188,6 +188,102 @@ describe("telão e controle", () => {
   });
 });
 
+describe("telão mestre pelo WebSocket (H7.1)", () => {
+  async function assistir(sala: string, chave?: string): Promise<{ t: Aparelho; bv: Msg }> {
+    const t = await novo();
+    t.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala, ...(chave === undefined ? {} : { chave }) });
+    return { t, bv: await t.esperar("bemvindo") };
+  }
+
+  it("quem cria a sala é o mestre e recebe a chave; o telão que só digita o código não", async () => {
+    await subir();
+    const { tela, sala } = await criarSala(); // criarSala já consumiu o bemvindo: abre outra sala só para ver o dele
+    void tela;
+    const t = await novo();
+    t.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "criar" });
+    const bv = await t.esperar("bemvindo");
+    expect(bv).toMatchObject({ papel: "tela", mestre: true });
+    expect(bv["chave"]).toMatch(/^[0-9a-f]{32}$/);
+
+    const { bv: visitante } = await assistir(sala);
+    expect(visitante).toMatchObject({ papel: "tela", mestre: false });
+    expect(visitante).not.toHaveProperty("chave");
+  });
+
+  it("recarregar a página do PC: com a chave guardada o telão volta como mestre; sem ela, ou com outra, só assiste", async () => {
+    await subir();
+    const original = await novo();
+    original.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "criar" });
+    const bv = await original.esperar("bemvindo");
+    const { sala, chave } = { sala: bv["sala"] as string, chave: bv["chave"] as string };
+    original.fechar(); // F5: a página some...
+    await original.esperarFechar();
+
+    const { bv: depois } = await assistir(sala, chave); // ...e volta como `assistir` com a chave
+    expect(depois).toMatchObject({ papel: "tela", mestre: true });
+    expect(depois).not.toHaveProperty("chave");
+
+    expect((await assistir(sala, "0".repeat(32))).bv).toMatchObject({ mestre: false });
+    expect((await assistir(sala)).bv).toMatchObject({ mestre: false });
+  });
+
+  it("telão que só assiste recebe SEM_PERMISSAO, que não é fatal: a conexão continua e responde ao ping", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const { t } = await assistir(sala);
+    t.enviar({ t: "lobby" });
+    expect(await t.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    t.enviar({ t: "lider", id: 0 });
+    expect(await t.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    expect(t.fechou).toBeNull();
+    t.enviar({ t: "ping", c: 7 });
+    expect((await t.esperar("pong"))["c"]).toBe(7);
+  });
+
+  it("o PC escolhe o líder: a mensagem lider vai do telão mestre, e telão, líder antigo e novo recebem o aviso e o lobby", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    const ana = await entrarControle(sala, "Ana");
+    const beto = await entrarControle(sala, "Beto");
+    expect(ana.bv).toMatchObject({ dono: true });
+    expect(beto.bv).toMatchObject({ dono: false });
+
+    tela.enviar({ t: "lider", id: beto.bv["id"] });
+    expect(await tela.esperar("aviso")).toEqual({ t: "aviso", texto: "Beto agora é o líder (escolhido pelo PC)." });
+    expect(await ana.c.esperar("aviso")).toMatchObject({ texto: "Beto agora é o líder (escolhido pelo PC)." });
+    expect(await beto.c.esperar("aviso")).toMatchObject({ texto: "Você é o líder agora (escolhido pelo PC)." });
+    await new Promise((r) => setTimeout(r, 50));
+    const lobby = beto.c.fila.filter((m) => m["t"] === "lobby").at(-1)!;
+    expect(lobby["jogadores"].map((j: Msg) => [j["apelido"], j["dono"]])).toEqual([
+      ["Ana", false],
+      ["Beto", true],
+    ]);
+    // O antigo líder perdeu os poderes; o novo tem
+    ana.c.enviar({ t: "config", n: 3 });
+    expect(await ana.c.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+    beto.c.enviar({ t: "config", n: 3 });
+    await new Promise((r) => setTimeout(r, 100));
+    expect(beto.c.fila.filter((m) => m["t"] === "lobby").at(-1)!["config"]).toMatchObject({ n: 3 });
+  });
+
+  it("lider com alvo que não existe dá ALVO_INVALIDO (não fatal) e o PC continua conectado", async () => {
+    await subir();
+    const { tela, sala } = await criarSala();
+    await entrarControle(sala, "Ana");
+    tela.enviar({ t: "lider", id: 77 });
+    expect(await tela.esperar("erro")).toMatchObject({ codigo: "ALVO_INVALIDO" });
+    expect(tela.fechou).toBeNull();
+  });
+
+  it("um ola com a chave do tipo errado não entra", async () => {
+    await subir();
+    const { sala } = await criarSala();
+    const t = await novo();
+    t.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala, chave: 5 });
+    expect(await t.esperar("erro")).toMatchObject({ codigo: "MENSAGEM_INVALIDA" });
+  });
+});
+
 describe("erros de entrada", () => {
   it("versão errada recebe VERSAO e a conexão fecha", async () => {
     await subir();

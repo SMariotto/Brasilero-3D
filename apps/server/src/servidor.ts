@@ -201,7 +201,8 @@ export function criarServidor({ porta, maxSalas, rotasDeTeste, semente, semBots,
           sala = salas.achar(o.sala ?? "");
           if (!sala) return recusar("SALA_NAO_EXISTE", "Não achei essa sala.");
         }
-        const r = sala.entrarTela(canal);
+        // H7: quem criou a sala é o telão mestre; quem volta com a chave (recarregou, caiu) também. Os outros só assistem.
+        const r = sala.entrarTela(canal, o.acao === "criar" ? { criou: true } : o.chave !== undefined ? { chave: o.chave } : {});
         if (!r.ok) return recusar(r.codigo, r.msg);
         contexto = { tipo: "tela", sala, tela: r.valor };
       } else {

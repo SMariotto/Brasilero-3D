@@ -14,6 +14,7 @@ body.tela {
 .cena[hidden],
 .faixa[hidden],
 .ping[hidden],
+.sem-lider[hidden],
 .aviso-telao[hidden] {
   display: none;
 }
@@ -1039,4 +1040,38 @@ body.tela:has(.vitrine:not([hidden])) {
 
 .seguindo-tag[hidden] {
   display: none;
+}
+
+/* H7: o PC (telão mestre) escolhe o líder da sala */
+.tornar-lider {
+  margin-left: auto;
+  padding: 0.15em 0.7em;
+  border-radius: 1em;
+  border: 2px solid #ffd54a;
+  background: transparent;
+  color: #ffd54a;
+  font-size: 0.7em;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tornar-lider:hover {
+  background: #ffd54a;
+  color: #111;
+}
+
+.sem-lider {
+  margin: 0.4em 0;
+  padding: 0.5em 1em;
+  border-radius: 0.8em;
+  background: #ff8a65;
+  color: #111;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* Aviso de quem virou líder: maior que a recusa de uma ação */
+.aviso-telao.grande {
+  font-size: 1.8em;
+  border-color: #5ee08a;
 }

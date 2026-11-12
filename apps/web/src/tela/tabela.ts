@@ -117,7 +117,7 @@ export class PainelTabela {
           el("section", {}, el("h3", {}, "Clubes"), tabela([["#", ""], ["Clube", ""], ...COLUNAS_CLUBE.map(([t, dica]): [string, string] => [t, dica])], clubes)),
           el("section", {}, el("h3", {}, "Jogadores"), tabela([["#", ""], ["Jogador", ""], ...COLUNAS_JOGADOR.map(([t, dica]): [string, string] => [t, dica])], jogadores)),
         ),
-        el("p", { class: "tabela-dica" }, "Tecla T ou clique para fechar. O Dono zera o campeonato pelo celular."),
+        el("p", { class: "tabela-dica" }, "Tecla T ou clique para fechar. O líder zera o campeonato pelo celular."),
       ),
     );
   }

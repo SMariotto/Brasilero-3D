@@ -1,8 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import {
   Campeonato,
   resultadoDaPartida,
   CLUBE_ALEATORIO,
   CONFIG_PADRAO,
+  MENU,
   PARTIDA,
   SERVIDOR,
   TEMPO,
@@ -56,6 +58,24 @@ export interface Jogador {
 
 export interface Tela {
   canal: Canal;
+  /**
+   * H7: este telão é "o PC": o que criou a sala, ou outro que apresentou a chave dela (recarregou a página, caiu e voltou, outra aba do
+   * mesmo PC). O mestre pode agir (ver `tratarTela`); os outros telões, como os dos amigos que digitaram o código, só assistem.
+   */
+  mestre: boolean;
+}
+
+/** Como o telão entra: `criou` (acabou de criar a sala) ou com a `chave` guardada no navegador do PC. */
+export interface EntradaDoTelao {
+  criou?: boolean;
+  chave?: string;
+}
+
+/** Compara duas chaves sem deixar o tempo da resposta dizer quantas letras acertou. */
+function chavesIguais(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; codigo: CodigoErro; msg: string };
@@ -70,7 +90,15 @@ export interface OpcoesSala {
   semente?: () => number;
   /** Só testes: não completa o elenco com bots e goleiros (1 contra 1 puro). */
   semBots?: boolean;
+  /**
+   * Sorteia a chave do telão mestre (H7), quando o telão cria a sala. Sem isto usa o gerador de tokens, na hora de criar (para os tokens
+   * `token0`, `token1`... dos testes, que não criam telão, não mudarem).
+   */
+  gerarChave?: () => string;
 }
+
+/** Por que a liderança mudou de mãos (H7), para o texto do aviso. */
+type MotivoDoLider = "pc" | "passou" | "saiu";
 
 /**
  * Uma sala: quem está nela, a configuração, o lobby e a partida em andamento.
@@ -79,8 +107,18 @@ export interface OpcoesSala {
 export class Sala {
   config: Config = { ...CONFIG_PADRAO };
   partida: Partida | null = null;
-  private jogadores: Jogador[] = []; // na ordem de entrada: o primeiro é o Dono
+  private jogadores: Jogador[] = []; // na ordem de entrada (o mais antigo primeiro)
   private telas: Tela[] = []; // na ordem de entrada: o primeiro é o telão principal
+  /**
+   * H7: o líder da sala (o "Dono" até a H6, que era só o primeiro da lista). O primeiro controle a entrar é o líder provisório; o PC
+   * (telão mestre) ou o próprio líder passam a liderança; `null` = sem líder (a vaga dele venceu) até alguém ser escolhido.
+   */
+  private liderId: number | null = null;
+  /** Hora (`agora()`) em que a sala ficou sem líder com celular conectado e o PC mestre presente: o prazo de `MENU.liderAutoEscolheAposS` corre daqui. */
+  private semLiderDesde: number | null = null;
+  /** A chave do telão mestre (H7). `null` até um telão criar a sala. Nunca sai em `lobby`: só no `bemvindo` de quem criou. */
+  private chaveDoTelao: string | null = null;
+  private readonly gerarChave: () => string;
   private proximoId = 0;
   private vazioDesde: number | null;
   private cores: [string, string] = ["#C8102E", "#006437"];
@@ -108,6 +146,7 @@ export class Sala {
     this.vazioDesde = agora();
     this.semente = opcoes.semente ?? (() => Math.floor(Math.random() * 2 ** 32));
     this.semBots = opcoes.semBots ?? false;
+    this.gerarChave = opcoes.gerarChave ?? (() => this.gerarToken());
   }
 
   // --- consulta -----------------------------------------------------------
@@ -125,8 +164,14 @@ export class Sala {
     return this.telas.length + this.jogadores.filter((j) => j.canal).length;
   }
 
+  /** O id do líder da sala (o nome vem de quando era o "Dono"), ou `null` se a sala está sem líder. */
   donoId(): number | null {
-    return this.jogadores[0]?.id ?? null;
+    return this.liderId;
+  }
+
+  /** A sala está esperando o PC escolher o novo líder (com o prazo correndo)? */
+  get esperandoLider(): boolean {
+    return this.semLiderDesde !== null;
   }
 
   jogadorPorId(id: number): Jogador | undefined {
@@ -134,12 +179,12 @@ export class Sala {
   }
 
   lobby(): Lobby {
-    const jogadores: JogadorLobby[] = this.jogadores.map((j, i) => ({
+    const jogadores: JogadorLobby[] = this.jogadores.map((j) => ({
       id: j.id,
       apelido: j.apelido,
       lado: j.lado,
       pronto: j.pronto,
-      dono: i === 0,
+      dono: j.id === this.liderId,
       conectado: j.canal !== null,
     }));
     return {
@@ -154,12 +199,26 @@ export class Sala {
 
   // --- entrada e saída ----------------------------------------------------
 
-  entrarTela(canal: Canal): Resultado<Tela> {
+  /**
+   * Entra um telão. `criou`: acabou de criar a sala: é o mestre e recebe a chave (que o navegador dele guarda). Com a `chave` certa
+   * (H7): é o mestre de novo, mesmo recarregando a página; dois telões com a chave certa são mestres ao mesmo tempo. Sem chave, ou com
+   * a errada, só assiste (e não fica sabendo se a chave existe).
+   */
+  entrarTela(canal: Canal, entrada: EntradaDoTelao = {}): Resultado<Tela> {
     if (this.telas.length >= SERVIDOR.maxTelasPorSala) return falha("TELAS_CHEIAS", "Essa sala já tem telões demais.");
-    const tela: Tela = { canal };
+    let mestre = false;
+    let chaveNova: string | undefined;
+    if (entrada.criou === true) {
+      this.chaveDoTelao ??= this.gerarChave();
+      mestre = true;
+      chaveNova = this.chaveDoTelao;
+    } else if (entrada.chave !== undefined && this.chaveDoTelao !== null) {
+      mestre = chavesIguais(entrada.chave, this.chaveDoTelao);
+    }
+    const tela: Tela = { canal, mestre };
     this.telas.push(tela);
     this.atualizarVazio();
-    canal.enviar({ t: "bemvindo", papel: "tela", sala: this.codigo, principal: this.telas[0] === tela });
+    canal.enviar({ t: "bemvindo", papel: "tela", sala: this.codigo, principal: this.telas[0] === tela, mestre, ...(chaveNova !== undefined ? { chave: chaveNova } : {}) });
     this.transmitirLobby();
     this.reenviarPartida(canal);
     if (this.campeonato.partidas > 0) canal.enviar(this.campeonato.mensagem());
@@ -216,6 +275,8 @@ export class Sala {
         ultimoVoceEm: 0,
       };
       this.jogadores.push(jogador);
+      // O primeiro controle da sala é o líder provisório. Se a sala está esperando o PC escolher o novo líder, o recém-chegado não assume.
+      if (this.liderId === null && this.semLiderDesde === null) this.liderId = jogador.id;
       assumiuVaga = this.assumirVagaNoMeio(jogador);
     }
 
@@ -226,7 +287,7 @@ export class Sala {
       sala: this.codigo,
       id: jogador.id,
       token: jogador.token,
-      dono: this.jogadores[0] === jogador,
+      dono: this.liderId === jogador.id,
     });
     this.transmitirLobby();
     if (this.campeonato.partidas > 0) canal.enviar(this.campeonato.mensagem());
@@ -256,9 +317,17 @@ export class Sala {
 
   // --- mensagens de quem já entrou ---------------------------------------
 
-  /** Mensagem de um telão. Telão só observa; o resto é do controle. */
+  /**
+   * Mensagem de um telão. O telão que só assiste manda `camera` e mais nada. O telão mestre (o PC, H7) também passa a liderança
+   * (`lider`) e faz tudo que o líder faz na gestão da sala (`config`, `comecar`, `revanche`, `lobby`, `zerar`): o PC tem a última palavra.
+   * O resto (`lado`, `pronto`...) é de quem joga. Recusar não fecha a conexão: manda um erro que não é fatal.
+   */
   tratarTela(tela: Tela, msg: MensagemCliente): void {
     if (msg.t === "camera") return;
+    if (tela.mestre) {
+      if (msg.t === "lider") return this.passarLideranca(tela.canal, msg.id, null);
+      if (this.gerir(tela.canal, msg)) return;
+    }
     this.erro(tela.canal, "SEM_PERMISSAO", "O telão só observa.");
   }
 
@@ -287,26 +356,16 @@ export class Sala {
         this.transmitirLobby();
         return;
       case "config":
-        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala muda isso.");
-        if (this.partida) return this.erro(canal, "MENSAGEM_INVALIDA", "A partida está rolando.");
-        this.aplicarConfig(canal, msg);
-        return;
       case "comecar":
-        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        if (!this.partida) this.comecar(false);
-        return;
       case "revanche":
-        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        if (this.partida?.terminou) this.comecar(true);
-        return;
       case "lobby":
-        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        this.voltarAoLobby();
-        return;
       case "zerar":
-        if (!this.ehDono(jogador)) return this.erro(canal, "SEM_PERMISSAO", "Só o Dono da sala faz isso.");
-        this.campeonato.zerar();
-        this.transmitir(this.campeonato.mensagem());
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, msg.t === "config" ? "muda isso" : "faz isso");
+        this.gerir(canal, msg);
+        return;
+      case "lider":
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, "passa a liderança");
+        this.passarLideranca(canal, msg.id, jogador);
         return;
       case "camera":
         this.erro(canal, "SEM_PERMISSAO", "Isso é coisa do telão.");
@@ -357,11 +416,11 @@ export class Sala {
       elenco.push({ slot, time, numero: 7 + i, nome: j.apelido, humano: true, idControle: j.id, goleiro: false });
     }
 
-    // Cada time tem no máximo 3 humanos (PARTIDA.maxHumanosPorTime), que cabem em qualquer N (3, 4 ou 5): N é o que o Dono escolheu.
+    // Cada time tem no máximo 3 humanos (PARTIDA.maxHumanosPorTime), que cabem em qualquer N (3, 4 ou 5): N é o que o líder escolheu.
     return { elenco, n: this.config.n };
   }
 
-  /** Começa uma partida (ou a revanche) com o modo que o Dono escolheu. Os bots completam as vagas. */
+  /** Começa uma partida (ou a revanche) com o modo que o líder escolheu. Os bots completam as vagas. */
   private comecar(revanche: boolean): void {
     const { elenco, n } = this.montarElenco();
     const semente = this.semente();
@@ -593,7 +652,7 @@ export class Sala {
 
   /**
    * Chamada a cada segundo pelo servidor: vence as vagas guardadas que passaram do prazo
-   * (se era o Dono, o próximo controle mais antigo vira Dono).
+   * (se era o líder, ver `cuidarDoLider`: o PC escolhe o novo, ou o celular conectado mais antigo assume).
    * Devolve `true` se a sala ficou sem nenhuma conexão por `salaVaziaApagaAposS` e pode ser apagada.
    */
   varrer(): boolean {
@@ -608,6 +667,10 @@ export class Sala {
         this.aposMudancaDeControle();
         this.elencoMudou();
       }
+      if (vencidos.some((j) => j.id === this.liderId)) this.liderId = null; // o novo vem de `cuidarDoLider`, logo abaixo
+      this.cuidarDoLider(t);
+      this.transmitirLobby();
+    } else if (this.cuidarDoLider(t)) {
       this.transmitirLobby();
     }
     return this.vazioDesde !== null && t - this.vazioDesde >= SERVIDOR.salaVaziaApagaAposS * 1000;
@@ -621,8 +684,94 @@ export class Sala {
 
   // --- internos -----------------------------------------------------------
 
-  private ehDono(jogador: Jogador): boolean {
-    return this.jogadores[0] === jogador;
+  private ehLider(jogador: Jogador): boolean {
+    return this.liderId === jogador.id;
+  }
+
+  /** Recusa uma ação de líder: "só o líder faz isso", ou "a sala está sem líder" enquanto o PC não escolhe o novo. */
+  private negarSemLider(canal: Canal, oQue: string): void {
+    this.erro(canal, "SEM_PERMISSAO", this.liderId === null ? "A sala está sem líder." : `Só o líder da sala ${oQue}.`);
+  }
+
+  /**
+   * As ações de gestão da sala (config, começar, revanche, voltar ao lobby, zerar o campeonato). Quem pode já foi conferido: o líder
+   * pelo celular ou o telão mestre pelo PC. Devolve `false` se a mensagem não é uma delas.
+   */
+  private gerir(canal: Canal, msg: MensagemCliente): boolean {
+    switch (msg.t) {
+      case "config":
+        if (this.partida) this.erro(canal, "MENSAGEM_INVALIDA", "A partida está rolando.");
+        else this.aplicarConfig(canal, msg);
+        return true;
+      case "comecar":
+        if (!this.partida) this.comecar(false);
+        return true;
+      case "revanche":
+        if (this.partida?.terminou) this.comecar(true);
+        return true;
+      case "lobby":
+        this.voltarAoLobby();
+        return true;
+      case "zerar":
+        this.campeonato.zerar();
+        this.transmitir(this.campeonato.mensagem());
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * `lider` (H7): passa a liderança ao jogador `id`. `por` é o líder que passa, ou `null` quando é o telão mestre (o PC). O alvo precisa
+   * estar na sala e conectado. Passar a quem já é o líder não faz nada (nem erro nem aviso).
+   */
+  private passarLideranca(canal: Canal, id: number, por: Jogador | null): void {
+    const alvo = this.jogadorPorId(id);
+    if (!alvo || alvo.canal === null) return this.erro(canal, "ALVO_INVALIDO", "Esse jogador não está na sala ou está sem sinal.");
+    if (alvo.id === this.liderId) return;
+    this.definirLider(alvo, por === null ? "pc" : "passou", por?.apelido);
+    this.transmitirLobby();
+  }
+
+  /**
+   * Põe `novo` como líder e avisa todo mundo na tela quem virou líder e por quê (H7). Não manda o `lobby`: quem chama manda.
+   * O novo líder recebe um aviso só dele ("Você é o líder agora").
+   */
+  private definirLider(novo: Jogador, motivo: MotivoDoLider, quemPassou?: string): void {
+    this.liderId = novo.id;
+    this.semLiderDesde = null;
+    const porque =
+      motivo === "pc" ? "escolhido pelo PC" : motivo === "passou" ? `${quemPassou ?? "o líder"} passou a liderança` : "o líder anterior saiu da sala";
+    const paraTodos: MensagemServidor = { t: "aviso", texto: `${novo.apelido} agora é o líder (${porque}).` };
+    const paraONovo: MensagemServidor = { t: "aviso", texto: `Você é o líder agora (${porque}).` };
+    for (const t of this.telas) t.canal.enviar(paraTodos);
+    for (const j of this.jogadores) j.canal?.enviar(j === novo ? paraONovo : paraTodos);
+  }
+
+  /**
+   * Chamada a cada segundo por `varrer`: a sala sem líder (a vaga dele venceu) precisa de um novo. Com o PC mestre conectado, ele tem
+   * `MENU.liderAutoEscolheAposS` para escolher (a sala avisa a todos); passado o prazo, ou sem PC mestre, o celular conectado mais
+   * antigo assume. Sem nenhum celular conectado, espera: o próximo que entrar vira o líder provisório. Devolve `true` se algo mudou.
+   */
+  private cuidarDoLider(agora: number): boolean {
+    if (this.liderId !== null) return false;
+    const candidatos = this.jogadores.filter((j) => j.canal !== null);
+    if (candidatos.length === 0) {
+      const mudou = this.semLiderDesde !== null;
+      this.semLiderDesde = null;
+      return mudou;
+    }
+    const haMestre = this.telas.some((t) => t.mestre);
+    if (haMestre && this.semLiderDesde === null) {
+      this.semLiderDesde = agora;
+      this.transmitir({ t: "aviso", texto: `O líder saiu da sala. O PC escolhe o novo líder; em ${MENU.liderAutoEscolheAposS} s o mais antigo assume.` });
+      return true;
+    }
+    if (!haMestre || agora - (this.semLiderDesde ?? agora) >= MENU.liderAutoEscolheAposS * 1000) {
+      this.definirLider(candidatos[0]!, "saiu");
+      return true;
+    }
+    return false;
   }
 
   private aplicarConfig(canal: Canal, msg: Extract<MensagemCliente, { t: "config" }>): void {

@@ -208,7 +208,7 @@ export class Hud {
         cartao("Assistências", f.destaques.assistencias),
         cartao("Desarmes", f.destaques.desarmes),
       ),
-      el("span", { class: "espera" }, "O Dono da sala escolhe: Revanche ou Lobby"),
+      el("span", { class: "espera" }, "O líder da sala escolhe: Revanche ou Lobby"),
       ...(ganhou === null ? [] : confete(corVencedora)),
     );
     this.painelFim.hidden = false;

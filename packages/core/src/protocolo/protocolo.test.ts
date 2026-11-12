@@ -34,6 +34,18 @@ describe("ola", () => {
     expect(pareceOla({ t: "ola", versao: 1, sala: "ABCD", apelido: "x", token: 7 })).toBe(false);
     expect(pareceOla({ t: "ola", versao: 1, acao: "assistir", sala: "A".repeat(40) })).toBe(false);
   });
+
+  it("H7: o ola do telão leva a chave (texto de até 64 caracteres); outro tipo ou tamanho é recusado", () => {
+    expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: "a".repeat(32) })).toBe(true);
+    expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: "a".repeat(64) })).toBe(true);
+    expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: "a".repeat(65) })).toBe(false);
+    expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: 123 })).toBe(false);
+    expect(pareceOla({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala: "ABCD", chave: null })).toBe(false);
+  });
+
+  it("H7: a versão do protocolo subiu para 2 (telão com chave, mensagens lider e aviso)", () => {
+    expect(VERSAO_PROTOCOLO).toBe(2);
+  });
 });
 
 describe("validarApelido", () => {
@@ -123,6 +135,13 @@ describe("lerMensagemCliente", () => {
     expect(ler({ t: "camera", modo: "lateral" })).toBeNull();
     expect(ler({ t: "ping", c: "agora" })).toBeNull();
     expect(ler({ t: "ping", c: null })).toBeNull();
+  });
+
+  it("H7: lê lider com um id inteiro e recusa o resto", () => {
+    expect(ler({ t: "lider", id: 3 })).toEqual({ t: "lider", id: 3 });
+    expect(ler({ t: "lider", id: 0 })).toEqual({ t: "lider", id: 0 });
+    for (const id of [-1, 1.5, "3", null, undefined, 2_000_000, NaN]) expect(ler({ t: "lider", id }), String(id)).toBeNull();
+    expect(ler({ t: "lider" })).toBeNull();
   });
 
   it("recusa texto acima de 1 KB", () => {

@@ -7,6 +7,7 @@ import "../comum/estilo.css";
 import "./tela.css";
 import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
+import { esquecerChave, guardarChave, lerChave, type Armazenamento } from "./chave";
 import { AVISO_DO_TELAO_MS, reacaoAoErro } from "./erros";
 import { criarLobby } from "./lobby";
 import { enderecoParaCelular } from "./rede";
@@ -25,14 +26,16 @@ const campoCodigo = porId<HTMLInputElement>("codigo");
 
 /** Mostra por alguns segundos o texto de uma recusa do servidor (erro não fatal), sem sair da sala. */
 let timerAvisoTelao: ReturnType<typeof setTimeout> | undefined;
-function avisarNoTelao(texto: string): void {
+function avisarNoTelao(texto: string, grande = false): void {
   avisoTelao.textContent = texto;
+  avisoTelao.classList.toggle("grande", grande);
   avisoTelao.hidden = false;
   clearTimeout(timerAvisoTelao);
   timerAvisoTelao = setTimeout(() => (avisoTelao.hidden = true), AVISO_DO_TELAO_MS);
 }
 
-const lobby = criarLobby(lobbyEl);
+// O PC escolhe o líder pelo lobby (só o telão mestre vê os botões; o servidor confere a permissão de novo)
+const lobby = criarLobby(lobbyEl, { lider: (id) => cliente?.enviar({ t: "lider", id }) });
 
 // Som (SPEC 8): só o telão principal toca por padrão. O navegador libera o áudio no primeiro clique, toque ou tecla.
 const som = new Som();
@@ -113,7 +116,24 @@ function mostrar(cena: Cena): void {
   if (cena !== "jogo") som.parar();
 }
 
+/** O `localStorage` do PC e, de reserva, o `sessionStorage` (cada um pode falhar até no acesso, em aba anônima). */
+function armazenamentos(): Armazenamento[] {
+  const locais: Armazenamento[] = [];
+  try {
+    locais.push(localStorage);
+  } catch {
+    // sem localStorage
+  }
+  try {
+    locais.push(sessionStorage);
+  } catch {
+    // sem sessionStorage
+  }
+  return locais;
+}
+
 function voltarAoInicio(aviso: string): void {
+  if (sala) esquecerChave(sala, armazenamentos()); // sala que acabou ou que não existe: a chave não serve mais
   tabela.atualizar({ t: "campeonato", partidas: 0, clubes: [], jogadores: [] });
   cliente?.fechar();
   cliente = null;
@@ -161,6 +181,16 @@ function aoMensagem(msg: MensagemServidor): void {
     case "bemvindo":
       sala = msg.sala;
       lembrarSala(msg.sala);
+      // H7: o telão que criou a sala recebe a chave e o navegador a guarda: recarregar a página volta como mestre (o PC). Chave
+      // guardada que o servidor não aceitou (sala nova com o mesmo código, por exemplo) é esquecida.
+      if (msg.chave !== undefined) {
+        if (!guardarChave(msg.sala, msg.chave, armazenamentos())) {
+          avisarNoTelao("Este navegador não guarda a chave do telão: se recarregar a página, este telão só assiste.");
+        }
+      } else if (msg.mestre !== true && lerChave(msg.sala, armazenamentos()) !== null) {
+        esquecerChave(msg.sala, armazenamentos());
+      }
+      lobby.definirMestre(msg.mestre === true);
       lobby.definirPrincipal(msg.principal === true);
       som.definirPrincipal(msg.principal === true);
       void montarEntrada(msg.sala);
@@ -201,6 +231,9 @@ function aoMensagem(msg: MensagemServidor): void {
       lobby.definirPrincipal(msg.valor);
       som.definirPrincipal(msg.valor);
       return;
+    case "aviso":
+      avisarNoTelao(msg.texto, true); // quem virou líder e por quê (H7)
+      return;
     case "erro":
       // Só o erro fatal tira o telão da sala; uma recusa de ação (H7) vira aviso e o jogo continua
       if (reacaoAoErro(msg.codigo) === "voltar") voltarAoInicio(msg.msg);
@@ -230,7 +263,12 @@ function iniciar(): void {
   avisoInicio.textContent = "";
   mostrar("carregando");
   cliente = criarCliente({
-    gerarOla: () => (sala ? { t: "ola", acao: "assistir", sala } : { t: "ola", acao: "criar" }),
+    // Com a chave guardada (H7) o telão entra como mestre, também ao recarregar a página ou depois de uma queda de rede
+    gerarOla: () => {
+      if (!sala) return { t: "ola", acao: "criar" };
+      const chave = lerChave(sala, armazenamentos());
+      return { t: "ola", acao: "assistir", sala, ...(chave !== null ? { chave } : {}) };
+    },
     aoMensagem,
     aoBinario: (dados) => {
       const s = decodificarSnapshot(dados);

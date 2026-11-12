@@ -39,13 +39,13 @@ test("telão e dois celulares: entram, começam, um segura CHUTE perto do gol e 
   await expect(telao.locator(".codigo")).toHaveText(/^[A-Z]{4}$/);
   const sala = (await telao.locator(".codigo").textContent())!;
 
-  // Dois celulares: Ana (Dono, Casa) e Beto (Visitante)
+  // Dois celulares: Ana (líder, Casa) e Beto (Visitante)
   const ana = await entrarComoCelular(browser, sala, "Ana", "casa");
   const beto = await entrarComoCelular(browser, sala, "Beto", "visitante");
   await expect(telao.locator(".time.casa .jogador .nome")).toHaveText("Ana");
   await expect(telao.locator(".time.visitante .jogador .nome")).toHaveText("Beto");
 
-  // O Dono começa a partida: telão e celulares trocam para a tela de jogo
+  // O líder começa a partida: telão e celulares trocam para a tela de jogo
   await ana.page.locator(".comecar").click();
   await expect(telao.locator("#jogo")).toBeVisible();
   await expect(telao.locator("#canvas-host canvas")).toBeVisible();
