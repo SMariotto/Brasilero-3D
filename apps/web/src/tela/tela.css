@@ -15,6 +15,8 @@ body.tela {
 .faixa[hidden],
 .ping[hidden],
 .sem-lider[hidden],
+.pausa[hidden],
+.botao-pausa[hidden],
 .aviso-telao[hidden] {
   display: none;
 }
@@ -1106,4 +1108,51 @@ body.tela:has(.vitrine:not([hidden])) {
 
 .jogador > .expulsar:first-of-type:not(.tornar-lider + .expulsar) {
   margin-left: auto;
+}
+
+/* H7.3: a partida está pausada */
+.pausa {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5vh;
+  background: rgba(5, 15, 9, 0.62);
+  text-align: center;
+}
+
+.pausa strong {
+  font-size: 5em;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffd54a;
+}
+
+.pausa span {
+  font-size: 1.6em;
+  opacity: 0.9;
+}
+
+.botao-pausa {
+  position: fixed;
+  right: 1vw;
+  bottom: 15vh;
+  z-index: 20;
+  padding: 0.4em 1em;
+  border-radius: 2em;
+  border: 2px solid #ffd54a;
+  background: rgba(10, 33, 19, 0.85);
+  color: #ffd54a;
+  font-size: 0.9em;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.botao-pausa:hover {
+  background: #ffd54a;
+  color: #111;
 }

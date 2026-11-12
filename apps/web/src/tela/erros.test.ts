@@ -15,6 +15,7 @@ const TODOS: CodigoErro[] = [
   "TOKEN_EXPIRADO",
   "ALVO_INVALIDO",
   "EXPULSO",
+  "PAUSA_DO_TELAO",
 ];
 
 describe("reacaoAoErro: o telão só volta à tela inicial nos erros fatais", () => {
@@ -23,7 +24,7 @@ describe("reacaoAoErro: o telão só volta à tela inicial nos erros fatais", ()
   });
 
   it("uma recusa de ação não tira o PC da sala: só avisa", () => {
-    for (const c of ["SEM_PERMISSAO", "MENSAGEM_INVALIDA", "LADO_CHEIO", "TOKEN_EXPIRADO", "ALVO_INVALIDO"] as const) expect(reacaoAoErro(c), c).toBe("avisar");
+    for (const c of ["SEM_PERMISSAO", "MENSAGEM_INVALIDA", "LADO_CHEIO", "TOKEN_EXPIRADO", "ALVO_INVALIDO", "PAUSA_DO_TELAO"] as const) expect(reacaoAoErro(c), c).toBe("avisar");
   });
 
   it("segue a lista ERROS_FATAIS do protocolo, código por código (um erro novo fatal volta sozinho)", () => {

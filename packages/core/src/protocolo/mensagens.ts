@@ -25,7 +25,9 @@ export type CodigoErro =
   /** H7: o jogador pedido não existe mais (`expulsar`, `lider`) ou, em `lider`, está sem sinal. Não é fatal. */
   | "ALVO_INVALIDO"
   /** H7.2: o líder ou o PC tirou este aparelho da sala (ou ele tenta voltar de um aparelho bloqueado). Fatal; vem com o fechamento 4005. */
-  | "EXPULSO";
+  | "EXPULSO"
+  /** H7.3: o líder tentou retomar um jogo que o PC (telão mestre) pausou; só o PC retoma. Não é fatal. */
+  | "PAUSA_DO_TELAO";
 
 /** Erros depois dos quais o aparelho não deve tentar de novo sozinho. */
 export const ERROS_FATAIS: readonly CodigoErro[] = [
@@ -83,6 +85,8 @@ export type MensagemCliente =
   | { t: "lider"; id: number }
   /** H7.2: tira o jogador `id` da sala e bloqueia o aparelho dele (o líder, ou o telão mestre). */
   | { t: "expulsar"; id: number }
+  /** H7.3: pausa (`valor: true`) ou retoma (`false`) a partida (o líder, ou o telão mestre). Repetir o mesmo valor não faz nada. */
+  | { t: "pausa"; valor: boolean }
   | { t: "camera"; modo: "tv" | "aerea" }
   | { t: "ping"; c: number };
 
@@ -125,6 +129,13 @@ export interface Lobby {
   telas: number;
   /** Há uma partida rolando (ou acabada, esperando Revanche ou Lobby). Telão e controle trocam de tela por isto. */
   emPartida: boolean;
+  /**
+   * H7.3: a partida está pausada. Parado, o servidor não manda snapshot e nada se mexe; o telão congela e o celular mostra "Jogo pausado".
+   * Sai em todo `lobby` (quem entra com a sala pausada também fica sabendo).
+   */
+  pausada: boolean;
+  /** Quem pausou: o `lider` (celular) ou a `tela` (o PC, telão mestre). Só vem com `pausada: true`. Quem pausou é quem retoma (o PC retoma qualquer pausa). */
+  pausadaPor?: "lider" | "tela";
 }
 
 export interface Pong {
@@ -370,6 +381,8 @@ export function lerMensagemCliente(texto: string): MensagemCliente | null {
     case "lobby":
     case "zerar":
       return { t: o["t"] };
+    case "pausa":
+      return typeof o["valor"] === "boolean" ? { t: "pausa", valor: o["valor"] } : null;
     case "lider":
     case "expulsar":
       return typeof o["id"] === "number" && Number.isInteger(o["id"]) && o["id"] >= 0 && o["id"] <= 1_000_000 ? { t: o["t"], id: o["id"] } : null;

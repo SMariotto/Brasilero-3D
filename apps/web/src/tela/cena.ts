@@ -15,6 +15,7 @@ import { Jogadores } from "./jogadores";
 import { obterBoneco, prepararBoneco, type BonecoPronto } from "./boneco";
 import { obterModelo, urlDoModelo, type ModeloBase } from "./modelo";
 import { GravadorDeReplay, Reproducao } from "./replay";
+import { RelogioPausavel } from "./relogio-pausavel";
 import { idDoApelido, idsHumanos, proximoId, slotDoHumano } from "./seguir";
 
 /** Quanto o GOOOL fica sozinho na tela antes de o replay começar. */
@@ -32,6 +33,10 @@ export class CenaJogo {
   private readonly hud: Hud;
   private readonly interp = new Interpolador();
   private readonly gravador = new GravadorDeReplay();
+  /** H7.3: a partida está pausada? O servidor não manda snapshot; o telão congela tudo que se mexe sozinho (animações, rede, torcida, replay). */
+  private pausada = false;
+  /** A hora do jogo: a do navegador menos o tempo pausado. O replay do gol e a espera de 1,4 s antes dele contam nela. */
+  private readonly relogio = new RelogioPausavel();
   private readonly medidor = new MedidorFps(
     () => this.aplicarModoLeve(true),
     () => this.aplicarModoLeve(false),
@@ -105,6 +110,7 @@ export class CenaJogo {
     if (this.ultimosDonos) p = { ...p, elenco: aplicarDonos(p.elenco, this.ultimosDonos) };
     this.partidaId = p.id;
     this.interp.reiniciar();
+    if (this.pausada) this.interp.pausar(); // o `reiniciar` tira o modo pausado: quem entra (ou recarrega) com a sala pausada continua parado
     this.gravador.reiniciar();
     this.reproducao = null;
     this.golPendente = null;
@@ -187,6 +193,24 @@ export class CenaJogo {
     }
   }
 
+  /**
+   * H7.3: a partida foi pausada (`true`) ou retomada (`false`), pelo `lobby.pausada`. Pode ser chamada a cada `lobby`: só age quando muda.
+   * Pausada, o interpolador mostra o último snapshot parado (sem seguir a bola); ao retomar ele reancora o relógio (sem soquinhos nem voltar
+   * no tempo). O quadro passa a andar com `dt` zero nos jogadores, na rede do gol e na torcida, e o replay do gol congela junto.
+   */
+  definirPausa(pausada: boolean): void {
+    if (pausada === this.pausada) return;
+    this.pausada = pausada;
+    const agora = performance.now();
+    if (pausada) {
+      this.interp.pausar();
+      this.relogio.pausar(agora);
+    } else {
+      this.interp.retomar();
+      this.relogio.retomar(agora);
+    }
+  }
+
   receberSnapshot(s: Snapshot): void {
     this.interp.adicionar(s, performance.now());
     this.gravador.capturar(s);
@@ -212,7 +236,7 @@ export class CenaJogo {
       const lado: 1 | -1 = e.dados.time === 0 ? 1 : -1; // a Casa marca no gol de X positivo
       this.campo?.balancarRede(lado);
       this.estadio?.torcida.pular(4);
-      this.golPendente = { tick: e.tick, lado, quandoMs: performance.now() + ESPERA_REPLAY_MS };
+      this.golPendente = { tick: e.tick, lado, quandoMs: this.relogio.jogo(performance.now()) + ESPERA_REPLAY_MS };
     }
   }
 
@@ -248,6 +272,7 @@ export class CenaJogo {
 
   /** Para de desenhar e solta o que é pesado. */
   parar(): void {
+    this.definirPausa(false); // a pausa era da partida que acabou: a próxima começa rodando
     cancelAnimationFrame(this.quadro);
     this.quadro = 0;
     window.removeEventListener("resize", this.aoRedimensionar);
@@ -360,19 +385,22 @@ export class CenaJogo {
     const estado = this.medidor.quadro(dtMs);
     this.renderer?.info.reset();
 
-    this.campo?.atualizar(dt);
-    this.estadio?.torcida.atualizar(dt);
+    // H7.3: pausado, o que se mexe sozinho (animação do boneco, rede do gol, torcida) anda com dt zero, e o replay conta em hora de jogo
+    const dtJogo = this.pausada ? 0 : dt;
+    const agoraJogo = this.relogio.jogo(agora);
+    this.campo?.atualizar(dtJogo);
+    this.estadio?.torcida.atualizar(dtJogo);
 
     // O jogo ao vivo continua sendo medido mesmo durante o replay (placar, relógio, fim do replay)
     const vivo = this.interp.amostrar(agora);
-    if (this.golPendente && agora >= this.golPendente.quandoMs && !this.reproducao) this.iniciarReplay(agora);
-    if (this.reproducao && (this.reproducao.terminou(agora) || (vivo && vivo.fase !== FASE.gol))) this.terminarReplay();
+    if (this.golPendente && agoraJogo >= this.golPendente.quandoMs && !this.reproducao) this.iniciarReplay(agoraJogo);
+    if (this.reproducao && (this.reproducao.terminou(agoraJogo) || (vivo && vivo.fase !== FASE.gol))) this.terminarReplay();
 
-    const a: Amostra | null = this.reproducao ? this.reproducao.amostrar(agora) : vivo;
+    const a: Amostra | null = this.reproducao ? this.reproducao.amostrar(agoraJogo) : vivo;
     if (vivo) this.hud.atualizar(vivo);
     if (a) {
       this.bola?.atualizar(a.bola);
-      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dt, a.bola);
+      this.jogadores?.atualizar(a.jogadores, a.dominante === SEM_DOMINANTE ? SEM_DOMINANTE : a.dominante, dtJogo, a.bola);
       const slotSeguido = this.seguindo === null ? null : slotDoHumano(this.elenco, this.seguindo);
       const seguido = slotSeguido === null ? undefined : a.jogadores.find((j) => j.slot === slotSeguido);
       this.camera?.atualizar(dt, a.bola, a.jogadores, this.primeiroQuadro, seguido ? { x: seguido.x, z: seguido.z } : null);

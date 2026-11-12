@@ -105,6 +105,7 @@ const jogoUI = new JogoControle(jogoEl, {
   mandar: (dados) => cliente?.enviarBinario(dados),
   revanche: () => cliente?.enviar({ t: "revanche" }),
   lobby: () => cliente?.enviar({ t: "lobby" }),
+  pausar: (valor) => cliente?.enviar({ t: "pausa", valor }),
 });
 
 const souDono = (): boolean => ultimoLobby?.jogadores.find((j) => j.id === meuId)?.dono === true;
@@ -123,6 +124,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "lobby":
       ultimoLobby = msg;
       lobbyUI.atualizar(msg, meuId);
+      // H7.3: só o líder pausa; a tela de pausa vale para todos
+      jogoUI.definirLider(msg.jogadores.find((j) => j.id === meuId)?.dono === true);
+      jogoUI.definirPausa(msg.emPartida && msg.pausada, msg.pausadaPor);
       if (emJogo && !msg.emPartida) {
         emJogo = false;
         jogoUI.parar();

@@ -382,6 +382,94 @@ describe("expulsar pelo WebSocket (H7.2)", () => {
   });
 });
 
+describe("pausa pelo WebSocket (H7.3)", () => {
+  const espera = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+  /** Espera chegar um `lobby` que satisfaça a condição (o `esperar` do aparelho só acha o primeiro de cada tipo). */
+  async function esperarLobby(a: Aparelho, pausada: boolean, ms = 2000): Promise<Msg> {
+    const fim = Date.now() + ms;
+    while (Date.now() < fim) {
+      const l = a.fila.filter((m) => m["t"] === "lobby" && m["pausada"] === pausada).at(-1);
+      if (l) return l;
+      await espera(5);
+    }
+    throw new Error(`não chegou lobby com pausada=${pausada}`);
+  }
+
+  async function partidaRolandoPeloWebSocket(): Promise<{ tela: Aparelho; ana: { c: Aparelho; bv: Msg }; beto: { c: Aparelho; bv: Msg } }> {
+    const { tela, sala } = await criarSala();
+    const ana = await entrarControle(sala, "Ana");
+    const beto = await entrarControle(sala, "Beto");
+    ana.c.enviar({ t: "lado", lado: "casa" });
+    beto.c.enviar({ t: "lado", lado: "visitante" });
+    // Os dois lados valem antes de começar (são conexões diferentes: sem isto o `lado` do Beto pode chegar depois do `comecar`)
+    const ate = Date.now() + 2000;
+    for (;;) {
+      const l = ana.c.fila.filter((m) => m["t"] === "lobby").at(-1);
+      if (l && l["jogadores"].map((j: Msg) => j["lado"]).join() === "casa,visitante") break;
+      if (Date.now() > ate) throw new Error("os lados não chegaram");
+      await espera(5);
+    }
+    ana.c.enviar({ t: "comecar" });
+    await tela.esperar("partida");
+    const fim = Date.now() + 2000;
+    while (tela.binarias.length < 5 && Date.now() < fim) await espera(5);
+    expect(tela.binarias.length).toBeGreaterThanOrEqual(5);
+    return { tela, ana, beto };
+  }
+
+  it("o líder pausa: o telão para de receber snapshot; ao retomar volta a receber", async () => {
+    await subir();
+    const { tela, ana, beto } = await partidaRolandoPeloWebSocket();
+
+    ana.c.enviar({ t: "pausa", valor: true });
+    expect(await esperarLobby(tela, true)).toMatchObject({ pausada: true, pausadaPor: "lider", emPartida: true });
+    expect(await esperarLobby(beto.c, true)).toMatchObject({ pausada: true });
+    await espera(150); // o snapshot final já chegou
+    const parado = tela.binarias.length;
+    await espera(500);
+    expect(tela.binarias.length).toBe(parado);
+
+    ana.c.enviar({ t: "pausa", valor: false });
+    expect(await esperarLobby(tela, false)).toMatchObject({ pausada: false });
+    await espera(400);
+    expect(tela.binarias.length).toBeGreaterThan(parado + 5);
+  });
+
+  it("o PC pausa pelo telão; o líder não retoma (PAUSA_DO_TELAO) e o PC retoma", async () => {
+    await subir();
+    const { tela, ana, beto } = await partidaRolandoPeloWebSocket();
+    tela.enviar({ t: "pausa", valor: true });
+    expect(await esperarLobby(beto.c, true)).toMatchObject({ pausadaPor: "tela" });
+    ana.c.enviar({ t: "pausa", valor: false });
+    expect(await ana.c.esperar("erro")).toMatchObject({ codigo: "PAUSA_DO_TELAO" });
+    expect(ana.c.fechou).toBeNull();
+    tela.enviar({ t: "pausa", valor: false });
+    expect(await esperarLobby(beto.c, false)).toMatchObject({ pausada: false });
+  });
+
+  it("quem não é líder não pausa (SEM_PERMISSAO), e o telão recarregado no meio da pausa recebe um snapshot", async () => {
+    await subir();
+    const { tela, ana, beto } = await partidaRolandoPeloWebSocket();
+    beto.c.enviar({ t: "pausa", valor: true });
+    expect(await beto.c.esperar("erro")).toMatchObject({ codigo: "SEM_PERMISSAO" });
+
+    ana.c.enviar({ t: "pausa", valor: true });
+    await esperarLobby(tela, true);
+    const sala = (await esperarLobby(tela, true))["sala"] as string;
+    const outro = await novo();
+    outro.enviar({ t: "ola", versao: VERSAO_PROTOCOLO, acao: "assistir", sala });
+    await outro.esperar("bemvindo");
+    expect(await esperarLobby(outro, true)).toMatchObject({ pausada: true });
+    await outro.esperar("partida");
+    const fim = Date.now() + 1000;
+    while (outro.binarias.length === 0 && Date.now() < fim) await espera(5);
+    expect(outro.binarias.length).toBe(1); // o jogo parado: um snapshot só
+    await espera(300);
+    expect(outro.binarias.length).toBe(1);
+  });
+});
+
 describe("erros de entrada", () => {
   it("versão errada recebe VERSAO e a conexão fecha", async () => {
     await subir();

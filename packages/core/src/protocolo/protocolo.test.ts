@@ -148,6 +148,17 @@ describe("lerMensagemCliente", () => {
     expect(ler({ t: "ping", c: null })).toBeNull();
   });
 
+  it("H7.3: lê pausa só com valor verdadeiro ou falso", () => {
+    expect(ler({ t: "pausa", valor: true })).toEqual({ t: "pausa", valor: true });
+    expect(ler({ t: "pausa", valor: false })).toEqual({ t: "pausa", valor: false });
+    for (const valor of ["sim", 1, 0, null, undefined, [], {}]) expect(ler({ t: "pausa", valor }), String(valor)).toBeNull();
+    expect(ler({ t: "pausa" })).toBeNull();
+  });
+
+  it("H7.3: PAUSA_DO_TELAO não é um erro fatal (o líder continua na sala)", () => {
+    expect(ERROS_FATAIS).not.toContain("PAUSA_DO_TELAO");
+  });
+
   it("H7.2: lê expulsar com um id inteiro e recusa o resto, como o lider", () => {
     expect(ler({ t: "expulsar", id: 4 })).toEqual({ t: "expulsar", id: 4 });
     for (const id of [-1, 1.5, "4", null, undefined, 2_000_000, NaN]) expect(ler({ t: "expulsar", id }), String(id)).toBeNull();

@@ -263,7 +263,7 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 | **H7.0** | **Pré-requisitos (feita):** o telão não volta ao início em qualquer erro; `Interpolador.pausar` e `retomar`; `Partida.aoRetomar` | Nada muda no jogo; só os testes e a verificação do telão com um erro não fatal |
 | **H7.1** | **Feita:** líder de verdade, PC mestre (chave no navegador, vale ao recarregar), permissões no servidor, aviso de quem virou líder, botão "Tornar líder" no lobby do PC, "Dono" virou "Líder" nos textos | PC + 2 celulares: o primeiro celular é líder; no lobby do PC o botão "Tornar líder" funciona e todo mundo vê o aviso; F5 no PC e ele continua mandando; um telão de outro PC só assiste |
 | **H7.2** | **Feita:** expulsar (e o bloqueio do aparelho, com o 4005), pelo PC no lobby | No lobby do telão, "Expulsar" funciona; o expulso vê a mensagem e não volta sozinho (o "Tornar líder" já veio na H7.1) |
-| **H7.3** | Pausar e retomar (PC, líder e celular), sem o menu completo | Pausar no meio de um lance, esperar, retomar: nada pula; apertos durante a pausa não valem |
+| **H7.3** | **Feita:** pausar e retomar (PC, líder e celular), sem o menu completo | Pausar no meio de um lance, esperar, retomar: nada pula; apertos durante a pausa não valem |
 | **H7.4** | O menu (telão e celular) com Pausar, Acabar a partida, Convidar e a lista com Expulsar | Abrir o menu pelo `Esc`, pelo mouse e pelo ☰ do celular do líder |
 | **H7.5** | Trocar de time na partida (próprio, mover e permutar) | Trocar de time com a bola rolando; tentar entrar no time com 3; permutar na sala cheia |
 | **H7.6** | Revanche e Lobby pelo PC, textos, versão do protocolo e documentação | PC: Revanche e Lobby na tela de fim; "Líder" em todos os textos |
@@ -302,7 +302,15 @@ Um commit `H7:` por fase, `npm test`, `npm run typecheck` e `npm run build` pass
 - `apps/web/src/controle/main.ts`: trata `EXPULSO` (volta à entrada com o motivo, sem reconectar) e gera o `aparelho` no `localStorage` (try/catch, como o apelido).
 - **Testes:** expulsar no lobby e na partida (o bot assume o jogador, a lista de `donos` atualiza, o expulso recebe `EXPULSO` e 4005); expulsar sem sinal; o expulso não consegue entrar de novo com o mesmo aparelho; token do expulso dá `TOKEN_EXPIRADO`; líder não se expulsa; líder expulso → sem líder; `ALVO_INVALIDO` para id velho; `cliente.ts` não reconecta com 4005 (teste de unidade do cliente, se couber, senão no `servidor.test.ts`).
 
-### H7.3: Pausar e retomar
+### H7.3: Pausar e retomar (FEITA)
+**Como ficou, comparado com o que estava escrito abaixo** (o texto original foi mantido para registro):
+- Tudo como no plano: a sala para o laço, manda um snapshot final, reenvia um snapshot a quem entra pausado, a pausa do PC só o PC retoma (`PAUSA_DO_TELAO`), `voltar ao lobby` limpa a pausa, `aoRetomar` e `Interpolador.pausar/retomar` (H7.0) foram ligados.
+- **Além do plano (para a pausa ficar de verdade):** o telão também congela as animações dos jogadores, a rede do gol e a torcida (`dt` zero) e conta o replay do gol e a espera de 1,4 s antes dele em "hora de jogo" que não anda pausada (`tela/relogio-pausavel.ts`); sem isso o boneco continuava correndo no lugar e o replay "passava" por trás da tela de pausa.
+- **Para dar para testar sem o menu da H7.4:** o PC pausa e retoma com a tecla **P** e com os botões "Pausar (P)" / "Retomar (P)"; o líder tem o botão ⏸ no canto da faixa de cima do celular (na H7.4 o menu o substitui) e "Retomar" na tela de pausa.
+- A regra de quem vê o quê (`comum/pausa.ts`) é pura e compartilhada entre o telão e o celular; o celular continua sem importar nada de `src/tela/`.
+- Os eventos de gol: um replay que já estava passando congela na hora da pausa e continua depois; o plano não previa isso.
+- Testes: `sala.pausa.test.ts` (24), `servidor.test.ts` (3 novos, com WebSocket de verdade), `comum/pausa.test.ts` (7), `tela/relogio-pausavel.test.ts` (6), mais os de protocolo. Tirei de propósito o `aoRetomar` e as duas guardas do laço e os testes falharam. Verificado num navegador de verdade (PC e dois celulares reais): a imagem do telão fica idêntica pixel a pixel enquanto pausado (a única coisa que muda é o texto "ping" do canto, que é do próprio telão).
+
 - `sala.ts`: `pausada`, `pausa` do líder/mestre, regra `PAUSA_DO_TELAO`; `avancar` e `passoUnico` param; `relogioAnterior`/`acumulado` zerados ao pausar e ao retomar; snapshot final ao pausar e para quem entra pausado (`reenviarPartida`, 447); `voltarAoLobby` limpa a pausa; `lobby` leva `pausada` e `pausadaPor`.
 - ~~`Partida.aoRetomar()`~~ e ~~`Interpolador.pausar()`/`retomar()`~~ **já foram feitos na H7.0** (com testes). Nesta fase só falta **ligá-los**: a sala chama `partida.aoRetomar()` ao retomar; o telão chama `interp.pausar()` ao receber `lobby.pausada = true` e `interp.retomar()` quando volta a `false` (em `tela/cena.ts` e `main.ts`), além da tela de pausa, do `som.parar()` e da tecla `P` do mestre.
 - `apps/web/src/controle/jogo.ts` e `main.ts`: sobreposição "Jogo pausado" e botão Retomar só para quem pode (a regra é do servidor; o botão escondido é só conforto).

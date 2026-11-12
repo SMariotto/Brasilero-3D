@@ -7,6 +7,7 @@ import "../comum/estilo.css";
 import "./tela.css";
 import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
+import { visaoDaPausa, type QuemPausou } from "../comum/pausa";
 import { esquecerChave, guardarChave, lerChave, type Armazenamento } from "./chave";
 import { AVISO_DO_TELAO_MS, reacaoAoErro } from "./erros";
 import { criarLobby } from "./lobby";
@@ -22,6 +23,11 @@ const reconectando = porId("reconectando");
 const pingEl = porId("ping");
 const avisoInicio = porId("aviso-inicio");
 const avisoTelao = porId("aviso-telao");
+const pausaEl = porId("pausa");
+const pausaTitulo = porId("pausa-titulo");
+const pausaDetalhe = porId("pausa-detalhe");
+const pausaRetomar = porId("pausa-retomar");
+const botaoPausa = porId("botao-pausa");
 const campoCodigo = porId<HTMLInputElement>("codigo");
 
 /** Mostra por alguns segundos o texto de uma recusa do servidor (erro não fatal), sem sair da sala. */
@@ -107,6 +113,44 @@ function naCena(fn: (c: CenaJogo) => void | Promise<void>): void {
 
 type Cena = "inicio" | "carregando" | "lobby" | "jogo";
 
+// --- pausa (H7.3) -----------------------------------------------------------------------------------------------------------
+/** Este telão é o mestre (o PC)? Só ele pausa e retoma; os outros telões só veem a tela de pausa. */
+let ehMestre = false;
+let pausadaAtual = false;
+let pausadaPor: QuemPausou | undefined;
+
+/** Mostra (ou esconde) a tela de pausa e o botão "Pausar (P)", conforme o estado de agora. Só aparecem com a partida na tela. */
+function desenharPausa(): void {
+  const noJogo = cenaAtual === "jogo";
+  const v = visaoDaPausa(pausadaAtual && noJogo, pausadaPor, ehMestre ? "pc" : "telao");
+  pausaEl.hidden = !v.visivel;
+  pausaTitulo.textContent = v.titulo;
+  pausaDetalhe.textContent = v.detalhe;
+  pausaRetomar.hidden = !v.botaoRetomar;
+  botaoPausa.hidden = !(ehMestre && noJogo && !pausadaAtual);
+}
+
+/** O `lobby` do servidor diz se a partida está pausada. Só quando muda é que a cena e o som são avisados. */
+function aplicarPausa(pausada: boolean, por: QuemPausou | undefined): void {
+  const mudou = pausada !== pausadaAtual;
+  pausadaAtual = pausada;
+  pausadaPor = pausada ? por : undefined;
+  desenharPausa();
+  if (!mudou) return;
+  naCena((c) => c.definirPausa(pausada));
+  if (pausada) som.parar(); // parado, o ambiente da torcida e o resto param; ao retomar voltam com os snapshots
+}
+
+/** O PC pausa ou retoma (o servidor confere a permissão de novo). */
+function pedirPausa(valor: boolean): void {
+  if (ehMestre) cliente?.enviar({ t: "pausa", valor });
+}
+botaoPausa.addEventListener("click", () => pedirPausa(true));
+pausaRetomar.addEventListener("click", () => pedirPausa(false));
+window.addEventListener("keydown", (e) => {
+  if ((e.key === "p" || e.key === "P") && !(e.target instanceof HTMLInputElement) && cenaAtual === "jogo") pedirPausa(!pausadaAtual);
+});
+
 function mostrar(cena: Cena): void {
   inicio.hidden = cena !== "inicio";
   lobbyEl.hidden = cena !== "lobby";
@@ -116,6 +160,7 @@ function mostrar(cena: Cena): void {
   botaoSom.hidden = cena === "inicio" || cena === "carregando";
   cenaAtual = cena;
   mostrarBotaoTabela();
+  desenharPausa();
   if (cena !== "jogo") som.parar();
 }
 
@@ -137,6 +182,8 @@ function armazenamentos(): Armazenamento[] {
 
 function voltarAoInicio(aviso: string): void {
   if (sala) esquecerChave(sala, armazenamentos()); // sala que acabou ou que não existe: a chave não serve mais
+  ehMestre = false;
+  aplicarPausa(false, undefined);
   tabela.atualizar({ t: "campeonato", partidas: 0, clubes: [], jogadores: [] });
   cliente?.fechar();
   cliente = null;
@@ -193,7 +240,9 @@ function aoMensagem(msg: MensagemServidor): void {
       } else if (msg.mestre !== true && lerChave(msg.sala, armazenamentos()) !== null) {
         esquecerChave(msg.sala, armazenamentos());
       }
-      lobby.definirMestre(msg.mestre === true);
+      ehMestre = msg.mestre === true;
+      lobby.definirMestre(ehMestre);
+      desenharPausa();
       lobby.definirPrincipal(msg.principal === true);
       som.definirPrincipal(msg.principal === true);
       void montarEntrada(msg.sala);
@@ -201,6 +250,7 @@ function aoMensagem(msg: MensagemServidor): void {
       return;
     case "lobby":
       lobby.atualizar(msg as Lobby);
+      aplicarPausa(msg.emPartida && msg.pausada, msg.pausadaPor);
       if (emJogo && !msg.emPartida) {
         emJogo = false;
         naCena((c) => c.parar());

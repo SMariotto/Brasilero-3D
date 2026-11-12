@@ -1,0 +1,54 @@
+import { describe, expect, it } from "vitest";
+import { podeRetomar, visaoDaPausa, type PapelNaPausa, type QuemPausou } from "./pausa";
+
+const PAPEIS: PapelNaPausa[] = ["pc", "telao", "lider", "jogador"];
+const QUEM: Array<QuemPausou | undefined> = ["lider", "tela", undefined];
+
+describe("podeRetomar: o mesmo que o servidor deixa", () => {
+  it("o PC retoma qualquer pausa", () => {
+    for (const por of QUEM) expect(podeRetomar("pc", por)).toBe(true);
+  });
+
+  it("o líder só retoma a pausa que ele mesmo fez, nunca a do PC", () => {
+    expect(podeRetomar("lider", "lider")).toBe(true);
+    expect(podeRetomar("lider", "tela")).toBe(false);
+  });
+
+  it("telão que só assiste e jogador comum nunca retomam", () => {
+    for (const papel of ["telao", "jogador"] as const) for (const por of QUEM) expect(podeRetomar(papel, por), papel).toBe(false);
+  });
+});
+
+describe("visaoDaPausa", () => {
+  it("sem pausa nada aparece, para ninguém", () => {
+    for (const papel of PAPEIS) {
+      for (const por of QUEM) expect(visaoDaPausa(false, por, papel)).toEqual({ visivel: false, titulo: "", detalhe: "", botaoRetomar: false });
+    }
+  });
+
+  it("pausado, todo mundo vê o título, e o botão Retomar só aparece para quem pode", () => {
+    for (const papel of PAPEIS) {
+      for (const por of ["lider", "tela"] as const) {
+        const v = visaoDaPausa(true, por, papel);
+        expect(v.visivel).toBe(true);
+        expect(v.titulo).toBe("Jogo pausado");
+        expect(v.botaoRetomar, `${papel} / ${por}`).toBe(podeRetomar(papel, por));
+      }
+    }
+  });
+
+  it("o texto diz quem pausou e o que a pessoa pode fazer", () => {
+    expect(visaoDaPausa(true, "tela", "pc").detalhe).toBe("Você pausou o jogo.");
+    expect(visaoDaPausa(true, "lider", "pc").detalhe).toBe("O líder pausou o jogo. Você pode retomar.");
+    expect(visaoDaPausa(true, "lider", "lider").detalhe).toBe("Você pausou o jogo.");
+    expect(visaoDaPausa(true, "tela", "lider").detalhe).toBe("O PC pausou o jogo. Só ele retoma.");
+    expect(visaoDaPausa(true, "tela", "jogador").detalhe).toBe("Pausado pelo PC.");
+    expect(visaoDaPausa(true, "lider", "jogador").detalhe).toBe("Pausado pelo líder.");
+    expect(visaoDaPausa(true, "lider", "telao").detalhe).toBe("Pausado pelo líder.");
+  });
+
+  it("sem saber quem pausou (não deveria acontecer), cai no líder e não libera botão a quem não pode", () => {
+    expect(visaoDaPausa(true, undefined, "jogador").detalhe).toBe("Pausado pelo líder.");
+    expect(visaoDaPausa(true, undefined, "lider").botaoRetomar).toBe(false);
+  });
+});

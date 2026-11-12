@@ -124,6 +124,11 @@ export class Sala {
   /** A chave do telão mestre (H7). `null` até um telão criar a sala. Nunca sai em `lobby`: só no `bemvindo` de quem criou. */
   private chaveDoTelao: string | null = null;
   private readonly gerarChave: () => string;
+  /**
+   * H7.3: a partida está pausada, e quem pausou. Enquanto isso o laço não roda nenhum passo (nada se mexe, o relógio da partida não anda,
+   * não sai snapshot); a vaga guardada de quem cai continua correndo em hora real. A pausa do PC só o PC retoma; a do líder, os dois.
+   */
+  private pausada: { por: "lider" | "tela" } | null = null;
   /** H7.2: os aparelhos expulsos. Ficam bloqueados nesta sala até ela fechar (a lista some junto com a sala). */
   private readonly bloqueados = new Set<string>();
   private proximoId = 0;
@@ -201,6 +206,8 @@ export class Sala {
       jogadores,
       telas: this.telas.length,
       emPartida: this.partida !== null,
+      pausada: this.pausada !== null,
+      ...(this.pausada ? { pausadaPor: this.pausada.por } : {}),
     };
   }
 
@@ -331,7 +338,7 @@ export class Sala {
 
   /**
    * Mensagem de um telão. O telão que só assiste manda `camera` e mais nada. O telão mestre (o PC, H7) também passa a liderança
-   * (`lider`), expulsa (`expulsar`, H7.2) e faz tudo que o líder faz na gestão da sala (`config`, `comecar`, `revanche`, `lobby`, `zerar`): o PC tem a última palavra.
+   * (`lider`), expulsa (`expulsar`, H7.2), pausa e retoma (`pausa`, H7.3) e faz tudo que o líder faz na gestão da sala (`config`, `comecar`, `revanche`, `lobby`, `zerar`): o PC tem a última palavra.
    * O resto (`lado`, `pronto`...) é de quem joga. Recusar não fecha a conexão: manda um erro que não é fatal.
    */
   tratarTela(tela: Tela, msg: MensagemCliente): void {
@@ -339,6 +346,7 @@ export class Sala {
     if (tela.mestre) {
       if (msg.t === "lider") return this.passarLideranca(tela.canal, msg.id, null);
       if (msg.t === "expulsar") return this.expulsar(tela.canal, msg.id, null);
+      if (msg.t === "pausa") return this.definirPausa(tela.canal, msg.valor, "tela");
       if (this.gerir(tela.canal, msg)) return;
     }
     this.erro(tela.canal, "SEM_PERMISSAO", "O telão só observa.");
@@ -383,6 +391,10 @@ export class Sala {
       case "expulsar":
         if (!this.ehLider(jogador)) return this.negarSemLider(canal, "expulsa");
         this.expulsar(canal, msg.id, jogador);
+        return;
+      case "pausa":
+        if (!this.ehLider(jogador)) return this.negarSemLider(canal, "pausa o jogo");
+        this.definirPausa(canal, msg.valor, "lider");
         return;
       case "camera":
         this.erro(canal, "SEM_PERMISSAO", "Isso é coisa do telão.");
@@ -451,6 +463,7 @@ export class Sala {
     this.ultimaMira = "[]";
     this.partidaId++;
     this.fimEnviado = false;
+    this.pausada = null;
     this.relogioAnterior = null;
     this.acumulado = 0;
 
@@ -512,6 +525,9 @@ export class Sala {
   private voltarAoLobby(): void {
     this.partida = null;
     this.mensagemPartida = null;
+    this.pausada = null; // a pausa era da partida que acabou
+    this.relogioAnterior = null;
+    this.acumulado = 0;
     for (const j of this.jogadores) {
       j.slot = null;
       j.time = null;
@@ -531,6 +547,9 @@ export class Sala {
     if (this.partida.terminou) {
       canal.enviar(this.partida.resumo());
       if (!jogador) canal.enviarBinario(codificarSnapshot(this.partida.snapshot()));
+    } else if (this.pausada && !jogador) {
+      // H7.3: com a sala pausada ninguém manda snapshot; sem este o telão que entra (ou recarrega) veria o campo vazio
+      canal.enviarBinario(codificarSnapshot(this.partida.snapshot()));
     }
   }
 
@@ -540,7 +559,7 @@ export class Sala {
    */
   avancar(): number {
     const p = this.partida;
-    if (!p || p.terminou) {
+    if (!p || p.terminou || this.pausada) {
       this.relogioAnterior = null;
       return 0;
     }
@@ -568,7 +587,7 @@ export class Sala {
   /** Um passo de 1/60 s: física, eventos, e a cada 2 passos o snapshot e o `voce`. Público para os testes. */
   passoUnico(): void {
     const p = this.partida;
-    if (!p) return;
+    if (!p || this.pausada) return;
     p.passo();
     // Quem controla quem mudou (passe, troca...): avisa antes dos eventos deste passo, para o nome do gol sair certo
     if (p.versaoControle !== this.versaoControleEnviada) this.aposMudancaDeControle();
@@ -747,6 +766,40 @@ export class Sala {
     if (!alvo || alvo.canal === null) return this.erro(canal, "ALVO_INVALIDO", "Esse jogador não está na sala ou está sem sinal.");
     if (alvo.id === this.liderId) return;
     this.definirLider(alvo, por === null ? "pc" : "passou", por?.apelido);
+    this.transmitirLobby();
+  }
+
+  /**
+   * `pausa` (H7.3): pausa (`valor: true`) ou retoma (`false`) a partida. Quem pode já foi conferido: o líder pelo celular (`por: "lider"`) ou
+   * o telão mestre pelo PC (`por: "tela"`).
+   *  - Sem partida rolando, ou com a partida acabada (tela de fim), não há o que pausar: ignora, sem erro.
+   *  - Pausar o que já está pausado, ou retomar o que não está, não faz nada (nem erro, nem `lobby` repetido).
+   *  - O PC tem a última palavra: pausa do PC só o PC retoma (o líder recebe `PAUSA_DO_TELAO`); pausa do líder, os dois retomam.
+   * Ao pausar sai um último snapshot (quem vê o jogo parado precisa dele) e o `lobby` com `pausada`. Ao retomar a partida descarta o que
+   * foi apertado com o jogo parado (`Partida.aoRetomar`) e o relógio do laço recomeça do zero, sem "recuperar" o tempo parado.
+   */
+  private definirPausa(canal: Canal, valor: boolean, por: "lider" | "tela"): void {
+    const p = this.partida;
+    if (!p || p.terminou) return;
+    if (valor) {
+      if (this.pausada) return;
+      this.pausada = { por };
+      this.relogioAnterior = null;
+      this.acumulado = 0;
+      const bytes = codificarSnapshot(p.snapshot());
+      for (const t of this.telas) t.canal.enviarBinario(bytes);
+      this.transmitirLobby();
+      return;
+    }
+    if (!this.pausada) return;
+    if (this.pausada.por === "tela" && por === "lider") {
+      this.erro(canal, "PAUSA_DO_TELAO", "O PC pausou o jogo; só ele retoma.");
+      return;
+    }
+    this.pausada = null;
+    this.relogioAnterior = null;
+    this.acumulado = 0;
+    p.aoRetomar();
     this.transmitirLobby();
   }
 
