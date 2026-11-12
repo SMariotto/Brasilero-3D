@@ -25,7 +25,9 @@ body.controle select {
 .cena[hidden],
 .faixa[hidden],
 .pausa-jogo[hidden],
-.botao-pausa-c[hidden],
+.botao-menu-c[hidden],
+.menu-c[hidden],
+.menu-nota[hidden],
 .toast[hidden] {
   display: none;
 }
@@ -675,18 +677,7 @@ button {
   display: none;
 }
 
-/* H7.3: pausa. O botão fica no canto de cima da faixa (longe dos polegares); a tela cobre o joystick e os botões, abaixo do aviso (toast) */
-.botao-pausa-c {
-  margin-left: auto;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  font-size: 1.1rem;
-}
-
+/* H7.3: pausa. A tela cobre o joystick e os botões, abaixo do aviso (toast) */
 .pausa-jogo {
   position: absolute;
   inset: 0;
@@ -716,4 +707,94 @@ button {
   color: #111;
   font-size: 1.3rem;
   font-weight: 900;
+}
+
+/*
+ * H7.4a: o ☰ do menu (só o líder). Fica solto no canto de cima da tela, e não dentro da faixa, para continuar clicável por cima da tela de
+ * pausa (a faixa tem z-index próprio, mais baixo). A faixa abre espaço para ele com .com-menu.
+ */
+.botao-menu-c {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 9;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.faixa-time.com-menu {
+  padding-right: 52px;
+}
+
+/* O menu cobre o jogo, acima da tela de pausa (8) e do ☰ (9) e abaixo do aviso (toast, 10) */
+.menu-c {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(5, 15, 9, 0.97);
+}
+
+.menu-c .menu-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 420px);
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.menu-c h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #ffd54a;
+}
+
+.menu-c .menu-nota {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.menu-c .menu-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu-c .menu-item,
+.menu-c .menu-fechar {
+  min-height: 52px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: #1fa34a;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.menu-c .menu-item.perigo {
+  background: #5a2a22;
+  color: #ffd2c7;
+}
+
+.menu-c .menu-item.armado {
+  background: #ff8a65;
+  color: #111;
+}
+
+.menu-c .menu-fechar {
+  background: #2b4a37;
 }

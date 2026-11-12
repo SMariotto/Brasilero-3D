@@ -42,7 +42,7 @@ export interface Jogador {
   token: string;
   /** `null` enquanto o aparelho está desconectado (a vaga fica guardada). */
   canal: Canal | null;
-  /** Hora (ms) em que a vaga guardada vence; `null` se está conectado. */
+  /** Hora (ms, no relógio da sala: `Sala.agoraSala`, que não anda com a partida pausada) em que a vaga guardada vence; `null` se está conectado. */
   venceEm: number | null;
   /**
    * O jogador que ele controla AGORA na partida (G1: muda com passes e trocas). Espelho do que a partida diz, atualizado pela sala.
@@ -119,16 +119,28 @@ export class Sala {
    * (telão mestre) ou o próprio líder passam a liderança; `null` = sem líder (a vaga dele venceu) até alguém ser escolhido.
    */
   private liderId: number | null = null;
-  /** Hora (`agora()`) em que a sala ficou sem líder com celular conectado e o PC mestre presente: o prazo de `MENU.liderAutoEscolheAposS` corre daqui. */
+  /**
+   * Hora (`agoraSala()`) em que a sala ficou sem líder com celular conectado e o PC mestre presente: o prazo de `MENU.liderAutoEscolheAposS`
+   * corre daqui (e fica parado com a partida pausada).
+   */
   private semLiderDesde: number | null = null;
   /** A chave do telão mestre (H7). `null` até um telão criar a sala. Nunca sai em `lobby`: só no `bemvindo` de quem criou. */
   private chaveDoTelao: string | null = null;
   private readonly gerarChave: () => string;
   /**
-   * H7.3: a partida está pausada, e quem pausou. Enquanto isso o laço não roda nenhum passo (nada se mexe, o relógio da partida não anda,
-   * não sai snapshot); a vaga guardada de quem cai continua correndo em hora real. A pausa do PC só o PC retoma; a do líder, os dois.
+   * H7.3: a partida está pausada, quem pausou e a hora real (`agora()`) em que parou. Enquanto isso o laço não roda nenhum passo (nada se
+   * mexe, o relógio da partida não anda, não sai snapshot) e o relógio dos prazos da sala também para (ver `agoraSala`). A pausa do PC só
+   * o PC retoma (e o líder, se o PC ficar `MENU.pausaSemPcLiberaLiderS` sem sinal); a do líder, os dois.
    */
-  private pausada: { por: "lider" | "tela" } | null = null;
+  private pausada: { por: "lider" | "tela"; desde: number } | null = null;
+  /** H7.4a: soma, em ms, das pausas que já acabaram: é o que o relógio dos prazos da sala (`agoraSala`) desconta da hora real. */
+  private pausadoMs = 0;
+  /** H7.4a: hora real em que o último telão mestre saiu (ou em que a sala nasceu, sem mestre); `null` com algum mestre conectado. */
+  private semMestreDesde: number | null;
+  /** H7.4a: hora real em que a pausa ficou sem ninguém que a possa retomar (sem telão mestre e sem o líder conectados); `null` se há alguém. */
+  private pausaOrfaDesde: number | null = null;
+  /** H7.4a: o último `lobby.pausaSemPc` que mandamos, para `varrer` mandar outro quando o prazo dos 30 s sem PC passa. */
+  private pausaSemPcEnviada = false;
   /** H7.2: os aparelhos expulsos. Ficam bloqueados nesta sala até ela fechar (a lista some junto com a sala). */
   private readonly bloqueados = new Set<string>();
   private proximoId = 0;
@@ -156,6 +168,7 @@ export class Sala {
     opcoes: OpcoesSala = {},
   ) {
     this.vazioDesde = agora();
+    this.semMestreDesde = agora();
     this.semente = opcoes.semente ?? (() => Math.floor(Math.random() * 2 ** 32));
     this.semBots = opcoes.semBots ?? false;
     this.gerarChave = opcoes.gerarChave ?? (() => this.gerarToken());
@@ -208,7 +221,31 @@ export class Sala {
       emPartida: this.partida !== null,
       pausada: this.pausada !== null,
       ...(this.pausada ? { pausadaPor: this.pausada.por } : {}),
+      ...(this.pcSemSinalNaPausa() ? { pausaSemPc: true } : {}),
     };
+  }
+
+  /**
+   * O relógio dos prazos da sala (a vaga guardada de 30 s, os 15 s do PC para escolher o líder): igual à hora real, mas **não anda com a
+   * partida pausada**. Assim um celular que dorme numa pausa longa não perde a vaga nem a liderança por causa da pausa. Só vale para prazos
+   * de jogo; o que é da conexão (sala vazia, PC sem sinal) conta em hora real (`agora`).
+   */
+  private agoraSala(): number {
+    return (this.pausada ? this.pausada.desde : this.agora()) - this.pausadoMs;
+  }
+
+  /** Há algum telão mestre conectado (o PC)? */
+  private haMestre(): boolean {
+    return this.telas.some((t) => t.mestre);
+  }
+
+  /** A pausa é do PC e ele está sem sinal há `MENU.pausaSemPcLiberaLiderS`: o líder também pode retomar (hora real). */
+  private pcSemSinalNaPausa(): boolean {
+    return (
+      this.pausada?.por === "tela" &&
+      this.semMestreDesde !== null &&
+      this.agora() - this.semMestreDesde >= MENU.pausaSemPcLiberaLiderS * 1000
+    );
   }
 
   // --- entrada e saída ----------------------------------------------------
@@ -231,6 +268,7 @@ export class Sala {
     }
     const tela: Tela = { canal, mestre };
     this.telas.push(tela);
+    if (mestre) this.semMestreDesde = null;
     this.atualizarVazio();
     canal.enviar({ t: "bemvindo", papel: "tela", sala: this.codigo, principal: this.telas[0] === tela, mestre, ...(chaveNova !== undefined ? { chave: chaveNova } : {}) });
     this.transmitirLobby();
@@ -243,6 +281,7 @@ export class Sala {
     const i = this.telas.indexOf(tela);
     if (i < 0) return;
     this.telas.splice(i, 1);
+    if (tela.mestre && !this.haMestre()) this.semMestreDesde = this.agora(); // o último PC saiu: começa a contar o prazo da pausa dele
     this.atualizarVazio();
     // O telão mais antigo que sobrou vira o principal.
     if (i === 0) this.telas[0]?.canal.enviar({ t: "principal", valor: true });
@@ -325,7 +364,7 @@ export class Sala {
   desconectarControle(jogador: Jogador, canal: Canal): void {
     if (jogador.canal !== canal) return; // já foi substituído por uma conexão nova
     jogador.canal = null;
-    jogador.venceEm = this.agora() + PARTIDA.vagaGuardadaS * 1000;
+    jogador.venceEm = this.agoraSala() + PARTIDA.vagaGuardadaS * 1000; // relógio da sala: não anda com a partida pausada
     if (jogador.time !== null) {
       this.partida?.definirAusenteHumano(jogador.id, true);
       this.aposMudancaDeControle();
@@ -463,7 +502,7 @@ export class Sala {
     this.ultimaMira = "[]";
     this.partidaId++;
     this.fimEnviado = false;
-    this.pausada = null;
+    this.encerrarPausa();
     this.relogioAnterior = null;
     this.acumulado = 0;
 
@@ -522,12 +561,19 @@ export class Sala {
     return true;
   }
 
+  /**
+   * Volta ao lobby (o "Acabar a partida" do menu, no meio do jogo, pausado ou não, e o "Lobby" da tela de fim). O resultado parcial não
+   * entra no campeonato (só `passoUnico` registra, quando a partida termina). Ninguém perde o lado nem o apelido. Sem partida não faz nada
+   * de novo além de repetir o `lobby` (duas pessoas pedindo ao mesmo tempo).
+   */
   private voltarAoLobby(): void {
     this.partida = null;
     this.mensagemPartida = null;
-    this.pausada = null; // a pausa era da partida que acabou
+    this.encerrarPausa(); // a pausa era da partida que acabou
     this.relogioAnterior = null;
     this.acumulado = 0;
+    this.ultimaMira = "[]";
+    this.versaoControleEnviada = 0;
     for (const j of this.jogadores) {
       j.slot = null;
       j.time = null;
@@ -692,7 +738,8 @@ export class Sala {
    * Devolve `true` se a sala ficou sem nenhuma conexão por `salaVaziaApagaAposS` e pode ser apagada.
    */
   varrer(): boolean {
-    const t = this.agora();
+    const real = this.agora();
+    const t = this.agoraSala(); // os prazos de jogo não correm com a partida pausada (ver `agoraSala`)
     const antes = this.jogadores.length;
     const vencidos = this.jogadores.filter((j) => j.venceEm !== null && t >= j.venceEm);
     this.jogadores = this.jogadores.filter((j) => j.venceEm === null || t < j.venceEm);
@@ -709,7 +756,35 @@ export class Sala {
     } else if (this.cuidarDoLider(t)) {
       this.transmitirLobby();
     }
-    return this.vazioDesde !== null && t - this.vazioDesde >= SERVIDOR.salaVaziaApagaAposS * 1000;
+    this.vigiarPausa(real);
+    return this.vazioDesde !== null && real - this.vazioDesde >= SERVIDOR.salaVaziaApagaAposS * 1000;
+  }
+
+  /**
+   * Chamada por `varrer` (1 vez por segundo, em hora real) com a partida pausada. Dois prazos que a pausa não congela, porque são sobre
+   * quem pode retomá-la:
+   *  - A pausa do PC e o PC sem sinal há `MENU.pausaSemPcLiberaLiderS`: o `lobby` ganha `pausaSemPc` e o líder passa a poder retomar (e
+   *    perde o direito de novo se o PC voltar).
+   *  - Nem telão mestre nem o líder conectados por `MENU.pausaOrfaRetomaAposS`: a pausa não tem quem a retome (e os prazos da sala estão
+   *    parados, então ninguém assumiria a liderança): a partida retoma sozinha e todos são avisados.
+   */
+  private vigiarPausa(real: number): void {
+    if (!this.pausada) {
+      this.pausaOrfaDesde = null;
+      return;
+    }
+    const lider = this.liderId === null ? undefined : this.jogadorPorId(this.liderId);
+    if (this.haMestre() || lider?.canal) {
+      this.pausaOrfaDesde = null;
+    } else {
+      this.pausaOrfaDesde ??= real;
+      if (real - this.pausaOrfaDesde >= MENU.pausaOrfaRetomaAposS * 1000) {
+        this.retomar();
+        this.transmitir({ t: "aviso", texto: "Ninguém estava com o jogo pausado: a partida continuou." });
+        return;
+      }
+    }
+    if (this.pcSemSinalNaPausa() !== this.pausaSemPcEnviada) this.transmitirLobby();
   }
 
   /** Fecha todas as conexões (usado quando a sala é apagada). */
@@ -774,7 +849,8 @@ export class Sala {
    * o telão mestre pelo PC (`por: "tela"`).
    *  - Sem partida rolando, ou com a partida acabada (tela de fim), não há o que pausar: ignora, sem erro.
    *  - Pausar o que já está pausado, ou retomar o que não está, não faz nada (nem erro, nem `lobby` repetido).
-   *  - O PC tem a última palavra: pausa do PC só o PC retoma (o líder recebe `PAUSA_DO_TELAO`); pausa do líder, os dois retomam.
+   *  - O PC tem a última palavra: pausa do PC só o PC retoma (o líder recebe `PAUSA_DO_TELAO`), a não ser que o PC fique
+   *    `MENU.pausaSemPcLiberaLiderS` sem sinal (H7.4a: `pcSemSinalNaPausa`); pausa do líder, os dois retomam.
    * Ao pausar sai um último snapshot (quem vê o jogo parado precisa dele) e o `lobby` com `pausada`. Ao retomar a partida descarta o que
    * foi apertado com o jogo parado (`Partida.aoRetomar`) e o relógio do laço recomeça do zero, sem "recuperar" o tempo parado.
    */
@@ -783,7 +859,8 @@ export class Sala {
     if (!p || p.terminou) return;
     if (valor) {
       if (this.pausada) return;
-      this.pausada = { por };
+      this.pausada = { por, desde: this.agora() };
+      this.pausaOrfaDesde = null;
       this.relogioAnterior = null;
       this.acumulado = 0;
       const bytes = codificarSnapshot(p.snapshot());
@@ -792,15 +869,28 @@ export class Sala {
       return;
     }
     if (!this.pausada) return;
-    if (this.pausada.por === "tela" && por === "lider") {
-      this.erro(canal, "PAUSA_DO_TELAO", "O PC pausou o jogo; só ele retoma.");
+    if (this.pausada.por === "tela" && por === "lider" && !this.pcSemSinalNaPausa()) {
+      this.erro(canal, "PAUSA_DO_TELAO", `O PC pausou o jogo; só ele retoma (ou você, se ele ficar ${MENU.pausaSemPcLiberaLiderS} s sem sinal).`);
       return;
     }
-    this.pausada = null;
+    this.retomar();
+  }
+
+  /** Tira a partida da pausa: os prazos da sala voltam a andar de onde pararam, o laço recomeça sem rajada e a partida esquece os apertos parados. */
+  private retomar(): void {
+    this.encerrarPausa();
     this.relogioAnterior = null;
     this.acumulado = 0;
-    p.aoRetomar();
+    this.partida?.aoRetomar();
     this.transmitirLobby();
+  }
+
+  /** Só desfaz o estado de pausa (sem `lobby`): soma o tempo parado ao relógio da sala, para os prazos não "recuperarem" o que a pausa durou. */
+  private encerrarPausa(): void {
+    if (!this.pausada) return;
+    this.pausadoMs += this.agora() - this.pausada.desde;
+    this.pausada = null;
+    this.pausaOrfaDesde = null;
   }
 
   /**
@@ -833,7 +923,7 @@ export class Sala {
       this.elencoMudou();
     }
     this.transmitir({ t: "aviso", texto: `Removido da sala: ${alvo.apelido}.` });
-    this.cuidarDoLider(this.agora()); // se era o líder, o aviso "sem líder" vem depois do de quem saiu
+    this.cuidarDoLider(this.agoraSala()); // se era o líder, o aviso "sem líder" vem depois do de quem saiu
     this.atualizarVazio();
     this.transmitirLobby();
   }
@@ -866,7 +956,7 @@ export class Sala {
       this.semLiderDesde = null;
       return mudou;
     }
-    const haMestre = this.telas.some((t) => t.mestre);
+    const haMestre = this.haMestre();
     if (haMestre && this.semLiderDesde === null) {
       this.semLiderDesde = agora;
       this.transmitir({ t: "aviso", texto: `O líder saiu da sala. O PC escolhe o novo líder; em ${MENU.liderAutoEscolheAposS} s o mais antigo assume.` });
@@ -912,6 +1002,8 @@ export class Sala {
   }
 
   private transmitirLobby(): void {
-    this.transmitir(this.lobby());
+    const lobby = this.lobby();
+    this.pausaSemPcEnviada = lobby.pausaSemPc === true;
+    this.transmitir(lobby);
   }
 }

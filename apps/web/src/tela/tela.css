@@ -16,7 +16,9 @@ body.tela {
 .ping[hidden],
 .sem-lider[hidden],
 .pausa[hidden],
-.botao-pausa[hidden],
+.botao-menu[hidden],
+.menu[hidden],
+.menu-nota[hidden],
 .aviso-telao[hidden] {
   display: none;
 }
@@ -1137,11 +1139,12 @@ body.tela:has(.vitrine:not([hidden])) {
   opacity: 0.9;
 }
 
-.botao-pausa {
+/* H7.4a: o botão do menu fica acima da tela de pausa (30), para o PC conseguir acabar a partida pausada */
+.botao-menu {
   position: fixed;
   right: 1vw;
   bottom: 15vh;
-  z-index: 20;
+  z-index: 35;
   padding: 0.4em 1em;
   border-radius: 2em;
   border: 2px solid #ffd54a;
@@ -1152,7 +1155,88 @@ body.tela:has(.vitrine:not([hidden])) {
   cursor: pointer;
 }
 
-.botao-pausa:hover {
+.botao-menu:hover {
   background: #ffd54a;
   color: #111;
+}
+
+/* H7.4a: o menu da partida (o PC). Cobre a tela de pausa (30) e fica abaixo dos avisos (40) */
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 38;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 8, 4, 0.82);
+}
+
+.menu-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  width: min(90vw, 24em);
+  padding: 1.2em 1.4em;
+  border-radius: 1em;
+  border: 2px solid #ffd54a;
+  background: #0d2a18;
+  text-align: center;
+}
+
+.menu-painel h2 {
+  margin: 0;
+  font-size: 1.3em;
+  color: #ffd54a;
+}
+
+.menu-nota {
+  margin: 0;
+  font-size: 0.95em;
+  opacity: 0.85;
+}
+
+.menu-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.menu-item,
+.menu-fechar {
+  padding: 0.7em 1em;
+  border: 0;
+  border-radius: 0.6em;
+  background: #1fa34a;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.menu-item small {
+  margin-left: 0.7em;
+  padding: 0.05em 0.5em;
+  border-radius: 0.4em;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 0.7em;
+  font-weight: 700;
+}
+
+.menu-item.perigo {
+  background: #5a2a22;
+  color: #ffd2c7;
+}
+
+.menu-item.armado {
+  background: #ff8a65;
+  color: #111;
+}
+
+.menu-fechar {
+  background: #2b4a37;
+}
+
+.menu-item:hover,
+.menu-fechar:hover {
+  filter: brightness(1.15);
 }

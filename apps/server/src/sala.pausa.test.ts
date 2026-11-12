@@ -343,21 +343,7 @@ describe("a pausa e o resto da sala", () => {
     expect(a.canal.ultimoLobby()).toMatchObject({ emPartida: false, pausada: false });
   });
 
-  it("a vaga de quem cai vence em hora real mesmo pausado: o jogador dele vira bot e a pausa continua", () => {
-    const { a, b } = partidaRolando();
-    sala.tratarControle(a.j, { t: "pausa", valor: true });
-    const p = sala.partida!;
-    const tick = p.tick;
-    const slot = b.j.slot!;
-    sala.desconectarControle(b.j, b.canal);
-    tempo += 31_000;
-    sala.varrer();
-    expect(sala.quantidadeJogadores).toBe(1);
-    expect(p.slotDoHumano(b.j.id)).toBeNull();
-    expect(p.jogador(slot)!.vaga.humano).toBe(false);
-    expect(p.tick).toBe(tick);
-    expect(a.canal.ultimoLobby().pausada).toBe(true);
-  });
+  // (A vaga guardada de quem cai NÃO vence com o jogo pausado desde a H7.4a: ver `sala.pausa-prazos.test.ts`.)
 
   it("expulsar com o jogo pausado funciona, e o jogo continua pausado", () => {
     const { a, b, pc } = partidaRolando();

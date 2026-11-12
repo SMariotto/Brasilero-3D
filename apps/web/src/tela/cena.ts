@@ -70,7 +70,10 @@ export class CenaJogo {
   private golPendente: { tick: number; lado: 1 | -1; quandoMs: number } | null = null;
 
   private readonly aoRedimensionar = (): void => this.ajustarTamanho();
+  /** H7.4a: com o menu da partida aberto as teclas de câmera (C, N, L) ficam desligadas. */
+  private teclasLigadas = true;
   private readonly aoTeclar = (e: KeyboardEvent): void => {
+    if (!this.teclasLigadas) return;
     if (e.key === "c" || e.key === "C") this.alternarCamera();
     else if (e.key === "n" || e.key === "N") this.seguirProximo();
     else if (e.key === "l" || e.key === "L") this.medidor.alternar();
@@ -191,6 +194,11 @@ export class CenaJogo {
       this.ultimo = performance.now();
       this.quadro = requestAnimationFrame(this.desenhar);
     }
+  }
+
+  /** Liga ou desliga as teclas de câmera e de modo leve (C, N, L). O menu da partida desliga enquanto está aberto (H7.4a). */
+  definirTeclas(ligadas: boolean): void {
+    this.teclasLigadas = ligadas;
   }
 
   /**

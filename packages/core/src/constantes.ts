@@ -641,4 +641,15 @@ export const MENU = {
    * Passado o prazo, o servidor escolhe o celular conectado mais antigo e avisa a todos. Sem PC mestre conectado, escolhe na hora.
    */
   liderAutoEscolheAposS: 15,
+  /**
+   * Pausa feita pelo PC: depois de tanto tempo (s) sem nenhum telão mestre conectado, o líder também pode retomar (senão a partida ficaria
+   * parada para sempre se o PC fechasse). Conta em hora real, não no relógio da sala (que está parado na pausa).
+   */
+  pausaSemPcLiberaLiderS: 30,
+  /**
+   * Pausa sem ninguém que possa retomá-la (nem telão mestre conectado, nem o líder conectado) por tanto tempo (s): a partida retoma
+   * sozinha. Os prazos da sala (vaga guardada, escolha do líder) ficam parados na pausa, então sem isto ninguém voltaria a ser líder.
+   * Conta em hora real.
+   */
+  pausaOrfaRetomaAposS: 30,
 } as const;

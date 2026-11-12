@@ -1,5 +1,7 @@
 import { CHUTE, SERVIDOR, type Evento, type Fim, type MiraDoPasse, type PartidaMsg, type SituacaoJogador, type Voce } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
+import { visaoDoMenu } from "../comum/menu";
+import { PainelDoMenu } from "../comum/menu-dom";
 import { visaoDaPausa, type QuemPausou } from "../comum/pausa";
 import { Botao } from "./botoes";
 import { Envio } from "./envio";
@@ -9,6 +11,7 @@ export interface AcoesJogo {
   /** Manda os 7 bytes ao servidor. */
   mandar(dados: Uint8Array): void;
   revanche(): void;
+  /** Volta ao lobby: o botão Lobby da tela de fim e o "Acabar a partida" do menu (H7.4a) mandam a mesma mensagem. */
   lobby(): void;
   /** Pausa (`true`) ou retoma (`false`) a partida. Só o líder pode; o servidor confere de novo (H7.3). */
   pausar(valor: boolean): void;
@@ -36,8 +39,11 @@ export class JogoControle {
   /** "Passe para #9": aparece só enquanto PASSE está apertado com a bola (H1). */
   private readonly miraEl = el("div", { class: "mira-passe" });
   private readonly fimPainel = el("div", { class: "fim-painel" });
-  /** H7.3: o botão de pausar (só o líder vê; fica no canto da faixa de cima, longe dos polegares) e a tela "Jogo pausado". */
-  private readonly botaoPausa = el("button", { class: "botao-pausa-c", type: "button", title: "Pausar o jogo", "aria-label": "Pausar o jogo" }, "⏸");
+  /** H7.4a: o ☰ que abre o menu da partida (só o líder vê; fica no canto de cima, longe dos polegares) e o menu. Troca o ⏸ da H7.3. */
+  private readonly botaoMenu = el("button", { class: "botao-menu-c", type: "button", title: "Menu", "aria-label": "Abrir o menu" }, "☰");
+  private readonly menuEl = el("div", { class: "menu-c" });
+  private readonly menu: PainelDoMenu;
+  /** H7.3: a tela "Jogo pausado". */
   private readonly pausaTitulo = el("strong", {});
   private readonly pausaDetalhe = el("span", {});
   private readonly pausaRetomar = el("button", { class: "retomar", type: "button" }, "Retomar");
@@ -45,6 +51,8 @@ export class JogoControle {
   private souLider = false;
   private pausadaAtual = false;
   private pausadaPor: QuemPausou | undefined;
+  /** `lobby.pausaSemPc`: o PC pausou e ficou 30 s sem sinal; o líder também pode retomar. */
+  private pcSemSinal = false;
 
   private readonly joystick: Joystick;
   private readonly chute: Botao;
@@ -79,13 +87,26 @@ export class JogoControle {
       this.aviso,
       this.fimPainel,
       this.pausaEl,
+      this.botaoMenu,
+      this.menuEl,
     );
-    trocar(this.faixa, this.numero, this.nome, this.carga, this.ping, this.botaoPausa);
+    trocar(this.faixa, this.numero, this.nome, this.carga, this.ping);
     this.fimPainel.hidden = true;
     this.pausaEl.hidden = true;
-    this.botaoPausa.hidden = true;
-    this.botaoPausa.addEventListener("click", () => this.acoes.pausar(true));
+    this.botaoMenu.hidden = true;
     this.pausaRetomar.addEventListener("click", () => this.acoes.pausar(false));
+    this.menu = new PainelDoMenu(
+      this.menuEl,
+      { pausar: (valor) => this.acoes.pausar(valor), acabar: () => this.acoes.lobby() },
+      {
+        textoFechar: "Fechar",
+        // Com o menu aberto o dedo não está no jogo: larga o joystick e os botões (o jogador dele fica parado até fechar)
+        aoMudarAberto: (aberto) => {
+          if (aberto) this.soltarDedos();
+        },
+      },
+    );
+    this.botaoMenu.addEventListener("click", () => this.menu.alternar());
     this.aviso.hidden = true;
     this.miraEl.hidden = true;
 
@@ -129,7 +150,7 @@ export class JogoControle {
     this.quadro = requestAnimationFrame(this.animar);
   }
 
-  /** Este celular é o do líder (H7.3)? Só ele vê o botão de pausar. */
+  /** Este celular é o do líder (H7.3)? Só ele vê o ☰ do menu. */
   definirLider(souLider: boolean): void {
     this.souLider = souLider;
     this.desenharPausa();
@@ -139,30 +160,40 @@ export class JogoControle {
    * A partida está pausada (`lobby.pausada`)? Pausado, o celular mostra "Jogo pausado" por cima de tudo e zera o joystick e os botões (o que
    * o dedo faz com o jogo parado não vale); o "Retomar" só aparece para quem o servidor deixa retomar (ver `comum/pausa.ts`).
    */
-  definirPausa(pausada: boolean, por: QuemPausou | undefined): void {
+  definirPausa(pausada: boolean, por: QuemPausou | undefined, pcSemSinal = false): void {
     const comecou = pausada && !this.pausadaAtual;
     this.pausadaAtual = pausada;
     this.pausadaPor = pausada ? por : undefined;
+    this.pcSemSinal = pausada && pcSemSinal;
     this.desenharPausa();
-    if (comecou) {
-      this.joystick.zerar();
-      this.chute.zerar();
-      this.passe.zerar();
-    }
+    if (comecou) this.soltarDedos();
   }
 
+  /** Larga o joystick e os botões: o que o dedo fez com o jogo parado, ou com o menu aberto, não vale. */
+  private soltarDedos(): void {
+    this.joystick.zerar();
+    this.chute.zerar();
+    this.passe.zerar();
+  }
+
+  /** A tela de pausa e o menu (H7.4a) acompanham o que o último `lobby` disse; o ☰ só aparece para quem tem menu. */
   private desenharPausa(): void {
-    const v = visaoDaPausa(this.pausadaAtual, this.pausadaPor, this.souLider ? "lider" : "jogador");
+    const papel = this.souLider ? "lider" : "jogador";
+    const v = visaoDaPausa(this.pausadaAtual, this.pausadaPor, papel, this.pcSemSinal);
     this.pausaEl.hidden = !v.visivel;
     this.pausaTitulo.textContent = v.titulo;
     this.pausaDetalhe.textContent = v.detalhe;
     this.pausaRetomar.hidden = !v.botaoRetomar;
-    this.botaoPausa.hidden = !(this.souLider && this.rodando && !this.pausadaAtual);
+    const m = visaoDoMenu({ papel, noJogo: this.rodando, acabou: false, pausada: this.pausadaAtual, pausadaPor: this.pausadaPor, pcSemSinal: this.pcSemSinal });
+    this.botaoMenu.hidden = !m.disponivel;
+    this.faixa.classList.toggle("com-menu", m.disponivel); // dá lugar ao ☰ na ponta direita da faixa
+    this.menu.definirVisao(m); // fecha o menu se este celular deixou de ser o líder, ou se a partida acabou
   }
 
   parar(): void {
     this.pausadaAtual = false;
     this.pausadaPor = undefined;
+    this.pcSemSinal = false;
     this.miraEl.hidden = true;
     this.rodando = false;
     this.desenharPausa();

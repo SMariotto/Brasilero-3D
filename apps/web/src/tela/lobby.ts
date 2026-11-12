@@ -1,7 +1,7 @@
 import { CLUBE_ALEATORIO, acharTime, type Config, type JogadorLobby, type Lobby, type Time } from "@b3d/core";
 import { el, trocar } from "../comum/dom";
 import { distintivo } from "../comum/escudo";
-import { Confirmacao } from "./confirmar";
+import { Confirmacao } from "../comum/confirmar";
 import { podeExpulsar, podeTornarLider, salaSemLider } from "./lider";
 
 const MODOS = { campo: "Campo", arena: "Arena" } as const;

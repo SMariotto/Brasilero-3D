@@ -136,6 +136,11 @@ export interface Lobby {
   pausada: boolean;
   /** Quem pausou: o `lider` (celular) ou a `tela` (o PC, telão mestre). Só vem com `pausada: true`. Quem pausou é quem retoma (o PC retoma qualquer pausa). */
   pausadaPor?: "lider" | "tela";
+  /**
+   * H7.4a: a pausa é do PC e ele está sem sinal há `MENU.pausaSemPcLiberaLiderS`: o líder também pode retomar. Só vem (com `true`) nessa
+   * situação; some se o PC voltar.
+   */
+  pausaSemPc?: boolean;
 }
 
 export interface Pong {

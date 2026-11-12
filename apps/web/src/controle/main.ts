@@ -124,9 +124,9 @@ function aoMensagem(msg: MensagemServidor): void {
     case "lobby":
       ultimoLobby = msg;
       lobbyUI.atualizar(msg, meuId);
-      // H7.3: só o líder pausa; a tela de pausa vale para todos
+      // H7.3/H7.4a: só o líder tem o menu (e pausa); a tela de pausa vale para todos
       jogoUI.definirLider(msg.jogadores.find((j) => j.id === meuId)?.dono === true);
-      jogoUI.definirPausa(msg.emPartida && msg.pausada, msg.pausadaPor);
+      jogoUI.definirPausa(msg.emPartida && msg.pausada, msg.pausadaPor, msg.pausaSemPc === true);
       if (emJogo && !msg.emPartida) {
         emJogo = false;
         jogoUI.parar();

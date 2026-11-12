@@ -7,6 +7,8 @@ import "../comum/estilo.css";
 import "./tela.css";
 import "../comum/marca.css";
 import type { CenaJogo } from "./cena";
+import { visaoDoMenu } from "../comum/menu";
+import { PainelDoMenu } from "../comum/menu-dom";
 import { visaoDaPausa, type QuemPausou } from "../comum/pausa";
 import { esquecerChave, guardarChave, lerChave, type Armazenamento } from "./chave";
 import { AVISO_DO_TELAO_MS, reacaoAoErro } from "./erros";
@@ -27,7 +29,7 @@ const pausaEl = porId("pausa");
 const pausaTitulo = porId("pausa-titulo");
 const pausaDetalhe = porId("pausa-detalhe");
 const pausaRetomar = porId("pausa-retomar");
-const botaoPausa = porId("botao-pausa");
+const botaoMenu = porId("botao-menu");
 const campoCodigo = porId<HTMLInputElement>("codigo");
 
 /** Mostra por alguns segundos o texto de uma recusa do servidor (erro não fatal), sem sair da sala. */
@@ -61,8 +63,13 @@ let cenaAtual: "inicio" | "carregando" | "lobby" | "jogo" = "inicio";
 tabela.aoMudarDados(mostrarBotaoTabela);
 botaoTabela.addEventListener("click", () => tabela.alternar());
 window.addEventListener("keydown", (e) => {
-  if ((e.key === "t" || e.key === "T") && !(e.target instanceof HTMLInputElement)) tabela.alternar();
-  else if (e.key === "Escape") tabela.fechar();
+  if ((e.key === "t" || e.key === "T") && !(e.target instanceof HTMLInputElement)) {
+    if (!menu.aberto) tabela.alternar(); // com o menu aberto a tabela não abre por cima dele
+  } else if (e.key === "Escape") {
+    // Esc fecha primeiro a tabela, se estiver aberta; senão abre e fecha o menu da partida (H7.4a)
+    if (tabela.aberto) tabela.fechar();
+    else menu.alternar();
+  }
 });
 
 function desenharBotaoSom(): void {
@@ -113,28 +120,48 @@ function naCena(fn: (c: CenaJogo) => void | Promise<void>): void {
 
 type Cena = "inicio" | "carregando" | "lobby" | "jogo";
 
-// --- pausa (H7.3) -----------------------------------------------------------------------------------------------------------
-/** Este telão é o mestre (o PC)? Só ele pausa e retoma; os outros telões só veem a tela de pausa. */
+// --- pausa (H7.3) e menu da partida (H7.4a) ------------------------------------------------------------------------------------
+/** Este telão é o mestre (o PC)? Só ele pausa, retoma e tem o menu; os outros telões só veem a tela de pausa. */
 let ehMestre = false;
 let pausadaAtual = false;
 let pausadaPor: QuemPausou | undefined;
+/** `lobby.pausaSemPc`: o PC pausou e ficou 30 s sem sinal (visto por um telão que não é o PC). */
+let pcSemSinal = false;
+/** A partida terminou (tela de fim): o menu do PC passa a ter só "Voltar ao lobby". */
+let partidaAcabou = false;
 
-/** Mostra (ou esconde) a tela de pausa e o botão "Pausar (P)", conforme o estado de agora. Só aparecem com a partida na tela. */
+/** O menu da partida (H7.4a): Esc ou o botão "☰ Menu" abrem e fecham. Só o PC tem. Troca o botão "Pausar (P)" da H7.3. */
+const menu = new PainelDoMenu(
+  porId("menu"),
+  { pausar: (valor) => pedirPausa(valor), acabar: () => pedirAcabar() },
+  {
+    atalhos: { pausar: "P", retomar: "P" },
+    textoFechar: "Fechar (Esc)",
+    aoMudarAberto: (aberto) => naCena((c) => c.definirTeclas(!aberto)),
+  },
+);
+botaoMenu.addEventListener("click", () => menu.alternar());
+
+/** Mostra (ou esconde) a tela de pausa, o botão "☰ Menu" e o conteúdo do menu, conforme o estado de agora. Só aparecem com a partida na tela. */
 function desenharPausa(): void {
   const noJogo = cenaAtual === "jogo";
-  const v = visaoDaPausa(pausadaAtual && noJogo, pausadaPor, ehMestre ? "pc" : "telao");
+  const papel = ehMestre ? "pc" : "telao";
+  const v = visaoDaPausa(pausadaAtual && noJogo, pausadaPor, papel, pcSemSinal);
   pausaEl.hidden = !v.visivel;
   pausaTitulo.textContent = v.titulo;
   pausaDetalhe.textContent = v.detalhe;
   pausaRetomar.hidden = !v.botaoRetomar;
-  botaoPausa.hidden = !(ehMestre && noJogo && !pausadaAtual);
+  const m = visaoDoMenu({ papel, noJogo, acabou: partidaAcabou, pausada: pausadaAtual, pausadaPor, pcSemSinal });
+  botaoMenu.hidden = !m.disponivel;
+  menu.definirVisao(m); // fecha o menu se este telão deixou de ser o PC ou a partida saiu da tela
 }
 
 /** O `lobby` do servidor diz se a partida está pausada. Só quando muda é que a cena e o som são avisados. */
-function aplicarPausa(pausada: boolean, por: QuemPausou | undefined): void {
+function aplicarPausa(pausada: boolean, por: QuemPausou | undefined, semPc = false): void {
   const mudou = pausada !== pausadaAtual;
   pausadaAtual = pausada;
   pausadaPor = pausada ? por : undefined;
+  pcSemSinal = pausada && semPc;
   desenharPausa();
   if (!mudou) return;
   naCena((c) => c.definirPausa(pausada));
@@ -145,7 +172,11 @@ function aplicarPausa(pausada: boolean, por: QuemPausou | undefined): void {
 function pedirPausa(valor: boolean): void {
   if (ehMestre) cliente?.enviar({ t: "pausa", valor });
 }
-botaoPausa.addEventListener("click", () => pedirPausa(true));
+
+/** O PC acaba a partida e volta ao lobby (o mesmo `lobby` do líder; o servidor confere a permissão). */
+function pedirAcabar(): void {
+  if (ehMestre) cliente?.enviar({ t: "lobby" });
+}
 pausaRetomar.addEventListener("click", () => pedirPausa(false));
 window.addEventListener("keydown", (e) => {
   if ((e.key === "p" || e.key === "P") && !(e.target instanceof HTMLInputElement) && cenaAtual === "jogo") pedirPausa(!pausadaAtual);
@@ -183,6 +214,7 @@ function armazenamentos(): Armazenamento[] {
 function voltarAoInicio(aviso: string): void {
   if (sala) esquecerChave(sala, armazenamentos()); // sala que acabou ou que não existe: a chave não serve mais
   ehMestre = false;
+  partidaAcabou = false;
   aplicarPausa(false, undefined);
   tabela.atualizar({ t: "campeonato", partidas: 0, clubes: [], jogadores: [] });
   cliente?.fechar();
@@ -250,15 +282,17 @@ function aoMensagem(msg: MensagemServidor): void {
       return;
     case "lobby":
       lobby.atualizar(msg as Lobby);
-      aplicarPausa(msg.emPartida && msg.pausada, msg.pausadaPor);
+      aplicarPausa(msg.emPartida && msg.pausada, msg.pausadaPor, msg.pausaSemPc === true);
       if (emJogo && !msg.emPartida) {
         emJogo = false;
+        partidaAcabou = false;
         naCena((c) => c.parar());
         mostrar("lobby");
       }
       return;
     case "partida":
       emJogo = true;
+      partidaAcabou = false; // (a revanche manda `partida` de novo)
       comprimentoDoCampo = msg.campo.comp;
       mostrar("jogo");
       naCena((c) => c.iniciar(msg));
@@ -275,6 +309,8 @@ function aoMensagem(msg: MensagemServidor): void {
       return;
     case "fim":
       som.parar();
+      partidaAcabou = true;
+      desenharPausa(); // o menu do PC passa a ser só "Voltar ao lobby"
       naCena((c) => c.fim(msg));
       return;
     case "campeonato":
